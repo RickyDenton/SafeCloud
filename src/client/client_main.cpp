@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 
-#include "../Common/def.h"
+#include "def.h"
 
 using namespace std;
 
@@ -29,11 +29,11 @@ int main()
  char climsg[1024];
  char buffer[1024] = { 0 };
 
- cout<<"Hello There Client, SRV_PORT = "<< srvPort << endl;
+ cout<<"Hello There client, SRV_PORT = "<< srvPort << endl;
 
  if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
   {
-   cerr << "<FATAL," << __LINE__ << ">: Client Socket Creation Failed! " << endl;
+   cerr << "<FATAL," << __LINE__ << ">: client Socket Creation Failed! " << endl;
    exit(EXIT_FAILURE);
   }
 
@@ -49,7 +49,7 @@ int main()
 
  if((client_fd = connect(sock, (const struct sockaddr*)&srv_addr,sizeof(srv_addr))) < 0)
   {
-   cerr << "<FATAL," << __LINE__ << ">: Client Connection Failed! " << endl;
+   cerr << "<FATAL," << __LINE__ << ">: client Connection Failed! " << endl;
    exit(EXIT_FAILURE);
   }
 
@@ -60,7 +60,7 @@ int main()
 
  valread = read(sock, buffer, 1024);
 
- cout << "Server returned: " << buffer;
+ cout << "server returned: " << buffer;
 
  // Close the connection socket
  close(client_fd);

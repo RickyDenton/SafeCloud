@@ -3,8 +3,19 @@ project(SafeCloud)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(client
-        Client/client_main.cpp)
 
-add_executable(server
-        Server/server_main.cpp)
+include_directories(src/common)
+
+add_executable(client src/client/client_main.cpp)
+add_executable(server src/server/server_main.cpp)
+
+
+set_target_properties(client
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "../release/client"
+        )
+
+set_target_properties(server
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "../release/server"
+        )

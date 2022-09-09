@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 
-#include "../Common/def.h"
+#include "def.h"
 
 
 using namespace std;
@@ -30,7 +30,7 @@ int main()
  char buffer[1024] = { 0 };
  unsigned char* hello = (unsigned char*) "Hello from server";
 
- cout<<"Hello There Server, Line = " << __LINE__ <<", SRV_PORT = "<< srvPort << endl;
+ cout<<"Hello There server, Line = " << __LINE__ <<", SRV_PORT = "<< srvPort << endl;
 
  // Create Listening Socket
  list_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -79,7 +79,7 @@ int main()
 
  // Read from client
  valread = read(conn_sock, buffer, 1024);
- cout << "Client sent: " << buffer << endl;
+ cout << "client sent: " << buffer << endl;
 
  // Reply to client
  send(conn_sock, hello, 1024, 0);
