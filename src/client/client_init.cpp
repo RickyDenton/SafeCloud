@@ -95,11 +95,11 @@ void serverConnect()
 
   LOG_DEBUG("Connection socket file descriptor: " + to_string(csk))
 
-  cout << "Attempting to connect with SafeCloud server at " << srvIP << ":" << ntohs(srvAddr.sin_port) << "..." << endl;
-
   // Server connection attempt (which for recoverable errors can be repeated on user's discretion)
   do
    {
+    LOG_DEBUG("Attempting to connect with SafeCloud server at " + string(srvIP) + ":" + to_string(ntohs(srvAddr.sin_port)) + "...")
+
     connRes = connect(csk, (const struct sockaddr*)&srvAddr, sizeof(srvAddr));
 
     // If a connection could not be established
