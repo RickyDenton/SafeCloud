@@ -1,4 +1,4 @@
-/* Entry point and client connection manager of the SafeCloud client application */
+/* SafeCloud Client entry point and initialization functions */
 
 /* ================================== INCLUDES ================================== */
 
@@ -12,11 +12,16 @@
 #include <arpa/inet.h>
 
 // SafeCloud Libraries
-#include "safecloud/sdef.h"
-#include "safecloud/scode.h"
-#include "safecloud/sutils.h"
+#include "defaults.h"
+#include "errlog.h"
 
 using namespace std;
+
+
+/* ============================ FORWARD DECLARATIONS ============================ */
+void clientLoop();        // Main client loop
+bool askReconnection();   // Utility function asking the client whether to reconnect to the server
+
 
 /* ============================== GLOBAL VARIABLES ============================== */
 
@@ -24,12 +29,10 @@ using namespace std;
 int csk = -1;
 
 // The SafeCloud server listening socket type, IP and Port in network representation order
-// TODO: Check if this is required as a global variable and not simply as a parameter passed by the main()
-//       to the parseCliArgs() and finally to the serverConnect() function (to support reconnection attempts?)
 static struct sockaddr_in srvAddr{};
 
-/* ============================ FUNCTIONS DEFINITIONS ============================ */
 
+/* ============================ FUNCTIONS DEFINITIONS ============================ */
 
 /**
  * @brief            Closes the server connection and the client application
@@ -59,31 +62,12 @@ void clientShutdown(int exitStatus)
  * @param signum  The received signal's identifier
  * @note          Currently only the SIGINT (ctrl+c), SIGTERM and SIGQUIT signals are handled
  */
-void osSignalsCallbackHandler(int signum)
+void osSignalsCallbackHandler(__attribute__((unused)) int signum)
  {
-  LOG_INFO("Shutdown signal received, closing the application...")
+  LOG_INFO("Shutdown signal received, performing cleanup operations...")
   clientShutdown(EXIT_SUCCESS);
  }
 
-
-/**
- * @brief Prompt the user on whether to attempt to re-establish a connection with the SafeCloud Server
- * @return 'true' if the user wants to reconnect, 'false' otherwise
- */
-bool askReconnection()
- {
-  int retryConn;  // A character representing the user choice on whether attempting to re-establish connection with the server (y/Y or n/N)
-
-  cout << "Try again to connect with the server? (Y/N): ";
-
-  // Read the first y/Y or n/N character from standard input
-  retryConn = getYNChar();
-
-  // Return true or false depending on the user's choice
-  if((retryConn == 'Y') || (retryConn == 'y'))
-   return true;
-  return false;
- }
 
 /**
  * @brief         Attempts to establish a connection with the SafeCloud server, prompting the user on whether
@@ -153,7 +137,7 @@ void serverConnect()
    } while(connRes != 0);
 
   // At this point, connection with the server was established successfully
-  LOG_DEBUG("Connected with server @ "+ string(srvIP) + ":" + to_string(ntohs(srvAddr.sin_port)))
+  cout << "Successfully connected with SafeCloud server at " << srvIP << ":" << to_string(ntohs(srvAddr.sin_port)) << endl;
  }
 
 
@@ -273,122 +257,6 @@ void parseCliArgs(int argc, char** argv)
  }
 
 
-// TODO: Placeholder implementation
-bool connRecovery()
- {
-  int retryConn;
-
-  // Ask the user on whether a reconnection
-  // attempt with the server should be performed,
-  if(askReconnection())
-   {
-    // If it should, close the current connection socket
-    if(close(csk) != 0)
-     LOG_CODE_DSCR_CRITICAL(ERR_CSK_CLOSE_FAILED, strerror(errno))
-    else
-     {
-      LOG_DEBUG("Connection socket '" + to_string(csk) + "' closed")
-      csk = -1;
-     }
-
-    // Attempt to reconnect with the server
-    serverConnect();
-
-    // If the connection was successful, inform the client loop that the execution can continue
-    // TODO: CHECK
-    return true;
-   }
-
-  // Otherwise, inform the client loop that execution should end
-  else
-   return false;
- }
-
-
-
-
-bool recvCheck(char* buf,size_t bufSize,ssize_t& recvSize)
- {
- // Attempt to read data from the client's connection socket
- recvSize = recv(csk, buf, bufSize - 1, 0);
-
- LOG_DEBUG("recv() returned " + recvSize)
-
- // Depending on the recv() return:
- switch(recvSize)
-  {
-   // Generic Error
-   case -1:
-
-    // Log the error
-    LOG_CODE_DSCR_ERROR(ERR_CSK_RECV_FAILED, strerror(errno))
-
-    // Inform that the recv() contents are not valid and
-    // that the current server connection should be aborted
-    return false;
-
-
-    // The server orderly closed the connection
-    case 0:
-
-     // TODO: check, possibly merge with the previous case
-     // Log that the server has orderly disconnected
-     LOG_WARNING("The server has orderly disconnected")
-
-     // Inform that the recv() contents are not valid and
-     // that the current server connection should be aborted
-     return false;
-
-     // recvSize > 0, valid data was read
-    default:
-
-     // Add the string termination character at the end of the data for safety purposes
-     buf[recvSize] = '\0';
-
-     // Inform that the recv() contents are valid
-     return true;
-  }
- }
-
-
-// TODO: Placeholder implementation
-void clientBody()
- {
-  char cliMsg[1024];
-  char srvAnswer[1024];
-  ssize_t recvSize;
-
-  while(1)
-   {
-    cout << "Message to send to server: ";
-    cin >> cliMsg;
-
-    send(csk, cliMsg, strlen(cliMsg), 0);
-
-    // If the client wants to close the communication, exit from the clientBody loop
-    if(!strcmp(cliMsg, "close"))
-     break;
-
-    // Otherwise read data from socket, ensuring that no error occured
-    if(recvCheck(srvAnswer,sizeof(srvAnswer),recvSize))
-     {
-      // If no error, just echo the server message
-      cout << "Server answered: \"" << srvAnswer << "\"" << endl;
-     }
-
-    // Otherwise the current server connection must be closed and, as an error recovery
-    // mechanism, ask the client on whether a new connection attempt should be performed
-    else
-     if(!connRecovery())
-      break;
-   }
- }
-
-
-
-
-
-
 /**
  * @brief The SafeCloud client entry point
  * @param argc    The number of command-line input arguments
@@ -426,7 +294,7 @@ int main(int argc, char** argv)
   // TODO: Client Key Exchange Protocol
 
   // TODO: Placeholder implementation
-  clientBody();
+  clientLoop();
 
   clientShutdown(EXIT_SUCCESS);
  }

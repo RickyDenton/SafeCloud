@@ -6,8 +6,8 @@ set(CMAKE_CXX_STANDARD 14)
 
 include_directories(src/common)
 
-add_executable(client src/client/client_main.cpp src/common/safecloud/scode.h src/common/crypto/STSM.cpp src/common/crypto/STSM.h src/common/safecloud/scolors.h src/common/safecloud/sutils.cpp src/common/safecloud/sutils.h)
-add_executable(server src/server/server_main.cpp src/server/clients/client.h src/common/safecloud/scode.h src/server/clients/guest.cpp src/server/clients/guest.h src/common/crypto/STSM.cpp src/common/crypto/STSM.h src/server/clients/user.cpp src/server/clients/user.h src/common/safecloud/scolors.h)
+add_executable(client src/client/client_init.cpp src/common/scode.h src/common/STSM.cpp src/common/STSM.h src/common/colors.h src/client/client_loop.cpp src/client/client_utils.cpp src/common/errlog.h src/common/utils.cpp src/common/utils.h)
+add_executable(server src/server/server_init.cpp src/server/client.h src/common/scode.h src/common/STSM.cpp src/common/STSM.h src/common/colors.h src/server/client.cpp src/common/utils.cpp src/common/utils.h src/server/server_loop.cpp)
 
 
 set_target_properties(client
