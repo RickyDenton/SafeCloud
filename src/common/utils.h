@@ -11,13 +11,7 @@
  * @param addr The memory address from where safely erasing data
  * @param size The size in bytes of the data to be safely deleted
  */
-void safeErase(void*& addr, unsigned int size)
- {
-#pragma optimize("", off)
-  memset(addr, 0, size);
-  addr = nullptr;
-#pragma optimize("", on)
- }
+void safeErase(void*& addr, unsigned int size);
 
 
 /**
@@ -26,16 +20,6 @@ void safeErase(void*& addr, unsigned int size)
  * @param pnt  The pointer to the dynamic memory allocated via a malloc()
  * @param size The size in bytes of the dynamic memory allocated via malloc()
  */
-void safeFree(void*& pnt,unsigned int size)
-{
- void* pntBak = pnt;   // Pointer copy to call the free() after the safeErase()
-
- if(pnt != nullptr)
-  {
-   safeErase(pnt, size);
-   free(pntBak);
-  }
-}
-
+void safeFree(void*& pnt,unsigned int size);
 
 #endif //SAFECLOUD_UTILS_H

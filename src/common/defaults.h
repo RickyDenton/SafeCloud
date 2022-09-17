@@ -35,7 +35,7 @@
 
 // Server Cryptographic files
 #define SRV_CRYPTO_DIR_PATH             "./crypto/"
-#define SRV_PRIVK_PATH                  SRV_CRYPTO_DIR_PATH "SafeCloud_privk.pem"
+#define SRV_PRIVK_PATH                  SRV_CRYPTO_DIR_PATH "SafeCloud_privk_clear.pem"
 #define SRV_CERT_PATH                   SRV_CRYPTO_DIR_PATH "SafeCloud_cert.pem"
 
 // User Files

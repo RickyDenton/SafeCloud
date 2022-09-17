@@ -37,7 +37,7 @@ class STSMData
   public:
 
    /* ---------------- Constructors and Destructor ---------------- */
-   STSMData(EVP_PKEY* myRSALongPrivKey);
+   explicit STSMData(EVP_PKEY* myRSALongPrivKey);   //NOTE: Explicit is for preventing the compiler for performing implicit type conversions with this class
    ~STSMData();
  };
 
