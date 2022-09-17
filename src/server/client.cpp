@@ -119,6 +119,7 @@ bool client::recvData()
   /* ------------------------ Method Body ------------------------ */
 
   // Attempt to read data from the client's connection socket, checking for errors
+
   if(!recvCheck(cliMsg, sizeof(cliMsg), recvSize))
    {
     // If an error occurred the client connection must be closed

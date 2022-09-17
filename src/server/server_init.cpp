@@ -67,6 +67,8 @@ void serverShutdown(int exitStatus)
     LOG_DEBUG("Closed listening socket '" + to_string(lsk) + "'")
   }
 
+  // TODO: DELETE ALL FILES FROM THE TEMP FOLDERS OF EACH USER (.zip partial files)
+
   // Print the server closing message
   cout << "\nSafeCloud Server Terminated" << endl;
 

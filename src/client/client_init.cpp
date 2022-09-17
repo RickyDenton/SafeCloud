@@ -40,6 +40,7 @@ static struct sockaddr_in srvAddr{};
  */
 void clientShutdown(int exitStatus)
  {
+
   // If the client connection socket is open, close it
   if(csk != -1)
    {
@@ -49,6 +50,8 @@ void clientShutdown(int exitStatus)
     else
      LOG_DEBUG("Connection socket '" + to_string(csk) + "' closed")
    }
+
+ // TODO: DELETE ALL FILES FROM THE TEMP FOLDERS OF EACH USER (.zip partial files)
 
  // Print the closing message
  cout << "\nSafeCloud Client Terminated" << endl;
