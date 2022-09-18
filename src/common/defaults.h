@@ -10,8 +10,10 @@
 
 /* ============================= SHARED PARAMETERS ============================= */
 
+#define CONN_BUF_SIZE   4 * 1024 * 1024   // 4 MB
+#define CONN_OOBUF_SIZE 24                // The size of a signaling message TODO: check if necessary
+
 // Client Object Parameters
-#define CLI_BUF_SIZE 4* 1024 * 1024  // 4 MB
 #define CLI_NAME_MAX_LENGTH 30            // The maximum username length (`\0' not included)
 
 // Server Connection Parameters
@@ -19,9 +21,9 @@
 #define SRV_DEFAULT_PORT    51234         // The server's default listening port
 #define SRV_PORT_MIN        49152         // The minimum value for the server's listening port (IANA standard for dynamic/private applications)
 
-// Cryptographic Parameters (AES_GCM)
-#define SKEY_SIZE 32
-#define IV_SIZE 12
+// Cryptographic Parameters (AES128_GCM)
+#define SKEY_SIZE 16                      // Session Key size (16 bytes, 128 bit)
+#define IV_SIZE   12                      // IV size (12 bytes, 96 bit)
 
 
 /* ============================= SERVER PARAMETERS ============================= */

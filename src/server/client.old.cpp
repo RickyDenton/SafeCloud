@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 
 // SafeCloud Libraries
-#include "client.h"
+#include "client_old.h"
 #include "errlog.h"
 #include "utils.h"
 
@@ -28,7 +28,7 @@ using namespace std;
  * @param recvSize The reference where to write the number of bytes read from the socket
  * @return         'true' if valid application data was read from the socket (recvSize > 0) or 'false' otherwise
  */
-bool client::recvCheck(char* buf,size_t bufSize,ssize_t& recvSize)
+bool client_old::recvCheck(char* buf, size_t bufSize, ssize_t& recvSize)
  {
   // Attempt to read data from the client's connection socket
   recvSize = recv(_csk, buf, bufSize - 1, 0);
@@ -84,7 +84,7 @@ bool client::recvCheck(char* buf,size_t bufSize,ssize_t& recvSize)
  * @param port The client's port
  * @note Arrays must be initialized manually as ISO C++ forbids doing so via initialization lists
  */
-client::client(int csk,const char* ip, int port) : _cliType(GUEST), _csk(csk), _ip(), _port(port), _name(), _skey(0), _iv(0)
+client_old::client_old(int csk, const char* ip, int port) : _cliType(GUEST), _csk(csk), _ip(), _port(port), _name(), _skey(0), _iv(0)
  {
   sprintf(_ip,"%15s",ip);         // Client's IP address
   sprintf(_name,"Guest%d",_csk);  // Client's name
@@ -93,9 +93,9 @@ client::client(int csk,const char* ip, int port) : _cliType(GUEST), _csk(csk), _
 /**
  * @brief Client object destructor, which safely deletes its sensible attributes
  */
-client::~client()
+client_old::~client_old()
  {
-  safeFree(this,sizeof(client));
+  safeFree(this,sizeof(client_old));
  }
 
 
@@ -106,7 +106,7 @@ client::~client()
  *        and performs the appropriate actions depending on its cliType and state
  * @return 'true' if the client connection should be maintained or 'false' otherwise
  */
-bool client::recvData()
+bool client_old::recvData()
  {
 
   /* ---------------------- Local Variables ---------------------- */
@@ -172,5 +172,5 @@ bool client::recvData()
  * @brief Returns the client's name
  * @return The client's name
  */
-char* client::getName()
+char* client_old::getName()
  { return _name; }

@@ -12,7 +12,7 @@
 // SafeCloud Libraries
 #include "defaults.h"
 #include "errlog.h"
-#include "client.h"
+#include "client_old.h"
 
 using namespace std;
 
@@ -99,7 +99,7 @@ void newGuest()
   int guestPort;                  // The guest port
   int csk = -1;                   // The guest connection socket
   pair<cliMapIt,bool> empRet;     // Used to check whether the guest was successfully added to the connected clients' map
-  client* cli;                    // Client object pointer
+  client_old* cli;                    // Client object pointer
 
   /* --------------------------- Function Body --------------------------- */
 
@@ -135,7 +135,7 @@ void newGuest()
    }
 
   // Initialize the guest's Client object
-  cli = new client(csk,guestIP,guestPort);
+  cli = new client_old(csk, guestIP, guestPort);
 
   // Create the guest entry in the connected clients' map
   empRet = cliMap.emplace(csk,cli);
@@ -178,7 +178,7 @@ void newClientData(int ski)
  {
   /* -------------------------- Local Variables -------------------------- */
   cliMapIt cliIt;                 // An iterator in the connected clients' map
-  client* cli;                    // Pointer to a client object
+  client_old* cli;                    // Pointer to a client object
   bool keepConn;                  // An indication on whether a client connection should be maintained ('true') or not
 
   /* --------------------------- Function Body --------------------------- */

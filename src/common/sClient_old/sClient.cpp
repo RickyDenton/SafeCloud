@@ -35,8 +35,8 @@ sClient::sClient(int csk, char* name, char* tempDir) : _cliType(GUEST), _csk(csk
 sClient::~sClient()
  {
   // Safely erase all dynamic memory attributes
-  safeErase(reinterpret_cast<void*&>(_name), 31);
-  safeErase(reinterpret_cast<void*&>(_buf), _bufSize);
+  safeMemset0(reinterpret_cast<void*&>(_name), 31);
+  safeMemset0(reinterpret_cast<void*&>(_buf), _bufSize);
   safeFree(reinterpret_cast<void*&>(_skey), _skeySize);
   safeFree(reinterpret_cast<void*&>(_iv), _ivSize);
   safeFree(reinterpret_cast<void*&>(_tempDir),strlen(_tempDir)+1);  // + `\0' character

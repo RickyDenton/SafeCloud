@@ -11,7 +11,7 @@
  * @param addr The memory address from where safely erasing data
  * @param size The size in bytes of the data to be safely deleted
  */
-void safeErase(void*& addr, unsigned int size);
+void safeMemset0(void*& addr, unsigned int size);
 
 
 /**

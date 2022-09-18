@@ -1,5 +1,5 @@
-#ifndef SAFECLOUD_CLIENT_H
-#define SAFECLOUD_CLIENT_H
+#ifndef SAFECLOUD_CLIENT_OLD_H
+#define SAFECLOUD_CLIENT_OLD_H
 
 /* SafeCloud Client Class Definition */
 
@@ -17,7 +17,7 @@ enum clientType
  };
 
 
-class client
+class client_old
  {
   private:
 
@@ -41,8 +41,8 @@ class client
   public:
 
    /* ---------------- Constructors and Destructor ---------------- */
-   client(int csk,const char* ip, int port);
-   ~client();
+   client_old(int csk, const char* ip, int port);
+   ~client_old();
 
    /* ----------------------- Other Methods ----------------------- */
 
@@ -59,9 +59,9 @@ class client
 /* ============================== TYPE DEFINITIONS ============================== */
 
 // An unordered map used for associating connection sockets' file descriptors to their client objects
-typedef std::unordered_map<int,client*> clientMap;
+typedef std::unordered_map<int,client_old*> clientMap;
 
 // An iterator for the clientMap type
-typedef std::unordered_map<int,client*>::iterator cliMapIt;
+typedef std::unordered_map<int,client_old*>::iterator cliMapIt;
 
-#endif //SAFECLOUD_CLIENT_H
+#endif //SAFECLOUD_CLIENT_OLD_H
