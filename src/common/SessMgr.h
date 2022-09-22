@@ -45,16 +45,16 @@ class SessMgr
 
    public:
 
-  /* ================= Constructors and Destructor ================= */
-  SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey);
-  ~SessMgr();
+    /* ================= Constructors and Destructor ================= */
+    SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey);
+    ~SessMgr();
 
-  /* ======================== Other Methods ======================== */
+    /* ======================== Other Methods ======================== */
 
-  // TODO
-  // send(sMsg)?
-  // sendBye()?
-  // sendError()?
+    // TODO
+    // send(sMsg)?
+    // sendBye()?
+    // sendError()?
  };
 
 

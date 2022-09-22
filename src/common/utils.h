@@ -22,4 +22,18 @@ void safeMemset0(void*& addr, unsigned int size);
  */
 void safeFree(void*& pnt,unsigned int size);
 
+
+/**
+ * @brief Sanitizes a SafeCloud username by converting it to lower-case and ensuring that:\n
+ *        - It is not too long (length <= CLI_NAME_MAX_LENGTH)\name
+ *        - Its first character consists of a letter of the alphabet (a-z, A-Z)
+ *        - It contains valid characters only (a-z, A-Z, 0-9, _)
+ * @param username The address of the username to sanitize
+ * @throws Username too long => sCodeException(ERR_LOGIN_NAME_TOO_LONG) →
+ * @throws First non-alphabet character => sCodeException(ERR_LOGIN_NAME_WRONG_FORMAT)
+ * @throws Invalid characters => sCodeException(ERR_LOGIN_NAME_INVALID_CHARS)
+ */
+void sanitizeUsername(std::string& username);
+
+
 #endif //SAFECLOUD_UTILS_H

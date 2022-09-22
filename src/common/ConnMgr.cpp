@@ -2,38 +2,90 @@
 
 /* ================================== INCLUDES ================================== */
 #include <stdlib.h>
+#include <unistd.h>
+#include <cstring>
 #include "ConnMgr.h"
 #include "defaults.h"
 #include "utils.h"
+#include "scode.h"
+#include "errlog.h"
+#include <dirent.h>
 
 /* =============================== PRIVATE METHODS =============================== */
 // TODO
 
+/**
+ * @brief Deletes the contents of the connection's temporary directory
+ */
+void ConnMgr::cleanTmpDir()
+ {
+  DIR*           tmpDir = nullptr;                                  // Temporary directory file descriptor
+  struct dirent* tmpFile;                                           // Information on a file in the temporary directory
+
+  // Absolute path of a file in the temporary length, whose max length is obtained by the
+  // of length the temporary directory path plus the maximum file name length (+1 for the '\0')
+  char           tmpFileAbsPath[strlen(_tmpDir + NAME_MAX + 1)];
+
+  // Open the temporary directory
+  tmpDir = opendir(_tmpDir);
+  if(!tmpDir)
+   LOG_CODE_DSCR_CRITICAL(ERR_TMPDIR_OPEN_FAILED, _tmpDir + std::string(", reason: ") + std::to_string(errno))
+  else
+   {
+    // For each file in the temporary folder
+    while((tmpFile = readdir(tmpDir)) != NULL)
+     {
+      // Build the file's absolute path
+      sprintf(tmpFileAbsPath, "%s/%s", "path/of/folder", tmpFile->d_name);
+
+      // Delete the file
+      if(remove(tmpFileAbsPath) == -1)
+       LOG_CODE_DSCR_CRITICAL(ERR_TMPFILE_DELETE_FAILED, tmpFileAbsPath + std::string(", reason: ") + std::to_string(errno))
+     }
+
+    // Close the temporary folder
+    if(closedir(tmpDir) == -1)
+     LOG_CODE_DSCR_CRITICAL(ERR_TMPDIR_CLOSE_FAILED, _tmpDir + std::string(", reason: ") + std::to_string(errno))
+   }
+ }
+
+
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
 /**
- * @brief       Connection Manager object constructor
- * @param csk   The connection socket's file descriptor
- * @param ip    The connection endpoint's IP address
- * @param port  The connection endpoint's port
+ * @brief        ConnMgr object constructor
+ * @param csk    The connection socket's file descriptor
+ * @param ip     The connection endpoint's IP address
+ * @param port   The connection endpoint's port
+ * @param name   The client's name associated with this connection
+ * @param tmpDir The connection's temporary directory
  */
-ConnMgr::ConnMgr(int csk, char* ip, int port, char* name, char* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _ip(ip), _port(port), _name(name), _tmpDir(tmpDir),
+ConnMgr::ConnMgr(int csk, char* name, char* tmpDir) : _connState(NOCONN), _csk(csk), _name(name), _tmpDir(tmpDir),
 _buf(), _bufSize(CONN_BUF_SIZE), _oobBuf(), _oobBufSize(CONN_OOBUF_SIZE), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
  {
-  // Allocate the connection's array variables
+  // Allocate the connection's buffers
   _buf = (unsigned char*)malloc(CONN_BUF_SIZE);
   _oobBuf = (unsigned char*)malloc(CONN_OOBUF_SIZE);
-  _iv = (unsigned char*)malloc(IV_SIZE);
-  _skey = (unsigned char*)malloc(SKEY_SIZE);
  }
 
 
 /**
- * @brief Connection Manager object constructor, which safely deletes its sensitive attributes
- *        (the general-purpose and out-of band buffers, the IV and the session key)
+ * @brief Connection Manager object destructor, which closes its associated connection socket and safely deletes
+ *        sensitive information such as the general-purpose and out-of band buffers, the IV and the session key
  */
 ConnMgr::~ConnMgr()
  {
+  // Close the connection socket
+  // TODO: Check if adding a "bye" message here, but it should probably be implemented elsewhere
+  if(close(_csk) != 0)
+   LOG_CODE_DSCR_CRITICAL(ERR_CSK_CLOSE_FAILED, strerror(errno))
+  else
+    LOG_DEBUG("Connection socket '" + std::to_string(_csk) + "' closed")
+
+  // Delete the contents of the connection's temporary directory
+  cleanTmpDir();
+
+  // Safely delete all the connection's sensitive information
   safeFree(reinterpret_cast<void*&>(_buf), _bufSize);
   safeFree(reinterpret_cast<void*&>(_oobBuf), _oobBufSize);
   safeFree(reinterpret_cast<void*&>(_iv), _ivSize);

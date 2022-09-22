@@ -4,8 +4,8 @@
 /* SafeCloud application default parameter values */
 
 // Enable for DEBUG mode
-// TODO: Make as a run configuration
-#define DEBUG
+// TODO: Put in an appropriate running configuration
+//#define DEBUG_MODE
 
 
 /* ============================= SHARED PARAMETERS ============================= */
@@ -14,7 +14,8 @@
 #define CONN_OOBUF_SIZE 24                // The size of a signaling message TODO: check if necessary
 
 // Client Object Parameters
-#define CLI_NAME_MAX_LENGTH 30            // The maximum username length (`\0' not included)
+#define CLI_NAME_MAX_LENGTH 30            // The username maximum length (`\0' not included)
+#define CLI_PWD_MAX_LENGTH 30             // The user password maximum length (`\0' not included)
 
 // Server Connection Parameters
 #define SRV_DEFAULT_IP      "127.0.0.1"   // The server's default IP address
@@ -42,16 +43,19 @@
 
 // User Files
 #define SRV_USERS_DIR_PATH               "./users/"
-#define SRV_USER_HOME_PATH(username)     SRV_USERS_DIR_PATH username "/"
-#define SRV_USER_POOL_PATH(username)     SRV_USER_HOME_PATH(username) "pool/"
-#define SRV_USER_PUBK_DIR_PATH(username) SRV_USER_HOME_PATH(username) "pubk/"
-#define SRV_USER_PUBK_PATH(username)     SRV_USER_PUBK_DIR_PATH(username) username "_pubk.pem"
-#define SRV_USER_TEMP_DIR_PATH(username) SRV_USER_HOME_PATH(username) "temp/"
+#define SRV_USER_HOME_PATH(username)     SRV_USERS_DIR_PATH + username + "/"
+#define SRV_USER_POOL_PATH(username)     SRV_USER_HOME_PATH(username) + "pool/"
+#define SRV_USER_PUBK_DIR_PATH(username) SRV_USER_HOME_PATH(username) + "pubk/"
+#define SRV_USER_PUBK_PATH(username)     SRV_USER_PUBK_DIR_PATH(username) + username + "_pubk.pem"
+#define SRV_USER_TEMP_DIR_PATH(username) SRV_USER_HOME_PATH(username) + "temp/"
 
 
 /* ============================= CLIENT PARAMETERS ============================= */
 
 /* -------------------------- Client Files Parameters -------------------------- */
+
+// Client Login
+#define CLI_MAX_AUTH_ATTEMPTS 3
 
 // CA Files
 #define CLI_CA_DIR_PATH                  "./CA/"
@@ -60,12 +64,11 @@
 
 // Users Files
 #define CLI_USERS_DIR_PATH                "./users/"
-#define CLI_USER_HOME_PATH(username)      CLI_USERS_DIR_PATH username "/"
-#define CLI_USER_DOWN_PATH(username)      CLI_USER_HOME_PATH(username) "downloads/"
-#define CLI_USER_PRIVK_DIR_PATH(username) CLI_USER_HOME_PATH(username) "privk/"
-#define CLI_USER_PRIVK_PATH(username)     CLI_USER_PRIVK_DIR_PATH(username) username "_privk.pem"
-#define CLI_USER_TEMP_DIR_PATH(username)  CLI_USER_HOME_PATH(username) "temp/"
-
+#define CLI_USER_HOME_PATH(username)      CLI_USERS_DIR_PATH + username + "/"
+#define CLI_USER_DOWN_PATH(username)      CLI_USER_HOME_PATH(username) + "downloads/"
+#define CLI_USER_PRIVK_DIR_PATH(username) CLI_USER_HOME_PATH(username) + "privk/"
+#define CLI_USER_PRIVK_PATH(username)     CLI_USER_PRIVK_DIR_PATH(username) + username + "_privk.pem"
+#define CLI_USER_TEMP_DIR_PATH(username)  CLI_USER_HOME_PATH(username) + "temp/"
 
 
 #endif //SAFECLOUD_DEFAULTS_H

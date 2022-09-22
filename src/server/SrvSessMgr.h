@@ -14,11 +14,11 @@ class SrvSessMgr : SessMgr
 
    public:
 
-  /* ================= Constructors and Destructor ================= */
-  SrvSessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey, char* poolDir);
-  // Same destructor of the SessMgr base class
+    /* ================= Constructors and Destructor ================= */
+    SrvSessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey, char* poolDir);
+    // Same destructor of the SessMgr base class
 
-  /* ======================== Other Methods ======================== */
+    /* ======================== Other Methods ======================== */
 
   // TODO
  };

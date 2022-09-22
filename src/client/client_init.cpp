@@ -6,170 +6,168 @@
 #include <iostream>
 #include <signal.h>
 #include <unistd.h>
-#include <string.h>
 
 // TCP/IP Libraries
 #include <arpa/inet.h>
 
+// OpenSSL Libraries
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/err.h>
+#include <cstring>
+
 // SafeCloud Libraries
 #include "defaults.h"
 #include "errlog.h"
-
-using namespace std;
-
+#include "Client/Client.h"
+#include "utils.h"
 
 /* ============================ FORWARD DECLARATIONS ============================ */
-void clientLoop();        // Main client loop
-bool askReconnection();   // Utility function asking the client whether to reconnect to the server
 
 
-/* ============================== GLOBAL VARIABLES ============================== */
+/* ========================== GLOBAL STATIC VARIABLES ========================== */
 
-// The file descriptor of the client's connection socket with the server
-int csk = -1;
+// The singleton Client object
+static Client* cli;
 
-// The SafeCloud server listening socket type, IP and Port in network representation order
-static struct sockaddr_in srvAddr{};
 
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
 /**
- * @brief            Closes the server connection and the client application
- * @param exitStatus The status to return to the caller via the exit() function
+ * @brief            Terminates the SafeCloud Client application
+ * @param exitStatus The exit status to be returned to the OS via the exit() function
  */
-void clientShutdown(int exitStatus)
+void terminate(int exitStatus)
  {
+  // Delete the client object
+  delete cli;
 
-  // If the client connection socket is open, close it
-  if(csk != -1)
-   {
-    // TODO: Add a "bye" message
-    if(close(csk) != 0)
-     LOG_CODE_DSCR_CRITICAL(ERR_CSK_CLOSE_FAILED, strerror(errno))
-    else
-     LOG_DEBUG("Connection socket '" + to_string(csk) + "' closed")
-   }
+  // Print the closing message
+  std::cout << "\nSafeCloud Client Terminated" << std::endl;
 
- // TODO: DELETE ALL FILES FROM THE TEMP FOLDERS OF EACH USER (.zip partial files)
-
- // Print the closing message
- cout << "\nSafeCloud Client Terminated" << endl;
-
- exit(exitStatus);
+  // Exit with the indicated status
+  exit(exitStatus);
  }
 
 
 /**
- * @brief         Process OS signals callback handler
- * @param signum  The received signal's identifier
- * @note          Currently only the SIGINT (ctrl+c), SIGTERM and SIGQUIT signals are handled
+ * @brief        Process's OS signals callback handler, which, upon receiving
+ *               any of the handled signals (SIGINT, SIGTERM, SIGQUIT):\n
+ *                 - If the client object does not exist or it has not yet
+ *                   connected with the SafeCloud server, it directly terminates
+ *                   the application by calling the terminate() function\n
+ *                 - If the client object is connected with the SafeCloud server,
+ *                   it is informed to close such connection and gracefully
+ *                   terminate via the shutdownSignal() method
+ * @param signum The OS signal identifier (unused)
  */
-void osSignalsCallbackHandler(__attribute__((unused)) int signum)
+void OSSignalsCallback(__attribute__((unused)) int signum)
  {
-  LOG_INFO("Shutdown signal received, performing cleanup operations...")
-  clientShutdown(EXIT_SUCCESS);
+  // If the client object does not exist or has not connected yet, directly terminate the application
+  if(cli == nullptr || !cli->isConnected())
+   {
+    LOG_INFO("Shutdown signal received, performing cleanup operations...")
+    terminate(EXIT_SUCCESS);
+   }
+
+  // Otherwise inform the client to close the server connection and gracefully terminate
+  else
+   {
+    LOG_INFO("Shutdown signal received, closing the server's connection...")
+    cli->shutdownSignal();
+   }
+}
+
+
+
+/* ================================ CLIENT INITIALIZATION ================================ */
+
+/**
+ * @brief Prints the SafeCloud client welcome message
+ */
+void printWelcomeMessage()
+ {
+  std::cout << "   _____        __      _____ _                 _ n";
+  std::cout << "  / ____|      / _|    / ____| |               | |\n";
+  std::cout << " | (___   __ _| |_ ___| |    | | ___  _   _  __| |\n";
+  std::cout << "  \\___ \\ / _` |  _/ _ \\ |    | |/ _ \\| | | |/ _` |\n";
+  std::cout << "  ____) | (_| | ||  __/ |____| | (_) | |_| | (_| |\n";
+  std::cout << " |_____/ \\__,_|_| \\___|\\_____|_|\\___/ \\__,_|\\__,_|" << std::endl;
  }
 
 
 /**
- * @brief         Attempts to establish a connection with the SafeCloud server, prompting the user on whether
- *                to retry the connection in case of recoverable errors (ECONNREFUSED, ENETUNREACH, ETIMEDOUT)
+ * @brief         Attempts to initialize the SafeCloud client object by passing
+ *                it the IP and port of the SafeCloud server to connect to
+ * @param srvIP   The IP address as a string of the SafeCloud server to connect to
+ * @param srvPort The port of the SafeCloud server to connect to
  */
-void serverConnect()
+void clientInit(char* srvIP,uint16_t& srvPort)
  {
-  /* ---------------------- Local Variables ---------------------- */
-  char srvIP[16]; // The server IP address (logging purposes)
-  int connRes;    // Stores the server connection establishment result
-
-
-  // Convert the server IP address from network to string representation for logging purposes
-  inet_ntop(AF_INET, &srvAddr.sin_addr.s_addr, srvIP, INET_ADDRSTRLEN);
-
-  /* ----------------------- Function Body ----------------------- */
-
-  // Attempt to create a connection socket
-  csk = socket(AF_INET, SOCK_STREAM, 0);
-  if(csk == -1)
+  // Attempt to initialize the client object by passing the server connection parameters
+  try
+   { cli = new Client(srvIP,srvPort); }
+  catch(sCodeException& excp)
    {
-    LOG_CODE_DSCR_FATAL(ERR_CSK_INIT_FAILED, strerror(errno))
-    exit(EXIT_FAILURE);
-   }
-
-  LOG_DEBUG("Connection socket file descriptor: " + to_string(csk))
-
-  // Server connection attempt (which for recoverable errors can be repeated on user's discretion)
-  do
-   {
-    LOG_DEBUG("Attempting to connect with SafeCloud server at " + string(srvIP) + ":" + to_string(ntohs(srvAddr.sin_port)) + "...")
-
-    connRes = connect(csk, (const struct sockaddr*)&srvAddr, sizeof(srvAddr));
-
-    // If a connection could not be established
-    if(connRes != 0)
+    // If the exception is relative to an invalid srvIP or srvPort passed via command-line arguments
+    if(excp.scode == ERR_INVALID_SRV_ADDR || excp.scode == ERR_INVALID_SRV_PORT)
      {
-      // Log the connection error as for the ERRNO variable
-      switch(errno)
-       {
-        /* These represent recoverable errors, which prompt the user whether to retry the connection */
-        case ECONNREFUSED:
-         LOG_WARNING("Connection refused from remote host (probably the SafeCloud server is not running)")
-         break;
+      // "gently" notify the user of their expected syntax without recurring to traditional logging
+      if(excp.scode == ERR_INVALID_SRV_ADDR)
+       std::cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << std::endl;
+      else
+       if(excp.scode == ERR_INVALID_SRV_PORT)
+        std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
 
-        case ENETUNREACH:
-         LOG_ERROR("Network is unreachable")
-         break;
+      // Delete the client object and silently exit
+      delete(cli);
+      exit(EXIT_FAILURE);
+     }
 
-        case ETIMEDOUT:
-         LOG_ERROR("Server timeout in accepting the connection")
-         break;
-
-        /* Others are non-recoverable errors, with the client application that should be terminated */
-        default:
-         LOG_CODE_DSCR_FATAL(ERR_CSK_CONN_FAILED, strerror(errno))
-         clientShutdown(EXIT_FAILURE);
-       }
-
-      // In case of recoverable errors, ask the user whether another connection
-      // attempt should be performed, closing the client application if it should not
-      if(!askReconnection())
-       clientShutdown(EXIT_SUCCESS);
-
-     } // if(!connRes)
-
-   } while(connRes != 0);
-
-  // At this point, connection with the server was established successfully
-  cout << "Successfully connected with SafeCloud server at " << srvIP << ":" << to_string(ntohs(srvAddr.sin_port)) << endl;
+    // Otherwise it is a (fatal) error associated with the client's X.509 certificates store creation, which
+    // should be handled by the general handleScodeError() function, (which also terminates the execution)
+    else
+     handleScodeError(excp);
+   }
  }
 
 
+/* ========================= COMMAND-LINE INPUT PARAMETERS PARSING ========================= */
+
 /**
- * @brief Prints a summary of the program's valid input options and values
+ * @brief Prints a summary of the program's valid input options and values (parseCmdArgs() utility function)
  */
 void printProgramUsageGuidelines()
  {
-  cerr << "\nUsage:" << endl;
-  cerr << "----- " << endl;
-  cerr << "./client                   -> Connect to the SafeCloud server with default IP (" << SRV_DEFAULT_IP << ") and port (" << SRV_DEFAULT_PORT << ")" << endl;
-  cerr << "./client [-a IP] [-p PORT] -> Connect to the SafeCloud server with a custom IPv4 address and/or a custom port PORT >= " << to_string(SRV_PORT_MIN) << endl;
-  cerr << endl;
+  std::cerr << "\nUsage:" << std::endl;
+  std::cerr << "----- " << std::endl;
+  std::cerr << "./client                   -> Connect to the SafeCloud server with default IP (" << SRV_DEFAULT_IP << ") and port (" << SRV_DEFAULT_PORT << ")" << std::endl;
+  std::cerr << "./client [-a IP] [-p PORT] -> Connect to the SafeCloud server with a custom IPv4 address and/or a custom port PORT >= " << std::to_string(SRV_PORT_MIN) << std::endl;
+  std::cerr << std::endl;
  }
 
 
 /**
-  * @brief         Parses the command-line input parameters and:\n
-  *                1) If unknown options and/or values were passed, a summary of the expected calling syntax is printed and the application is stopped\n
-  *                2) Valid input options and values override the default ones defined in sdef.h\n
-  *                3) The resulting input options and values are validated and written in the reference and pointers provided by the caller
+  * @brief         Parses the command-line arguments with which the application was called and:\n
+  *                1) If unknown options and/or values were passed, a help summary of the
+  *                   expected arguments' syntax is printed and the program is terminated\n
+  *                2) Values of valid input options override the default ones defined in
+  *                   "defaults.h" (even if NO CHECK ON THEIR VALIDITY IS PERFORMED)\n
+  *                3) The resulting options' values are written in
+  *                   the reference variables provided by the caller
   * @param argc    The number of command-line input arguments
-  * @param argv    The array of command line input arguments
+  * @param argv    The array of command-line input arguments
+  * @param srvIP   The resulting SafeCloud server IP address to connect to as a string
+  * @param srvPort The resulting SafeCloud server port to connect to
   */
-void parseCliArgs(int argc, char** argv)
+void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
  {
-  char srvIP[16]   = SRV_DEFAULT_IP;   // The candidate value of the SafeCloud server IP address
-  uint16_t srvPort = SRV_DEFAULT_PORT; // The candidate value of the SafeCloud server Port
-  int  opt;                            // The current command-line option parsed by the getOpt() function
+  // Temporary options' values
+  char     _srvIP[16] = SRV_DEFAULT_IP;   // The candidate value of the SafeCloud server IP address
+  uint16_t _srvPort   = SRV_DEFAULT_PORT; // The candidate value of the SafeCloud server Port
+  int      opt;                           // The current command-line option parsed by the getOpt() function
 
   // Read all command-line arguments via the getOpt() function
   while((opt = getopt(argc, argv, ":a:p:h")) != -1)
@@ -178,13 +176,13 @@ void parseCliArgs(int argc, char** argv)
      // Help option
      case 'h':
       printProgramUsageGuidelines();
-      exit(EXIT_SUCCESS);
-      // break
+     exit(EXIT_SUCCESS);
+     // break
 
      // Server IP option + its value
      case 'a':
-      strncpy(srvIP, optarg, 15);
-      break;
+      strncpy(_srvIP, optarg, 15);
+     break;
 
      // Server Port option + its value
      case 'p':
@@ -198,106 +196,97 @@ void parseCliArgs(int argc, char** argv)
 #pragma ide diagnostic ignored "cert-err34-c"
       srvPort = atoi(optarg);
 #pragma clang diagnostic pop
-      break;
+     break;
 
      // Missing IP or Port value
      case ':':
       if(optopt == 'a')   // Missing IP value
-       cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << endl;
+       std::cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << std::endl;
       else
        if(optopt == 'p')  // Missing Port value
-        cerr << "\nPlease specify a PORT >= " << to_string(SRV_PORT_MIN) << " for the '-p' option\n" << endl;
+        std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
        else
-        LOG_CRITICAL("Missing value for unknown parameter: \'" + to_string(optopt) + "\'")
-      exit(EXIT_FAILURE);
-      // break;
+        LOG_CRITICAL("Missing value for unknown parameter: \'" + std::to_string(optopt) + "\'")
+     exit(EXIT_FAILURE);
+     // break;
 
      // Unsupported option
      case '?':
-      cerr << "\nUnsupported option: \"" << char(optopt) << "\"" << endl;
-      printProgramUsageGuidelines();
-      exit(EXIT_FAILURE);
-      // break;
+      std::cerr << "\nUnsupported option: \"" << char(optopt) << "\"" << std::endl;
+     printProgramUsageGuidelines();
+     exit(EXIT_FAILURE);
+     // break;
 
      // Default (should NEVER happen)
      default:
-      LOG_FATAL("Unexpected getOpt() return: \"" + to_string(opt) + "\"")
-      exit(EXIT_FAILURE);
+      LOG_FATAL("Unexpected getOpt() return: \"" + std::to_string(opt) + "\"")
+     exit(EXIT_FAILURE);
     }
 
- // Check for erroneous non-option arguments
- if(optind != argc)
-  {
-   cerr << "\nInvalid arguments: ";
-   for(int i = optind; i < argc; i++)
-    cerr << argv[i] << " ";
-   cerr << endl;
+  // Check for erroneous non-option arguments
+  if(optind != argc)
+   {
+    std::cerr << "\nInvalid arguments: ";
+    for(int i = optind; i < argc; i++)
+     std::cerr << argv[i] << " ";
+    std::cerr << std::endl;
 
-   printProgramUsageGuidelines();
-   exit(EXIT_FAILURE);
-  }
+    printProgramUsageGuidelines();
+    exit(EXIT_FAILURE);
+   }
 
- /* -------------- Application Parameters Validation and Setting --------------  */
-
- // "srvIP" must consist of a valid IPv4 address, which can be ascertained
- // by converting its value from string to its network representation as:
- if(inet_pton(AF_INET, srvIP, &srvAddr.sin_addr.s_addr) <= 0)
-  {
-   cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << endl;
-   exit(EXIT_FAILURE);
-  }
-
- // If srvPort >= SRV_PORT_MIN, convert it to the network byte order within the "srvAddr" structure
- if(srvPort >= SRV_PORT_MIN)
-  srvAddr.sin_port = htons(srvPort);
- else    // Otherwise, report the error
-  {
-   cerr << "\nPlease specify a PORT >= " << to_string(SRV_PORT_MIN) << " for the '-p' option\n" << endl;
-   exit(EXIT_FAILURE);
-  }
-
-  LOG_DEBUG("Safecloud Server parameters: IP = " + string(srvIP) + ", Port = " + to_string(srvPort))
+  // Copy the temporary option's values into the references provided by the caller
+  //
+  // NOTE: Rememeber that such values are NOT validated here
+  strncpy(srvIP, _srvIP, 15);
+  srvPort = _srvPort;
  }
 
 
+/* ====================================== CLIENT MAIN ====================================== */
+
 /**
- * @brief The SafeCloud client entry point
- * @param argc    The number of command-line input arguments
- * @param argv    The array of command line input arguments
+ * @brief       The SafeCloud client entry point
+ * @param argc  The number of command-line input arguments
+ * @param argv  The array of command line input arguments
  */
 int main(int argc, char** argv)
  {
   /* ---------------------- Local Variables ---------------------- */
+  char srvIP[16];      // The IP address as a string of the SafeCloud server to connect to
+  uint16_t srvPort;    // The port of the SafeCloud server to connect to
+
+
+
+//  // General Client Information
+//  char name[CLI_NAME_MAX_LENGTH+1];  // The client's username in the SafeCloud application
+//  char* downDir = nullptr;           // The client's download directory
+//
+//  // Client Cryptographic information
+//  static X509_STORE* cliStore  = nullptr; // The client's X.509 certificates store
+//  static EVP_PKEY*   cliRSAKey = nullptr; // The client's long-term RSA key pair
 
 
   /* ----------------------- Function Body ----------------------- */
 
   // Register the SIGINT, SIGTERM and SIGQUIT signals handler
-  signal(SIGINT, osSignalsCallbackHandler);
-  signal(SIGTERM, osSignalsCallbackHandler);
-  signal(SIGQUIT, osSignalsCallbackHandler);
-
-  // Set the server socket type to IPv4
-  srvAddr.sin_family = AF_INET;
+  signal(SIGINT, OSSignalsCallback);
+  signal(SIGTERM, OSSignalsCallback);
+  signal(SIGQUIT, OSSignalsCallback);
 
   // Determine the IP and port of the SafeCloud server the client
   // application should connect to by parsing the command-line arguments
-  parseCliArgs(argc, argv);
+  parseCmdArgs(argc,argv,srvIP,srvPort);
 
-  // TODO: Client Welcome Message
+  // Attempt to initialize the SafeCloud client object by passing
+  // it the IP and port of the SafeCloud server to connect to
+  clientInit(srvIP,srvPort);
 
-  // TODO: Client Login (username + password)
+  // Print the SafeCloud client welcome message
 
-  // TODO: Parse Client Files
-
-  // Attempt to establish a connection with the SafeCloud
-  // server, obtaining the associated connection socket
-  serverConnect();
-
-  // TODO: Client Key Exchange Protocol
-
-  // TODO: Placeholder implementation
+  // Call the client logic main loop
   clientLoop();
 
-  clientShutdown(EXIT_SUCCESS);
+  // Exiting from the client's main loop implies that the application must terminate
+  terminate(EXIT_SUCCESS);
  }

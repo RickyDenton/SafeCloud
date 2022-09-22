@@ -26,6 +26,47 @@ extern int csk;           // Client connection socket with the server
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
+
+
+
+
+
+
+/*
+// Build the client's X.509 certificates store loaded with the CA's certificate and CRL
+buildX509Store();
+
+// Client login
+login();
+
+
+// -------------------------------------------------------
+
+// Attempt to establish a connection with the SafeCloud
+// server, obtaining the associated connection socket
+serverConnect();
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * @brief          Reads data from the client's connection socket into the specified buffer
  *                 and returns whether valid application data was successfully read (recvSize > 0)

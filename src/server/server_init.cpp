@@ -82,7 +82,7 @@ void serverShutdown(int exitStatus)
  * @param signum  The received signal's identifier
  * @note          Currently only the SIGINT (ctrl+c), SIGTERM and SIGQUIT signals are handled
  */
-void osSignalsCallbackHandler(__attribute__((unused)) int signum)
+void OSSignalsCallback(__attribute__((unused)) int signum)
  {
   LOG_INFO("Shutdown signal received, performing cleanup operations...")
   serverShutdown(EXIT_SUCCESS);
@@ -243,9 +243,9 @@ int main(int argc, char** argv)
   /* ----------------------- Function Body ----------------------- */
 
   // Register the SIGINT, SIGTERM and SIGQUIT signals handler
-  signal(SIGINT, osSignalsCallbackHandler);
-  signal(SIGTERM, osSignalsCallbackHandler);
-  signal(SIGQUIT, osSignalsCallbackHandler);
+  signal(SIGINT, OSSignalsCallback);
+  signal(SIGTERM, OSSignalsCallback);
+  signal(SIGQUIT, OSSignalsCallback);
 
   // Set the server socket type to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
   srvAddr.sin_family = AF_INET;
