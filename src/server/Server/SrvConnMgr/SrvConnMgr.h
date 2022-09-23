@@ -4,8 +4,8 @@
 /* SafeCloud Server Connection Manager  */
 
 #include "ConnMgr/ConnMgr.h"
-#include "SrvSTSMMgr.h"
-#include "SrvSessMgr.h"
+#include "SrvSTSMMgr/SrvSTSMMgr.h"
+#include "SrvSessMgr/SrvSessMgr.h"
 #include <openssl/evp.h>
 #include <unordered_map>
 

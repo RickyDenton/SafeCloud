@@ -28,7 +28,7 @@ class Client
    /* ---------------------------- Client Object Flags ---------------------------- */
    bool _loggedIn;   // Whether the client has logged in within the SafeCloud application (locally, meaning that its personal parameters have been initialized)
    bool _connected;  // Whether the client is connected with the remote SafeCloud server
-   bool _shutdown;   // Used to inform the client object to gracefully terminate upon receiving an OS signal
+   bool _shutdown;   // Whether the client object should gracefully close the server connection and terminate
 
 
    /* =============================== PRIVATE METHODS =============================== */
@@ -113,10 +113,10 @@ class Client
 
   public:
 
-   /* ================= Constructors and Destructor ================= */
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
-    * @brief         Client object constructor, which initializes the IP and port of the
+    * @brief         SafeCloud client object constructor, which initializes the IP and port of the
     *                SafeCloud server to connect to and the client's X.509 certificates store
     * @param srvIP   The IP address as a string of the SafeCloud server to connect to
     * @param srvPort The port of the SafeCloud server to connect to
@@ -140,7 +140,7 @@ class Client
     */
    ~Client();
 
-   /* ======================== Other Methods ======================== */
+   /* ============================= OTHER PUBLIC METHODS ============================= */
 
    /**
      * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
@@ -153,10 +153,9 @@ class Client
      */
    bool login();
 
-
    /**
-    * @brief Informs the client object that they should
-    *        close the connection and gracefully terminate
+    * @brief Asynchronously instructs the client object to
+    *        gracefully close the server connection and terminate
     */
    void shutdownSignal();
 
@@ -173,9 +172,10 @@ class Client
    bool isConnected();
 
    /**
-     * @brief  Returns whether the client has received the shutdown signal
-     * @return 'true' if it is shutting down, 'false' otherwise
-     */
+    * @brief   Returns whether the client object has been instructed
+    *          to gracefully close all connections and terminate
+    * @return 'true' if the client object is shutting down, 'false' otherwise
+    */
    bool isShuttingDown();
 
 

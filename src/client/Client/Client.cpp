@@ -10,7 +10,6 @@
 
 #include <unistd.h>
 #include "errlog.h"
-#include "../client_utils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -18,8 +17,8 @@
  * @brief Sets the IP address and port of the SafeCloud server to connect to
  * @param srvIP   The SafeCloud server IP address
  * @param srvPort The SafeCloud server port
- * @throws ERR_INVALID_SRV_ADDR Invalid IP address format
- * @throws ERR_INVALID_SRV_PORT Invalid Port
+ * @throws ERR_SRV_ADDR_INVALID Invalid server IP address
+ * @throws ERR_SRV_PORT_INVALID Invalid server port
  */
 void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
  {
@@ -29,13 +28,13 @@ void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
   // "srvIP" must consist of a valid IPv4 address, which can be ascertained
   // by converting its value from string to its network representation as:
   if(inet_pton(AF_INET, srvIP, &_srvAddr.sin_addr.s_addr) <= 0)
-   THROW_SCODE(ERR_INVALID_SRV_ADDR);
+   THROW_SCODE(ERR_SRV_ADDR_INVALID);
 
   // If srvPort >= SRV_PORT_MIN, convert it to the network byte order within the "_srvAddr" structure
   if(srvPort >= SRV_PORT_MIN)
    _srvAddr.sin_port = htons(srvPort);
   else   // Otherwise, throw an exception
-   THROW_SCODE(ERR_INVALID_SRV_PORT);
+   THROW_SCODE(ERR_SRV_PORT_INVALID);
 
   // At this point the SafeCloud server IP and port parameters are valid
   LOG_DEBUG("SafeCloud server address set to " + std::string(srvIP) + ":" + std::to_string(srvPort))
@@ -45,10 +44,10 @@ void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
 /* ======================== X.509 CERTIFICATES STORE INITIALIZATION ======================== */
 
 /**
- * @brief Loads the CA's certificate from its file (buildX509Store() utility function)
- * @throws ERR_CA_CERT_OPEN_FAILED  The CA Certificate file could not be opened
- * @throws ERR_CA_CERT_CLOSE_FAILED The CA Certificate file could not be closed
- * @throws ERR_CA_CERT_INVALID      The CA Certificate is invalid
+ * @brief Loads the CA X.509 certificate from its default ".pem" file (buildX509Store() utility function)
+ * @throws ERR_CA_CERT_OPEN_FAILED The CA certificate file could not be opened
+ * @throws ERR_FILE_CLOSE_FAILED   The CA certificate file could not be closed
+ * @throws ERR_CA_CERT_INVALID     The CA certificate is invalid
  */
 X509* Client::getCACert()
  {
@@ -71,8 +70,8 @@ X509* Client::getCACert()
   if(!CACert)
    THROW_SCODE(ERR_CA_CERT_INVALID,CLI_CA_CERT_PATH,OSSL_ERR_DESC);
 
-  // At this point the CA certificate has been loaded successfully, and,
-  // if debug mode is enabled, print its subject and issuer
+  // At this point the CA certificate has been loaded successfully
+  // and, in DEBUG_MODE, print its subject and issuer
 #ifdef DEBUG_MODE
   std::string certSubject = X509_NAME_oneline(X509_get_subject_name(CACert), NULL, 0);
   LOG_DEBUG("CA certificate successfully loaded: " + certSubject)
@@ -126,7 +125,7 @@ X509_CRL* Client::getCACRL()
  * @throws ERR_CA_CRL_OPEN_FAILED          The CA CRL file could not be opened
  * @throws ERR_CA_CRL_CLOSE_FAILED         The CA CRL file could not be closed
  * @throws ERR_CA_CRL_INVALID              The CA CRL is invalid
- * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initalized
+ * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initialized
  * @throws ERR_STORE_ADD_CACERT_FAILED     Error in adding the CA certificate to the X.509 store
  * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
  * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
@@ -196,8 +195,7 @@ signed char Client::getchHide()
 
 
 /**
- * @brief  Reads the user's password while concealing its
- *         characters with asterisks "*" (login() helper function)
+ * @brief  Reads the user's password while concealing its characters(login() helper function)
  * @return The user-provided password
  */
 std::string Client::getUserPwd()
@@ -208,25 +206,23 @@ std::string Client::getUserPwd()
   signed char ch;              // Password character index
   std::string password;        // The user password to be returned
 
-  // Flush carriage return and EOF characters from the input stream
- // flush_CR_EOF();
-
   // Read characters without them being echoed as the user does not press "enter"
   while((ch = getchHide()) != RETURN)
    {
     // If a backspace was read, remove the password's last character
     if(ch == BACKSPACE && password.length() != 0)
      {
-//      std::cout <<"\b \b";
+      // For deleting an asterisk "*"
+      // std::cout <<"\b \b";
       password.resize(password.length()-1);
      }
 
-    // Otherwise append the new character into the
-    // password and echo an asterisk in its place
+    // Otherwise append the new character into the password
     else
      {
       password += ch;
-//      std::cout <<'*';
+      // For printing an asterisk "*" instead of concealing the character
+      // std::cout <<'*';
      }
    }
 
@@ -238,17 +234,21 @@ std::string Client::getUserPwd()
 
 
 /**
- * @brief           Attempts to locally authenticate the user by retrieving and decrypting
- *                  its RSA long-term private key (login() helper function)
- * @param username  The candidate user name
- * @param password  The candidate user password
+ * @brief                                  Attempts to locally authenticate the user by retrieving and decrypting
+ *                                         its RSA long-term private key (login() helper function)
+ * @param username                         The candidate user name
+ * @param password                         The candidate user password
+ * @throws ERR_LOGIN_PRIVKFILE_NOT_FOUND   The user RSA private key file was not found
+ * @throws ERR_LOGIN_PRIVKFILE_OPEN_FAILED Error in opening the user's RSA private key file
+ * @throws ERR_FILE_CLOSE_FAILED           Error in closing the user's RSA private key file
+ * @throws ERR_LOGIN_PRIVK_INVALID         The contents of the user's private key file could not be interpreted as a valid RSA key pair
  */
 void Client::getUserRSAKey(std::string& username,std::string& password)
  {
   FILE* RSAKeyFile;     // The user's long-term RSA private key file (.pem)
   char* RSAKeyFilePath; // The user's long-term RSA private key file path
 
-  // Derive the expected absolute, or canonicalized path to the user's private key file
+  // Derive the expected absolute, or canonicalized, path of the user's private key file
   RSAKeyFilePath = realpath(std::string(CLI_USER_PRIVK_PATH(username)).c_str(),NULL);
   if(!RSAKeyFilePath)
    THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,CLI_USER_PRIVK_PATH(username),ERRNO_DESC);
@@ -290,15 +290,55 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
  }
 
 
-// bool srvConnect();
-// bool uploadFile();
-// bool downloadFile();
-// bool deleteFile();
-// bool renameFile();
-// bool listFiles();
+/* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
+
+/**
+ * @brief         SafeCloud client object constructor, which initializes the IP and port of
+ *                the SafeCloud server to connect to and the client's X.509 certificates store
+ * @param srvIP   The IP address as a string of the SafeCloud server to connect to
+ * @param srvPort The port of the SafeCloud server to connect to
+ * @throws ERR_INVALID_SRV_ADDR            Invalid IP address format
+ * @throws ERR_INVALID_SRV_PORT            Invalid Port
+ * @throws ERR_CA_CERT_OPEN_FAILED         The CA Certificate file could not be opened
+ * @throws ERR_CA_CERT_CLOSE_FAILED        The CA Certificate file could not be closed
+ * @throws ERR_CA_CERT_INVALID             The CA Certificate is invalid
+ * @throws ERR_CA_CRL_OPEN_FAILED          The CA CRL file could not be opened
+ * @throws ERR_CA_CRL_CLOSE_FAILED         The CA CRL file could not be closed
+ * @throws ERR_CA_CRL_INVALID              The CA CRL is invalid
+ * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initialized
+ * @throws ERR_STORE_ADD_CACERT_FAILED     Error in adding the CA certificate to the X.509 store
+ * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
+ * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
+ */
+Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _name(), _downDir(),
+                                                _tempDir(), _rsaKey(nullptr), _loggedIn(false), _connected(false), _shutdown(false)
+ {
+  // Attempt to set up the server endpoint parameters
+  setSrvEndpoint(srvIP, srvPort);
+
+  // Attempt to build the client's X.509 certificates
+  // store loaded with the CA's certificate and CRL
+  buildX509Store();
+ }
 
 
+/**
+ * @brief SafeCloud client object destructor, which safely deletes its sensitive attributes
+ */
+Client::~Client()
+ {
+  // Safely delete the cliConnMgr object
+  delete _cliConnMgr;
 
+  // Safely delete the client's cryptographic data
+  EVP_PKEY_free(_rsaKey);
+  X509_STORE_free(_certStore);
+
+  // Safely delete the client name and directory paths
+  OPENSSL_cleanse(&_name[0], _name.size());
+  OPENSSL_cleanse(&_downDir[0], _downDir.size());
+  OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
+ }
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
@@ -318,7 +358,7 @@ bool Client::login()
   std::string username;                             // The candidate client's name
   std::string password;                             // The candidate client's password
 
-  // Ensure that the client is neither connected or logged-in
+  // Ensure that the client is neither connected nor logged-in
   if(_connected)
    THROW_SCODE(ERR_CLIENT_ALREADY_CONNECTED);
   if(_loggedIn)
@@ -337,7 +377,7 @@ bool Client::login()
       std::getline(std::cin,username);
       LOG_DEBUG("User-provided name: \"" + username + "\"")
 
-      // Retrieve the client's password, replacing input characters with asterisks
+      // Retrieve the client's password, hiding the user's input characters
       std::cout << "Password: ";
       password = getUserPwd();
       LOG_DEBUG("User-provided password: \"" + password + "\"")
@@ -420,17 +460,17 @@ bool Client::login()
 
 
 /**
- * @brief Informs the client object that they should
- *        close the connection and gracefully terminate
+ * @brief Asynchronously instructs the client object to
+ *        gracefully close the server connection and terminate
  */
 void Client::shutdownSignal()
  { _shutdown = true; }
 
 
 /**
-  * @brief  Returns whether the client is locally logged in within the SafeCloud application
-  * @return 'true' if logged in, 'false' otherwise
-  */
+ * @brief  Returns whether the client is locally logged in within the SafeCloud application
+ * @return 'true' if logged in, 'false' otherwise
+ */
 bool Client::isLoggedIn()
  { return _loggedIn; }
 
@@ -444,64 +484,20 @@ bool Client::isConnected()
 
 
 /**
- * @brief  Returns whether the client has received the shutdown signal
- * @return 'true' if it is shutting down, 'false' otherwise
+ * @brief   Returns whether the client object has been instructed
+ *          to gracefully close all connections and terminate
+ * @return 'true' if the client object is shutting down, 'false' otherwise
  */
 bool Client::isShuttingDown()
  { return _shutdown; }
 
-
-/* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
-
-/**
- * @brief         Client object constructor, which initializes the IP and port of the
- *                SafeCloud server to connect to and the client's X.509 certificates store
- * @param srvIP   The IP address as a string of the SafeCloud server to connect to
- * @param srvPort The port of the SafeCloud server to connect to
- * @throws ERR_INVALID_SRV_ADDR            Invalid IP address format
- * @throws ERR_INVALID_SRV_PORT            Invalid Port
- * @throws ERR_CA_CERT_OPEN_FAILED         The CA Certificate file could not be opened
- * @throws ERR_CA_CERT_CLOSE_FAILED        The CA Certificate file could not be closed
- * @throws ERR_CA_CERT_INVALID             The CA Certificate is invalid
- * @throws ERR_CA_CRL_OPEN_FAILED          The CA CRL file could not be opened
- * @throws ERR_CA_CRL_CLOSE_FAILED         The CA CRL file could not be closed
- * @throws ERR_CA_CRL_INVALID              The CA CRL is invalid
- * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initalized
- * @throws ERR_STORE_ADD_CACERT_FAILED     Error in adding the CA certificate to the X.509 store
- * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
- * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
- */
-Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _name(), _downDir(),
-                                                _tempDir(), _rsaKey(nullptr), _loggedIn(false), _connected(false), _shutdown(false)
- {
-  // Attempt to set up the server endpoint parameters
-  setSrvEndpoint(srvIP, srvPort);
-
-  // Attempt to build the client's X.509 certificates
-  // store loaded with the CA's certificate and CRL
-  buildX509Store();
- }
-
-
-/**
- * @brief Client object destructor, which safely deletes its sensitive attributes
- */
-Client::~Client()
- {
-  // Safely delete the cliConnMgr object
-  delete _cliConnMgr;
-
-  // Safely delete the client's cryptographic data
-  EVP_PKEY_free(_rsaKey);
-  X509_STORE_free(_certStore);
-
-  // Safely delete the client name and directory paths
-  OPENSSL_cleanse(&_name[0], _name.size());
-  OPENSSL_cleanse(&_downDir[0], _downDir.size());
-  OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
- }
-
-
+// TODO:
+// bool srvConnect();
+// bool uploadFile();
+// bool downloadFile();
+// bool deleteFile();
+// bool renameFile();
+// bool listFiles();
 
 
 /**

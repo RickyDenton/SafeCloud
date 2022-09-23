@@ -15,9 +15,18 @@ enum scode
 
   /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
 
+  // Server Private Key File
+  ERR_SRV_PRIVKFILE_NOT_FOUND,
+  ERR_SRV_PRIVKFILE_OPEN_FAILED,
+  ERR_SRV_PRIVK_INVALID,
+
+  // Server Certificate
+  ERR_SRV_CERT_OPEN_FAILED,
+  ERR_SRV_CERT_INVALID,
+
   // Listening Socket
   ERR_LSK_INIT_FAILED,
-  ERR_LSK_OPT_FAILED,
+  ERR_LSK_SO_REUSEADDR_FAILED,
   ERR_LSK_BIND_FAILED,
   ERR_LSK_LISTEN_FAILED,
   ERR_LSK_CLOSE_FAILED,
@@ -69,8 +78,8 @@ enum scode
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
   // Server Connection Parameters
-  ERR_INVALID_SRV_ADDR,
-  ERR_INVALID_SRV_PORT,
+  ERR_SRV_ADDR_INVALID,
+  ERR_SRV_PORT_INVALID,
 
   // Connection Sockets
   ERR_CSK_CLOSE_FAILED,
@@ -125,12 +134,21 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
 
+    // Server Private Key File
+    { ERR_SRV_PRIVKFILE_NOT_FOUND,    {FATAL,"The server RSA private key file was not found"} },
+    { ERR_SRV_PRIVKFILE_OPEN_FAILED,  {FATAL,"Error in opening the server's RSA private key file"} },
+    { ERR_SRV_PRIVK_INVALID,          {FATAL,"The contents of the server's private key file could not be interpreted as a valid RSA key pair"} },
+
+    // Server Certificate
+    { ERR_SRV_CERT_OPEN_FAILED,    {FATAL,"The server certificate file could not be opened"} },
+    { ERR_SRV_CERT_INVALID,        {FATAL,"The server certificate file does not contain a valid X.509 certificate"} },
+
     // Listening Socket
-    { ERR_LSK_INIT_FAILED,   {FATAL,"Listening Socket Creation Failed"} },
-    { ERR_LSK_OPT_FAILED,    {FATAL,"Listening Socket Options Setting Failed"} },
-    { ERR_LSK_BIND_FAILED,   {FATAL,"Listening Socket Binding Failed"} },
-    { ERR_LSK_LISTEN_FAILED, {FATAL,"Listening Socket Listen Failed"} },
-    { ERR_LSK_CLOSE_FAILED,  {FATAL,"Listening Socket Closing Failed"} },
+    { ERR_LSK_INIT_FAILED,        {FATAL,"Listening Socket Initialization Failed"} },
+    { ERR_LSK_SO_REUSEADDR_FAILED,{FATAL,"Failed to set the listening socket's SO_REUSEADDR option"} },
+    { ERR_LSK_BIND_FAILED,        {FATAL,"Failed to bind the listening socket on the specified OS port"} },
+    { ERR_LSK_LISTEN_FAILED,      {FATAL,"Failed to listen on the listening socket"} },
+    { ERR_LSK_CLOSE_FAILED,       {FATAL,"Listening Socket Closing Failed"} },
 
     // Connection Sockets
     { ERR_CSK_ACCEPT_FAILED, {FATAL,"Connection Socket Accept Failed"} },
@@ -140,10 +158,6 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_SELECT_FAILED,     {FATAL,"Select Failed"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
-
-    // Server Connection Parameters
-    { ERR_INVALID_SRV_ADDR,            {ERROR,"The SafeCloud Server IP address is invalid"} },
-    { ERR_INVALID_SRV_PORT,            {ERROR,"The SafeCloud Server port is invalid"} },
 
     // X.509 Store Creation
     { ERR_CA_CERT_OPEN_FAILED,         {FATAL,"The CA certificate file could not be opened"} },
@@ -171,6 +185,10 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CLIENT_ALREADY_CONNECTED, {ERROR,"The client is already connected to the SafeCloud server"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
+
+    // Server Endpoint Parameters
+    { ERR_SRV_ADDR_INVALID,  {ERROR,"The SafeCloud Server IP address is invalid"} },
+    { ERR_SRV_PORT_INVALID,  {ERROR,"The SafeCloud Server port is invalid"} },
 
     // Connection sockets
     { ERR_CSK_CLOSE_FAILED,  {FATAL,"Connection Socket Close Failed"} },

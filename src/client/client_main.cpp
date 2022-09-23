@@ -1,4 +1,4 @@
-/* SafeCloud Client entry point and initialization functions */
+/* SafeCloud Client main driver */
 
 /* ================================== INCLUDES ================================== */
 
@@ -20,9 +20,6 @@
 #include "Client/Client.h"
 #include "utils.h"
 
-/* ============================ FORWARD DECLARATIONS ============================ */
-
-
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 
 // The singleton Client object
@@ -30,8 +27,10 @@ static Client* cli;
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
+/* ------------------------- Client Shutdown Management ------------------------- */
+
 /**
- * @brief            Terminates the SafeCloud Client application
+ * @brief            Deletes the Client object and terminates the SafeCloud Client application
  * @param exitStatus The exit status to be returned to the OS via the exit() function
  */
 void terminate(int exitStatus)
@@ -53,9 +52,8 @@ void terminate(int exitStatus)
  *                 - If the client object does not exist or it has not yet
  *                   connected with the SafeCloud server, it directly terminates
  *                   the application by calling the terminate() function\n
- *                 - If the client object is connected with the SafeCloud server,
- *                   it is informed to close such connection and gracefully
- *                   terminate via the shutdownSignal() method
+ *                 - If the client object is connected with the SafeCloud server, it
+ *                   is instructed gracefully close such connection and terminate
  * @param signum The OS signal identifier (unused)
  */
 void OSSignalsCallback(__attribute__((unused)) int signum)
@@ -67,7 +65,7 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
     terminate(EXIT_SUCCESS);
    }
 
-  // Otherwise inform the client to close the server connection and gracefully terminate
+  // Otherwise instruct the client object to gracefully close the server connection and terminate
   else
    {
     LOG_INFO("Shutdown signal received, closing the server's connection...")
@@ -75,7 +73,7 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
    }
 }
 
-/* =================================== CLIENT MAIN LOOP =================================== */
+/* ------------------------------ Client Main Loop ------------------------------ */
 
 int clientLoop()
  {
@@ -91,8 +89,7 @@ int clientLoop()
  }
 
 
-
-/* ================================ CLIENT INITIALIZATION ================================ */
+/* ---------------------------- Client Initialization ---------------------------- */
 
 /**
  * @brief Prints the SafeCloud client welcome message
@@ -109,7 +106,7 @@ void printWelcomeMessage()
 
 
 /**
- * @brief         Attempts to initialize the SafeCloud client object by passing
+ * @brief         Attempts to initialize the SafeCloud Client object by passing
  *                it the IP and port of the SafeCloud server to connect to
  * @param srvIP   The IP address as a string of the SafeCloud server to connect to
  * @param srvPort The port of the SafeCloud server to connect to
@@ -121,30 +118,27 @@ void clientInit(char* srvIP,uint16_t& srvPort)
    { cli = new Client(srvIP,srvPort); }
   catch(sCodeException& excp)
    {
-    // If the exception is relative to an invalid srvIP or srvPort passed via command-line arguments
-    if(excp.scode == ERR_INVALID_SRV_ADDR || excp.scode == ERR_INVALID_SRV_PORT)
-     {
-      // "gently" notify the user of their expected syntax without recurring to traditional logging
-      if(excp.scode == ERR_INVALID_SRV_ADDR)
-       std::cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << std::endl;
-      else
-       if(excp.scode == ERR_INVALID_SRV_PORT)
-        std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
-
-      // Delete the client object and silently exit
-      delete(cli);
-      exit(EXIT_FAILURE);
-     }
-
-    // Otherwise it is a (fatal) error associated with the client's X.509 certificates store creation, which
-    // should be handled by the general handleScodeException() function, (which also terminates the execution)
+    // If the exception is relative to an invalid srvIP or srvPort passed via command-line arguments,
+    // "gently" inform the user of their allowed values without recurring to the built-in logging macros
+    if(excp.scode == ERR_SRV_ADDR_INVALID)
+     std::cerr << "\nPlease specify a valid IPv4 address as value for the '-a' option (e.g. 192.168.0.1)" << "\n" << std::endl;
     else
-     handleScodeException(excp);
+     if(excp.scode == ERR_SRV_PORT_INVALID)
+      std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
+
+     // Otherwise the exception is relative to a fatal error associated with the client building its X.509 certificates store,
+     // which should be handled by the general handleScodeException() function, (which most likely will terminate the execution)
+     else
+      handleScodeException(excp);
+
+    // If no fatal error occurred, delete the Client object and exit silently
+    delete(cli);
+    exit(EXIT_FAILURE);
    }
  }
 
 
-/* ========================= COMMAND-LINE INPUT PARAMETERS PARSING ========================= */
+/* ------------------- Command-Line Input Parameters Parsing ------------------- */
 
 /**
  * @brief Prints a summary of the program's valid input options and values (parseCmdArgs() utility function)
@@ -200,7 +194,7 @@ void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
       // Cast the parameter's value to integer
       //
       // NOTE: If the parameter's value cannot be cast to an integer the atoi() returns 0,
-      //       which is accounted in asserting that it must be srvPort >= SRV_PORT_MIN > 0
+      //       which later accounted in asserting that it must be srvPort >= SRV_PORT_MIN > 0
       //
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "cert-err34-c"
@@ -252,8 +246,7 @@ void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
   srvPort = _srvPort;
  }
 
-
-/* ====================================== CLIENT MAIN ====================================== */
+/* -------------------------------- Client Main -------------------------------- */
 
 /**
  * @brief       The SafeCloud client entry point
@@ -262,11 +255,8 @@ void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
  */
 int main(int argc, char** argv)
  {
-  /* ---------------------- Local Variables ---------------------- */
   char srvIP[16];      // The IP address as a string of the SafeCloud server to connect to
   uint16_t srvPort;    // The port of the SafeCloud server to connect to
-
-  /* ----------------------- Function Body ----------------------- */
 
   // Register the SIGINT, SIGTERM and SIGQUIT signals handler
   signal(SIGINT, OSSignalsCallback);
@@ -277,7 +267,7 @@ int main(int argc, char** argv)
   // application should connect to by parsing the command-line arguments
   parseCmdArgs(argc,argv,srvIP,srvPort);
 
-  // Attempt to initialize the SafeCloud client object by passing
+  // Attempt to initialize the SafeCloud Client object by passing
   // it the IP and port of the SafeCloud server to connect to
   clientInit(srvIP,srvPort);
 

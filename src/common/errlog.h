@@ -86,9 +86,9 @@
 /*
  * Catches a scodeException and passes it to the default scode error handler
  */
-#define CATCH_SCODE        \
-catch(sCodeException& e)   \
- { handleScodeError(e); }
+#define CATCH_SCODE              \
+catch(sCodeException& excp)      \
+ { handleScodeException(excp); }
 
 
 /* -------------------- Severity-based Custom String Logging -------------------- */

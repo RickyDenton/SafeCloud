@@ -8,6 +8,7 @@
 #include <openssl/err.h>
 
 #include "dh.h"
+#include "errlog.h"
 
 /* =========================== FUNCTIONS DEFINITIONS =========================== */
 
