@@ -18,6 +18,6 @@
  * @param srvCert  The server's X.509 certificate
  * @param _poolDir The client's pool directory
  */
-SrvConnMgr::SrvConnMgr(int csk, char* name, char* tmpDir, X509* srvCert, char* _poolDir)
-  : ConnMgr(csk,name,tmpDir),_srvCert(srvCert), _poolDir(_poolDir), _srvSTSMMgr(nullptr), _srvSessMgr(nullptr)
+SrvConnMgr::SrvConnMgr(int csk, std::string& name, std::string& tmpDir, X509* srvCert, std::string& poolDir)
+  : ConnMgr(csk,name,tmpDir),_srvCert(srvCert), _poolDir(poolDir), _srvSTSMMgr(nullptr), _srvSessMgr(nullptr)
  { _connState = KEYXCHANGE; }   // On the server-side the connection manager is created when the connection is already established

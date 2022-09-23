@@ -21,11 +21,11 @@ using namespace std;
  * @param stsmData The client's STSM handshake data (already initialized)
  * @param tempDir  The client's temporary directory (already sanitized)
  */
-sClient::sClient(int csk, char* name, char* tempDir) : _cliType(GUEST), _csk(csk), _name(), _buf(), _bufInd(0), _bufSize(CLI_BUF_SIZE), _skey(nullptr),
-                                                       _skeySize(SKEY_SIZE), _iv(nullptr), _ivSize(IV_SIZE), _sentMsg(nullptr), _recvMsg(nullptr), _tempDir(tempDir)
+sClient::sClient(int csk, char* name, char* tempDir) : _cliType(GUEST), _csk(csk), _name(), _buf(), _bufInd(0), _bufSize(CONN_BUF_SIZE), _skey(nullptr),
+                                                       _skeySize(SKEY_SIZE), _iv(nullptr), _ivSize(IV_SIZE), _tempDir(tempDir) //_sentMsg(nullptr), _recvMsg(nullptr),
  {
   sprintf(_name,"%30s",name);               // Client's name
-  _buf = (unsigned char*)malloc(CLI_BUF_SIZE);   // General purpose buffer initialization
+  _buf = (unsigned char*)malloc(CONN_BUF_SIZE);   // General purpose buffer initialization
  }
 
 
@@ -42,8 +42,8 @@ sClient::~sClient()
   safeFree(reinterpret_cast<void*&>(_tempDir),strlen(_tempDir)+1);  // + `\0' character
 
   // Delete all child objects (safe erase are implemented in their destructors)
-  delete _sentMsg;
-  delete _recvMsg;
+//  delete _sentMsg;
+//  delete _recvMsg;
  }
 
 

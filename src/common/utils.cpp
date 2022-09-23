@@ -16,8 +16,11 @@
 void safeMemset0(void*& addr, unsigned int size)
  {
 #pragma optimize("", off)
-  memset(addr, 0, size);
-  addr = nullptr;
+  if(addr != nullptr)
+   {
+    memset(addr, 0, size);
+    addr = nullptr;
+   }
 #pragma optimize("", on)
  }
 
@@ -46,9 +49,10 @@ void safeFree(void*& pnt,unsigned int size)
  *        - Its first character consists of a letter of the alphabet (a-z, A-Z)
  *        - It contains valid characters only (a-z, A-Z, 0-9, _)
  * @param username The address of the username to sanitize
- * @throws Username too long => sCodeException(ERR_LOGIN_NAME_TOO_LONG) →
- * @throws First non-alphabet character => sCodeException(ERR_LOGIN_NAME_WRONG_FORMAT)
- * @throws Invalid characters => sCodeException(ERR_LOGIN_NAME_INVALID_CHARS)
+ * @throws ERR_LOGIN_NAME_EMPTY         Username is empty
+ * @throws ERR_LOGIN_NAME_TOO_LONG      Username it too long
+ * @throws ERR_LOGIN_NAME_WRONG_FORMAT  First non-alphabet character in the username
+ * @throws ERR_LOGIN_NAME_INVALID_CHARS Invalid characters in the username
  */
 void sanitizeUsername(std::string& username)
  {
@@ -56,17 +60,21 @@ void sanitizeUsername(std::string& username)
                                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                  "1234567890_";
 
+  // Ensure the username not to be empty
+  if(username.empty())
+   THROW_SCODE(ERR_LOGIN_NAME_EMPTY);
+
   // Ensure the username not to be too long
   if(username.length() > CLI_NAME_MAX_LENGTH)
-   throw sCodeException(ERR_LOGIN_NAME_TOO_LONG);
+   THROW_SCODE(ERR_LOGIN_NAME_TOO_LONG);
 
   // Ensure the first character to consist of a letter of the alphabet (a-z, A-Z)
   if(!isalpha(username.front()))
-   throw sCodeException(ERR_LOGIN_NAME_WRONG_FORMAT);
+   THROW_SCODE(ERR_LOGIN_NAME_WRONG_FORMAT);
 
   // Ensure the username to contain valid characters only (a-z, A-Z, 0-9, _)
   if(username.find_first_not_of(validNameChars) != std::string::npos)
-   throw sCodeException(ERR_LOGIN_NAME_INVALID_CHARS);
+   THROW_SCODE(ERR_LOGIN_NAME_INVALID_CHARS);
 
   // Convert the username to lowercase
   transform(username.begin(), username.end(), username.begin(), ::tolower);

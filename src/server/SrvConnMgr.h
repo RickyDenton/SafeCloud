@@ -3,7 +3,7 @@
 
 /* SafeCloud Server Connection Manager  */
 
-#include "ConnMgr.h"
+#include "ConnMgr/ConnMgr.h"
 #include "SrvSTSMMgr.h"
 #include "SrvSessMgr.h"
 #include <openssl/evp.h>
@@ -14,8 +14,8 @@ class SrvConnMgr : ConnMgr
   private:
 
     /* ------------------------- Attributes ------------------------- */
-    X509* _srvCert;           // The server's X.509 certificate
-    char* _poolDir;           // The client's pool directory
+    X509*        _srvCert;   // The server's X.509 certificate
+    std::string& _poolDir;   // The client's pool directory
 
     SrvSTSMMgr* _srvSTSMMgr;  // The server's STSM key handshake manager
     SrvSessMgr* _srvSessMgr;  // The server's session manager
@@ -23,7 +23,7 @@ class SrvConnMgr : ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   SrvConnMgr(int csk, char* name, char* tmpDir, X509* srvCert, char* _poolDir);
+   SrvConnMgr(int csk, std::string& name, std::string& tmpDir, X509* srvCert, std::string& _poolDir);
    // Same destructor of the ConnMgr base class
 
   /* ======================== Other Methods ======================== */

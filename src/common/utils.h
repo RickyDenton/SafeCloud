@@ -2,6 +2,7 @@
 #define SAFECLOUD_UTILS_H
 
 #include <stdlib.h>
+#include <string>
 
 /* SafeCloud Application common utility functions declarations */
 
@@ -29,9 +30,10 @@ void safeFree(void*& pnt,unsigned int size);
  *        - Its first character consists of a letter of the alphabet (a-z, A-Z)
  *        - It contains valid characters only (a-z, A-Z, 0-9, _)
  * @param username The address of the username to sanitize
- * @throws Username too long => sCodeException(ERR_LOGIN_NAME_TOO_LONG) →
- * @throws First non-alphabet character => sCodeException(ERR_LOGIN_NAME_WRONG_FORMAT)
- * @throws Invalid characters => sCodeException(ERR_LOGIN_NAME_INVALID_CHARS)
+ * @throws ERR_LOGIN_NAME_EMPTY         Username is empty
+ * @throws ERR_LOGIN_NAME_TOO_LONG      Username it too long
+ * @throws ERR_LOGIN_NAME_WRONG_FORMAT  First non-alphabet character in the username
+ * @throws ERR_LOGIN_NAME_INVALID_CHARS Invalid characters in the username
  */
 void sanitizeUsername(std::string& username);
 

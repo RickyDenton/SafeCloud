@@ -2,6 +2,7 @@
 #define SAFECLOUD_CONNMGR_H
 
 #include "defaults.h"
+#include <string>
 
 /* SafeCloud Connection Manager */
 
@@ -19,10 +20,10 @@ class ConnMgr
    /* ========================= Attributes ========================= */
 
    // General connection information
-   connState   _connState;           // Current connection state (key establishment or session)
-   const int   _csk;                 // The connection socket's file descriptor
-   char*       _name;                // The client's name associated with this connection
-   char*       _tmpDir;              // The connection's temporary directory
+   connState    _connState;           // Current connection state (key establishment or session)
+   const int    _csk;                 // The connection socket's file descriptor
+   std::string& _name;                // The client's name associated with this connection
+   std::string& _tmpDir;              // The connection's temporary directory
 
    // General-purpose buffer for sending and receiving data
    unsigned char*     _buf;          // General-purpose buffer
@@ -49,7 +50,7 @@ class ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   ConnMgr(int csk, char* name, char* tmpDir);
+   ConnMgr(int csk, std::string& name, std::string& tmpDir);
    ~ConnMgr();
 
    /* ======================== Other Methods ======================== */

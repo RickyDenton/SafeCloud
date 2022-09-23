@@ -10,6 +10,7 @@
 
 #include <unistd.h>
 #include "errlog.h"
+#include "../client_utils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -22,13 +23,6 @@
  */
 void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
  {
-  // If the SafeCloud client is already connected (which should NEVER happen), close the connection
-  if(_cliConnMgr != nullptr)
-   {
-    delete _cliConnMgr;
-    _cliConnMgr = nullptr;
-   }
-
   // Set the server socket type to IPv4
   _srvAddr.sin_family = AF_INET;
 
@@ -71,7 +65,7 @@ X509* Client::getCACert()
 
   // Close the CA certificate file
   if(fclose(CACertFile) != 0)
-   THROW_SCODE(ERR_CA_CERT_CLOSE_FAILED,CLI_CA_CERT_PATH,ERRNO_DESC);
+   THROW_SCODE(ERR_FILE_CLOSE_FAILED,CLI_CA_CERT_PATH,ERRNO_DESC);
 
   // Ensure the contents of the CA certificate file to consist of a valid certificate
   if(!CACert)
@@ -81,7 +75,7 @@ X509* Client::getCACert()
   // if debug mode is enabled, print its subject and issuer
 #ifdef DEBUG_MODE
   std::string certSubject = X509_NAME_oneline(X509_get_subject_name(CACert), NULL, 0);
-  LOG_DEBUG("\"" + certSubject + "\" CA certificate successfully loaded")
+  LOG_DEBUG("CA certificate successfully loaded: " + certSubject)
 #endif
 
   // Return the valid CA certificate
@@ -110,11 +104,11 @@ X509_CRL* Client::getCACRL()
 
   // Close the CA CRL file
   if(fclose(CACRLFile) != 0)
-   THROW_SCODE(ERR_CA_CRL_CLOSE_FAILED,CLI_CA_CRL_PATH,ERRNO_DESC);
+   THROW_SCODE(ERR_FILE_CLOSE_FAILED,CLI_CA_CRL_PATH,ERRNO_DESC);
 
   // Ensure the contents of the CA CRL file to consist of a valid X.509 certificate revocation list
   if(!CACRL)
-   THROW_SCODE(ERR_CA_CRL_INVALID,CLI_CA_CRL_PATH,ERRNO_DESC);
+   THROW_SCODE(ERR_CA_CRL_INVALID,CLI_CA_CRL_PATH,OSSL_ERR_DESC);
 
   // At this point the CA CRL has been loaded successfully
   LOG_DEBUG("CA CRL successfully loaded")
@@ -211,8 +205,11 @@ std::string Client::getUserPwd()
   // Character codes
   const char BACKSPACE = 127;  // Backspace code
   const char RETURN = 10;      // Return code
-  signed char ch = 0;          // Password character index
+  signed char ch;              // Password character index
   std::string password;        // The user password to be returned
+
+  // Flush carriage return and EOF characters from the input stream
+ // flush_CR_EOF();
 
   // Read characters without them being echoed as the user does not press "enter"
   while((ch = getchHide()) != RETURN)
@@ -220,7 +217,7 @@ std::string Client::getUserPwd()
     // If a backspace was read, remove the password's last character
     if(ch == BACKSPACE && password.length() != 0)
      {
-      std::cout <<"\b \b";
+//      std::cout <<"\b \b";
       password.resize(password.length()-1);
      }
 
@@ -229,7 +226,7 @@ std::string Client::getUserPwd()
     else
      {
       password += ch;
-      std::cout <<'*';
+//      std::cout <<'*';
      }
    }
 
@@ -248,13 +245,13 @@ std::string Client::getUserPwd()
  */
 void Client::getUserRSAKey(std::string& username,std::string& password)
  {
-  FILE* RSAKeyFile     = nullptr; // The user's long-term RSA private key file (.pem)
-  char* RSAKeyFilePath = nullptr; // The user's long-term RSA private key file path
+  FILE* RSAKeyFile;     // The user's long-term RSA private key file (.pem)
+  char* RSAKeyFilePath; // The user's long-term RSA private key file path
 
   // Derive the expected absolute, or canonicalized path to the user's private key file
   RSAKeyFilePath = realpath(std::string(CLI_USER_PRIVK_PATH(username)).c_str(),NULL);
   if(!RSAKeyFilePath)
-   THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,RSAKeyFilePath,ERRNO_DESC);
+   THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,CLI_USER_PRIVK_PATH(username),ERRNO_DESC);
 
   // Attempt to open the user's RSA private key file
   RSAKeyFile = fopen(RSAKeyFilePath, "r");
@@ -267,11 +264,14 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
   // Attempt to read the user's long-term RSA private key from its file
   _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, (void*)password.c_str());
 
+  // Safely delete the user's password, as it is no longer required
+  OPENSSL_cleanse(&password[0], password.size());
+
   // Close the RSA private key file
   if(fclose(RSAKeyFile) != 0)
    {
     free(RSAKeyFilePath);
-    THROW_SCODE(ERR_LOGIN_PRIVKFILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+    THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
    }
 
   // Ensure that a valid private key has been read
@@ -303,10 +303,15 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
-
-
-
-
+/**
+ * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
+ *        for its username and password, authentication consisting in successfully retrieving the
+ *        user's long-term RSA key pair encrypted with such password stored in a ".pem" file with
+ *        a predefined path function of the provided username
+ * @return 'true' if the client successfully logged in or 'false' otherwise
+ * @throws ERR_CLIENT_ALREADY_CONNECTED The client is already connected with the SafeCloud server
+ * @throws ERR_CLIENT_ALREADY_LOGGED_IN The client is already logged in within the SafeCloud application
+ */
 bool Client::login()
  {
   uint8_t remLoginAttempts = CLI_MAX_AUTH_ATTEMPTS; // Maximum login attempts
@@ -320,8 +325,8 @@ bool Client::login()
    THROW_SCODE(ERR_CLIENT_ALREADY_LOGGED_IN);
 
   // Print the login header
-  std::cout << "\nLOGIN" << std::endl;
-  std::cout << "=====" << std::endl;
+  std::cout << "\nLogin" << std::endl;
+  std::cout << "-----" << std::endl;
 
   while(remLoginAttempts > 0)
    {
@@ -329,7 +334,7 @@ bool Client::login()
      {
       // Retrieve the client's username
       std::cout << "Username: ";
-      std::cin >> username;
+      std::getline(std::cin,username);
       LOG_DEBUG("User-provided name: \"" + username + "\"")
 
       // Retrieve the client's password, replacing input characters with asterisks
@@ -338,11 +343,14 @@ bool Client::login()
       LOG_DEBUG("User-provided password: \"" + password + "\"")
 
       // Sanitize the provided username
-      // TODO: Why error here???
       sanitizeUsername(username);
       LOG_DEBUG("Sanitized username: \"" + username + "\"")
 
-      // Ensure the password length to be <= CLI_PWD_MAX_LENGTH
+      // Ensure the password not to be empty
+      if(password.empty())
+       THROW_SCODE(ERR_LOGIN_PWD_EMPTY);
+
+      // Ensure the password to be at most "CLI_PWD_MAX_LENGTH" characters
       if(password.length() > CLI_PWD_MAX_LENGTH)
        THROW_SCODE(ERR_LOGIN_PWD_TOO_LONG, password);
 
@@ -353,18 +361,21 @@ bool Client::login()
       /* At this point, being the RSA private key valid, the client has successfully authenticated locally */
 
       // Set the client's name
-      _name = (char*)malloc(username.length()+1);
-      strcpy(_name,username.c_str());
+      _name = username;
 
       // Set the client's download directory
       _downDir = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(),NULL);
-      if(!_downDir)
+      if(_downDir.empty())
        THROW_SCODE(ERR_DOWNDIR_NOT_FOUND,CLI_USER_DOWN_PATH(username),ERRNO_DESC);
 
       // Set the client's temporary files directory
       _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(),NULL);
-      if(!_downDir)
+      if(_tempDir.empty())
        THROW_SCODE(ERR_TMPDIR_NOT_FOUND,CLI_USER_TEMP_DIR_PATH(username),ERRNO_DESC);
+
+      LOG_DEBUG("User \"" + _name + "\" successfully logged in")
+      LOG_DEBUG("Download directory: " + _downDir)
+      LOG_DEBUG("Temporary directory " + _tempDir)
 
       // Set the user as logged in and return the success of the operation
       _loggedIn = true;
@@ -373,28 +384,27 @@ bool Client::login()
     catch(sCodeException& excp)
      {
       // In case of errors, safely delete the client's personal information
-      safeMemset0(reinterpret_cast<void*&>(username), username.length()+1);
-      safeMemset0(reinterpret_cast<void*&>(password), password.length()+1);
-      safeMemset0(reinterpret_cast<void*&>(_name), strlen(_name)+1);
-      safeMemset0(reinterpret_cast<void*&>(_downDir), strlen(_downDir)+1);
-      safeMemset0(reinterpret_cast<void*&>(_tempDir), strlen(_tempDir)+1);
+      OPENSSL_cleanse(&password[0], password.size());
+      OPENSSL_cleanse(&username[0], username.size());
+      OPENSSL_cleanse(&_name[0], _name.size());
+      OPENSSL_cleanse(&_downDir[0], _downDir.size());
+      OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
       EVP_PKEY_free(_rsaKey);
 
       // In DEBUG_MODE always log the exception in its entirety
 #ifdef DEBUG_MODE
-      handleScodeError(excp);
+      handleScodeException(excp);
 #else
       // In release mode only log in their entirety errors of CRITICAL severity, while all
       // others are concealed with a generic "wrong username or password" error so to not
       // provide information whether a client with the provided username exists or not
-      if(excp.scode != ERR_LOGIN_PRIVKFILE_CLOSE_FAILED && excp.scode != ERR_LOGIN_PRIVK_INVALID &&
-         excp.scode != ERR_DOWNDIR_NOT_FOUND && excp.scode != ERR_TMPDIR_NOT_FOUND)
+      if(excp.scode != ERR_FILE_CLOSE_FAILED && excp.scode != ERR_DOWNDIR_NOT_FOUND && excp.scode != ERR_TMPDIR_NOT_FOUND)
        {
         excp.scode = ERR_LOGIN_WRONG_NAME_OR_PWD;
         excp.addDscr = "";
         excp.reason = "";
        }
-      handleScodeError(excp);
+      handleScodeException(excp);
 #endif
 
       // Decrement the remaining number of client authentication attempts
@@ -404,13 +414,9 @@ bool Client::login()
 
   // If the client has exhausted their login attempts, print
   // an error and return that the login was unsuccessful
-  LOG_ERROR("Maximum number of authentication attempts reached, please try again later")
+  LOG_ERROR("Maximum number of login attempts reached, please try again later")
   return false;
  }
-
-
-
-
 
 
 /**
@@ -421,7 +427,6 @@ void Client::shutdownSignal()
  { _shutdown = true; }
 
 
-
 /**
   * @brief  Returns whether the client is locally logged in within the SafeCloud application
   * @return 'true' if logged in, 'false' otherwise
@@ -429,12 +434,14 @@ void Client::shutdownSignal()
 bool Client::isLoggedIn()
  { return _loggedIn; }
 
+
 /**
  * @brief  Returns whether the client is currently connected with the SafeCloud server
  * @return 'true' if connected, 'false' otherwise
  */
 bool Client::isConnected()
  { return _connected; }
+
 
 /**
  * @brief  Returns whether the client has received the shutdown signal
@@ -464,8 +471,8 @@ bool Client::isShuttingDown()
  * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
  * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
  */
-Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _name(nullptr), _downDir(nullptr),
-                                                _tempDir(nullptr), _rsaKey(nullptr), _loggedIn(false), _connected(false), _shutdown(false)
+Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _name(), _downDir(),
+                                                _tempDir(), _rsaKey(nullptr), _loggedIn(false), _connected(false), _shutdown(false)
  {
   // Attempt to set up the server endpoint parameters
   setSrvEndpoint(srvIP, srvPort);
@@ -489,9 +496,9 @@ Client::~Client()
   X509_STORE_free(_certStore);
 
   // Safely delete the client name and directory paths
-  safeMemset0(reinterpret_cast<void*&>(_name), strlen(_name)+1);
-  safeMemset0(reinterpret_cast<void*&>(_downDir), strlen(_downDir)+1);
-  safeMemset0(reinterpret_cast<void*&>(_tempDir), strlen(_tempDir)+1);
+  OPENSSL_cleanse(&_name[0], _name.size());
+  OPENSSL_cleanse(&_downDir[0], _downDir.size());
+  OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
  }
 
 

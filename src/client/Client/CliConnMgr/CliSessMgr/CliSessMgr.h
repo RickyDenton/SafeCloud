@@ -3,7 +3,7 @@
 
 /* SafeCloud Client Session Manager */
 
-#include "SessMgr.h"
+#include "ConnMgr/SessMgr/SessMgr.h"
 
 class CliSessMgr : SessMgr
  {

@@ -43,10 +43,8 @@ enum scode
 
   // X.509 Store Creation
   ERR_CA_CERT_OPEN_FAILED,
-  ERR_CA_CERT_CLOSE_FAILED,
   ERR_CA_CERT_INVALID,
   ERR_CA_CRL_OPEN_FAILED,
-  ERR_CA_CRL_CLOSE_FAILED,
   ERR_CA_CRL_INVALID,
   ERR_STORE_INIT_FAILED,
   ERR_STORE_ADD_CACERT_FAILED,
@@ -54,10 +52,10 @@ enum scode
   ERR_STORE_REJECT_REVOKED_FAILED,
 
   // Client Login
+  ERR_LOGIN_PWD_EMPTY,
   ERR_LOGIN_PWD_TOO_LONG,
   ERR_LOGIN_PRIVKFILE_NOT_FOUND,
   ERR_LOGIN_PRIVKFILE_OPEN_FAILED,
-  ERR_LOGIN_PRIVKFILE_CLOSE_FAILED,
   ERR_LOGIN_PRIVK_INVALID,
   ERR_DOWNDIR_NOT_FOUND,
   ERR_CLIENT_ALREADY_CONNECTED,
@@ -79,12 +77,13 @@ enum scode
   ERR_CSK_RECV_FAILED,
 
   // Files and Directories
+  ERR_FILE_CLOSE_FAILED,
   ERR_TMPDIR_NOT_FOUND,
   ERR_TMPDIR_OPEN_FAILED,
   ERR_TMPFILE_DELETE_FAILED,
-  ERR_TMPDIR_CLOSE_FAILED,
 
   // Client Login
+  ERR_LOGIN_NAME_EMPTY,
   ERR_LOGIN_NAME_TOO_LONG,
   ERR_LOGIN_NAME_WRONG_FORMAT,
   ERR_LOGIN_NAME_INVALID_CHARS,
@@ -148,10 +147,8 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     // X.509 Store Creation
     { ERR_CA_CERT_OPEN_FAILED,         {FATAL,"The CA certificate file could not be opened"} },
-    { ERR_CA_CERT_CLOSE_FAILED,        {FATAL,"The CA certificate file could not be closed"} },
     { ERR_CA_CERT_INVALID,             {FATAL,"The CA certificate file does not contain a valid X.509 certificate"} },
     { ERR_CA_CRL_OPEN_FAILED,          {FATAL,"The CA CRL file could not be opened"} },
-    { ERR_CA_CRL_CLOSE_FAILED,         {FATAL,"The CA CRL file could not be opened"} },
     { ERR_CA_CRL_INVALID,              {FATAL,"The CA CRL file does not contain a valid X.509 certificate revocation list"} },
     { ERR_STORE_INIT_FAILED,           {FATAL,"Error in initializing the X.509 certificates store"} },
     { ERR_STORE_ADD_CACERT_FAILED,     {FATAL,"Error in adding the CA certificate to the X.509 store"} },
@@ -159,11 +156,11 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STORE_REJECT_REVOKED_FAILED, {FATAL,"Error in configuring the store so to reject revoked certificates"} },
 
     // Client Login
+    { ERR_LOGIN_PWD_EMPTY,              {ERROR,"The user-provided password is empty"} },
     { ERR_LOGIN_PWD_TOO_LONG,           {ERROR,"The user-provided password is too long"} },
     { ERR_LOGIN_PRIVKFILE_NOT_FOUND,    {ERROR,"The user RSA private key file was not found"} },
     { ERR_LOGIN_PRIVKFILE_OPEN_FAILED,  {ERROR,"Error in opening the user's RSA private key file"} },
-    { ERR_LOGIN_PRIVKFILE_CLOSE_FAILED, {CRITICAL,"Error in closing the user's RSA private key file"} },
-    { ERR_LOGIN_PRIVK_INVALID,          {CRITICAL,"The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
+    { ERR_LOGIN_PRIVK_INVALID,          {ERROR,"The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
     { ERR_DOWNDIR_NOT_FOUND,            {CRITICAL,"The client's download directory was not found"} },
     { ERR_CLIENT_ALREADY_LOGGED_IN,     {ERROR,"The client is already locally logged in in the SafeCloud application"} },
 
@@ -180,12 +177,13 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CSK_RECV_FAILED,   {FATAL,"Error in reading data from connection socket"} },
 
     // Files and Directories
+    { ERR_FILE_CLOSE_FAILED,     {CRITICAL,"Error in closing the file"} },
     { ERR_TMPDIR_NOT_FOUND,      {CRITICAL,"The client's temporary directory was not found"} },
     { ERR_TMPDIR_OPEN_FAILED,    {CRITICAL,"Error in opening the temporary directory"} },
     { ERR_TMPFILE_DELETE_FAILED, {CRITICAL,"Error in deleting the temporary file"} },
-    { ERR_TMPDIR_CLOSE_FAILED,   {CRITICAL,"Error in opening the temporary directory"} },
 
     // Client Login
+    { ERR_LOGIN_NAME_EMPTY,         {ERROR,"The user-provided name is empty"} },
     { ERR_LOGIN_NAME_TOO_LONG,      {ERROR,"The user-provided name is too long"} },
     { ERR_LOGIN_NAME_WRONG_FORMAT,  {ERROR,"The user-provided name is of invalid format"} },
     { ERR_LOGIN_NAME_INVALID_CHARS, {ERROR,"The user-provided name contains invalid characters"} },

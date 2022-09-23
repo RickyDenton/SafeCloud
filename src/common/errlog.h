@@ -1,16 +1,17 @@
 #ifndef SAFECLOUD_ERRLOG_H
 #define SAFECLOUD_ERRLOG_H
 
-/* SafeCloud application error logging macros */
+/* SafeCloud application error utilities definitions */
 
 /* ================================== INCLUDES ================================== */
 #include <iostream>
 #include <map>
 #include <utility>
 #include <string.h>
-#include "colors.h"
+#include "ansi_colors.h"
 #include "scode.h"
 #include <openssl/err.h>
+#include "defaults.h"
 
 /* =========================== LOGGING UTILITY MACROS =========================== */
 
@@ -24,17 +25,46 @@
 // Returns a human-readable error description of the last OpenSSL error code
 #define OSSL_ERR_DESC ERR_error_string(ERR_get_error(),NULL) \
 
-/* -------------------- scodeExceptions Throwing and Catching -------------------- */
+/* ------------------------------- LOG_SCODE Macros ------------------------------- */
 
 /**
- * THROW_SCODE macros, throwing scode exceptions containing, depending on the number of arguments passed to the THROW_SCODE macro:
+ * LOG_SCODE macros, calling the throwing scode exceptions containing, depending on the number of arguments passed to the THROW_SCODE macro:
  *  - 1 argument   -> scode only
  *  - 2 arguments  -> scode + additional description
  *  - 3 arguments  -> scode + additional description + error reason
  *  - (DEBUG_MODE) -> The source file name and line number at which the exception is thrown
  */
 #ifdef DEBUG_MODE
- #define THROW_SCODE_ONLY(scode) throw sCodeException(scode,__FILE__,__LINE__-1)
+ #define LOG_SCODE_ONLY(scode) handleScodeError(scode,"","",__FILE__,__LINE__-1)
+ #define LOG_SCODE_DSCR(scode,dscr) handleScodeError(scode,dscr,"",__FILE__,__LINE__-1)
+ #define LOG_SCODE_DSCR_REASON(scode,dscr,reason) handleScodeError(scode,dscr,reason,__FILE__,__LINE__-1)
+#else
+#define LOG_SCODE_ONLY(scode) handleScodeError(scode,"","")
+ #define LOG_SCODE_DSCR(scode,dscr) handleScodeError(scode,dscr,"")
+ #define LOG_SCODE_DSCR_REASON(scode,dscr,reason) handleScodeError(scode,dscr,reason)
+#endif
+
+/**
+ * Substitutes the appropriate LOG_SCODE_MACRO depending on the number of arguments passed to the LOG_SCODE variadic macro:
+ *  - 1 argument  -> scode only
+ *  - 2 arguments -> scode + additional description
+ *  - 3 arguments -> scode + additional description + error reason
+ */
+#define GET_LOG_SCODE_MACRO(_1,_2,_3,LOG_SCODE_MACRO,...) LOG_SCODE_MACRO
+#define LOG_SCODE(...) GET_LOG_SCODE_MACRO(__VA_ARGS__,LOG_SCODE_DSCR_REASON,LOG_SCODE_DSCR,LOG_SCODE_ONLY)(__VA_ARGS__)
+
+
+/* -------------------- scodeExceptions Throwing and Catching -------------------- */
+
+/**
+ * THROW_SCODE macros, passing their arguments to the handleScodeException() function:
+ *  - 1 argument   -> scode only
+ *  - 2 arguments  -> scode + additional description
+ *  - 3 arguments  -> scode + additional description + error reason
+ *  - (DEBUG_MODE) -> The source file name and line number at which the exception is thrown
+ */
+#ifdef DEBUG_MODE
+#define THROW_SCODE_ONLY(scode) throw sCodeException(scode,__FILE__,__LINE__-1)
  #define THROW_SCODE_DSCR(scode,dscr) throw sCodeException(scode,dscr,__FILE__,__LINE__-1)
  #define THROW_SCODE_DSCR_REASON(scode,dscr,reason) throw sCodeException(scode,dscr,reason,__FILE__,__LINE__-1)
 #else
@@ -42,6 +72,7 @@
  #define THROW_SCODE_DSCR(scode,dscr) throw sCodeException(scode,dscr)
  #define THROW_SCODE_DSCR_REASON(scode,dscr,reason) throw sCodeException(scode,dscr,reason)
 #endif
+
 
 /**
  * Substitutes the appropriate THROW_SCODE_MACRO depending on the number of arguments passed to the THROW_SCODE variadic macro:
@@ -55,11 +86,12 @@
 /*
  * Catches a scodeException and passes it to the default scode error handler
  */
-#define CATCH_LOG_SCODE    \
+#define CATCH_SCODE        \
 catch(sCodeException& e)   \
  { handleScodeError(e); }
 
-/* -------------------- SEVERITY-BASED CUSTOM STRING LOGGING -------------------- */
+
+/* -------------------- Severity-based Custom String Logging -------------------- */
 
 // In DEBUG_MODE LOG_SEVERITY macros also print the name and line of the file where the LOG was called
 #ifdef DEBUG_MODE
@@ -148,100 +180,36 @@ class sCodeException : public std::exception
  };
 
 
-/* ============================ FUNCTIONS DEFINITIONS ============================ */
-
-extern void terminate(int exit_status);
+/* =========================== FUNCTIONS DECLARATIONS =========================== */
 
 /**
- * @brief Prints the predefined formatted logging header associated
- *        with a severity level (handleScodeError() helper function)
- * @param sev The severity level
+ * @brief            SafeCloud application default error handler, which:\n
+ *                     1) Logs all information associated with the error, including:\n
+ *                        1. The severity level of its associated status code\n
+ *                        2. The human-readable description of the associated status code\n
+ *                        3. (if available) The provided additional error description\n
+ *                        4. (if available) The provided error reason\n
+ *                        5. (if DEBUG_MODE) The source file name and line number at which the error occurred at\n
+ *                     2) For status codes of FATAL severity, the application's shutdown handler is invoked (terminate() function)\n
+ * @param sCode      The error's status code
+ * @param addDsc     The additional error description (optional)
+ * @param reason     The error reason (optional)
+ * @param srcFile    (DEBUG MODE ONLY) The source file the error occurred at
+ * @param lineNumber (DEBUG MODE ONLY) The line number the error occurred at
  */
-void printSevLevHeader(severityLvl sev)
- {
-  switch(sev)
-   {
-    case FATAL:
-     std::cout << BOLDBRIGHTRED << "<FATAL> " << BRIGHTRED;
-    break;
-
-    case CRITICAL:
-     std::cout << BOLDBRIGHTRED << "<CRITICAL> " << BRIGHTRED;
-    break;
-
-    case ERROR:
-     std::cout << BOLDRED << "<ERROR> " << RED;
-    break;
-
-    case WARNING:
-     std::cout << BOLDYELLOW << "<WARNING> " << YELLOW;
-    break;
-
-    case INFO:
-     std::cout << "<INFO> ";
-    break;
-
-    case DEBUG:
-     std::cout << BOLDBRIGHTBLACK << "<DEBUG> " << BRIGHTBLACK;
-    break;
-
-    // Unknown severity level (a fatal error of itself)
-    default:
-     std::cerr << "<FATAL> UNKNOWN SECURITY LEVEL in printSevLevHeader() (" + std::to_string(sev) + ")" << std::endl;
-    exit(EXIT_FAILURE);
-   }
- }
-
-
-/**
- * @brief      scodeException default handler, which:\n
- *                1) Logs all information associated with the scodeException, including:\n
- *                    1. The severity level of its status code\n
- *                    2. The human-readable description associated with its status code\n
- *                    3. (if available) The additional description provided to the scodeException\n
- *                    4. (if available) The error reason provided to the scodeException\n
- *                    5. (if DEBUG_MODE) The source file name and line number at which the scodeException was thrown\n
- *                2) For status codes of FATAL severity, the application's shutdown handler is invoked (terminate() function)\n
- * @param excp The handled scodeException object
- */
-void handleScodeError(const sCodeException& excp)
- {
-  // Obtain an iterator to the entry of the scodeInfoMap associated with the exception's status code
-  auto scodeInfoMapIt = scodeInfoMap.find(excp.scode);
-
-  // Retrieve the status code's severity level and description
-  enum severityLvl sev = scodeInfoMapIt->second.sev;
-  const char*dscr = scodeInfoMapIt->second.dscr;
-
-  // Print the logging header associated with the status code's security level
-  printSevLevHeader(sev);
-
-  // Print the status code's error description
-  std::cout << dscr;
-
-  // If present, log the additional description and error reason associated with the exception
-  if(!excp.addDscr.empty())
-   {
-    if(!excp.reason.empty())
-     std::cout << " (" << excp.addDscr << ", reason: " << excp.reason << ")";
-    else
-     std::cout << " (" << excp.addDscr << ")";
-   }
-
-  // In DEBUG_MODE, print the source file name and line number at which the exception was thrown
 #ifdef DEBUG_MODE
-  std::cout << " (file: \"" << excp.srcFile << "\", line: " << excp.lineNumber << ")";
+void handleScodeError(enum scode sCode,const std::string& addDscr,const std::string& reason,const std::string& srcFile,unsigned int lineNumber);
+#else
+void handleScodeError(enum scode sCode,const std::string& addDscr,const std::string& reason);
 #endif
 
-  // Print the error logging trailer
-  std::cout << RESET << std::endl;
 
-  // For scode of FATAL severity, call the application's shutdown handler
-  if(sev == FATAL)
-   terminate(EXIT_FAILURE);
+/**
+ * @brief      scodeException default handler, passing all information in the exception
+ *             to the SafeCloud application default error handler handleScodeError():\n
+ * @param excp The handled scodeException object
+ */
+void handleScodeException(const sCodeException& excp);
 
-  // NOTE: Exception objects are automatically destroyed after handling (matching
-  //       catch{} clause), and so do not require to be manually deallocated
- }
 
 #endif //SAFECLOUD_ERRLOG_H

@@ -39,8 +39,8 @@ class SessMgr
     unsigned char* _skey;         // The symmetric key of implicit SKEY_SIZE = 16 bytes (128 bit, AES_GCM)
 
     // Last sent and received session messages
-    sMsg* _sentMsg;               // The last sent session message
-    sMsg* _recvMsg;               // The last received session message
+//    sMsg* _sentMsg;               // The last sent session message
+//    sMsg* _recvMsg;               // The last received session message
 
 
    public:

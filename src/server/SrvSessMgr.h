@@ -3,7 +3,7 @@
 
 /* SafeCloud Server Session Manager */
 
-#include "SessMgr.h"
+#include "ConnMgr/SessMgr/SessMgr.h"
 
 class SrvSessMgr : SessMgr
  {

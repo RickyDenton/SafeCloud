@@ -1,4 +1,4 @@
-/* SafeCloud Client Utility Functions */
+/* SafeCloud Client Utility Functions Implementations */
 
 /* ================================== INCLUDES ================================== */
 
@@ -11,13 +11,26 @@ using namespace std;
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
 /**
+ * @brief Flushes carriage return and EOF characters from the input stream (stdin)
+ */
+void flush_CR_EOF()
+ {
+  // Flush carriage return and EOF characters from the input stream
+  int c;
+
+  do
+   c = getchar();
+  while ((c != '\n') && (c != EOF));
+ }
+
+
+/**
  * @brief Reads the first non-carriage return character from stdin, flushing following carriage returns and 'EOF' characters
  * @return The the first non-carriage return character read from stdin
  */
 int get1char()
  {
  int ret;  // First non-carriage return character in the stdin to return
- int c;    // Support character used for removing trailing carriage return and EOF characters from the stdin
 
  // Read the first non-carriage return from the stdin, prompting user input if it is not present
  do
@@ -25,9 +38,7 @@ int get1char()
  while (ret == '\n');
 
  // Flush carriage return and EOF characters from the input stream
- do
-  c = getchar();
- while ((c != '\n') && (c != EOF));
+ flush_CR_EOF();
 
  // Return the first non-carriage return character read from stdin
  return ret;

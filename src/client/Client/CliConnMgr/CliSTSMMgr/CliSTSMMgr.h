@@ -3,7 +3,7 @@
 
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Client Manager */
 
-#include "STSMMgr.h"
+#include "ConnMgr/STSMMgr/STSMMgr.h"
 
 /* ------------------------- STSM Client States ------------------------- */
 enum STSMCliState

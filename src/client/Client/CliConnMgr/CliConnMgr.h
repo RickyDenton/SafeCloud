@@ -3,7 +3,7 @@
 
 /* SafeCloud Client Connection Manager  */
 
-#include "ConnMgr.h"
+#include "ConnMgr/ConnMgr.h"
 #include "CliSTSMMgr/CliSTSMMgr.h"
 #include "CliSessMgr/CliSessMgr.h"
 #include <openssl/evp.h>
@@ -13,8 +13,8 @@ class CliConnMgr : ConnMgr
   private:
 
    /* ------------------------- Attributes ------------------------- */
-   X509_STORE* _cliStore;    // The client's X.509 certificate store used for validating the server's signature
-   char*       _downDir;     // The client's download directory
+   X509_STORE*  _cliStore;    // The client's X.509 certificate store used for validating the server's signature
+   std::string& _downDir;     // The client's download directory
 
    CliSTSMMgr* _cliSTSMMgr;  // The client's STSM key handshake manager
    CliSessMgr* _cliSessMgr;  // The client's session manager
@@ -22,7 +22,7 @@ class CliConnMgr : ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   CliConnMgr(int csk, char* name, char* tmpDir, X509_STORE* cliStore, char* downDir);
+   CliConnMgr(int csk, std::string& name, std::string& tmpDir, X509_STORE* cliStore, std::string& downDir);
    // Same destructor of the ConnMgr base class
 
    /* ======================== Other Methods ======================== */

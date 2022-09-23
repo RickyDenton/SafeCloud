@@ -3,14 +3,12 @@
 
 /* SafeCloud application default parameter values */
 
-// Enable for DEBUG mode
-// TODO: Put in an appropriate running configuration
-//#define DEBUG_MODE
-
+// Enable for DEBUG mode (implemented via Clion CMake running configurations
+// #define DEBUG_MODE
 
 /* ============================= SHARED PARAMETERS ============================= */
 
-#define CONN_BUF_SIZE   4 * 1024 * 1024   // 4 MB
+#define CONN_BUF_SIZE   5 * 1024 * 1024   // 5 MB
 #define CONN_OOBUF_SIZE 24                // The size of a signaling message TODO: check if necessary
 
 // Client Object Parameters

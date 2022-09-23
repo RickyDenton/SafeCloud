@@ -19,7 +19,7 @@
  * @param skey    The symmetric key of implicit SKEY_SIZE = 16 bytes (128 bit, AES_GCM)
  */
 SessMgr::SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey)
-                 : _sessOp(IDLE), _csk(csk), _tmpDir(tmpDir), _buf(buf), _bufInd(0), _bufSize(bufSize), _iv(iv), _skey(skey), _sentMsg(nullptr), _recvMsg(nullptr)
+                 : _sessOp(IDLE), _csk(csk), _tmpDir(tmpDir), _buf(buf), _bufInd(0), _bufSize(bufSize), _iv(iv), _skey(skey)//, _sentMsg(nullptr), _recvMsg(nullptr)
  {}
 
 
@@ -31,6 +31,6 @@ SessMgr::SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize
 SessMgr::~SessMgr()
  {
   // Delete the last received and sent session messages
-  delete _sentMsg;
-  delete _recvMsg;
+//  delete _sentMsg;
+//  delete _recvMsg;
  }

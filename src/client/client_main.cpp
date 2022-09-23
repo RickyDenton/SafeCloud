@@ -12,9 +12,6 @@
 
 // OpenSSL Libraries
 #include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/x509_vfy.h>
-#include <openssl/err.h>
 #include <cstring>
 
 // SafeCloud Libraries
@@ -30,8 +27,6 @@
 
 // The singleton Client object
 static Client* cli;
-
-
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
@@ -80,6 +75,21 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
    }
 }
 
+/* =================================== CLIENT MAIN LOOP =================================== */
+
+int clientLoop()
+ {
+  bool conn;
+
+  conn = cli->login();
+   if(conn)
+    {
+     std::string lala;
+     std::cout << "CONNECTED" << std::endl;
+    }
+  return(EXIT_SUCCESS);
+ }
+
 
 
 /* ================================ CLIENT INITIALIZATION ================================ */
@@ -89,7 +99,7 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
  */
 void printWelcomeMessage()
  {
-  std::cout << "   _____        __      _____ _                 _ n";
+  std::cout << "   _____        __      _____ _                 _ \n";
   std::cout << "  / ____|      / _|    / ____| |               | |\n";
   std::cout << " | (___   __ _| |_ ___| |    | | ___  _   _  __| |\n";
   std::cout << "  \\___ \\ / _` |  _/ _ \\ |    | |/ _ \\| | | |/ _` |\n";
@@ -127,9 +137,9 @@ void clientInit(char* srvIP,uint16_t& srvPort)
      }
 
     // Otherwise it is a (fatal) error associated with the client's X.509 certificates store creation, which
-    // should be handled by the general handleScodeError() function, (which also terminates the execution)
+    // should be handled by the general handleScodeException() function, (which also terminates the execution)
     else
-     handleScodeError(excp);
+     handleScodeException(excp);
    }
  }
 
@@ -194,7 +204,7 @@ void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
       //
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "cert-err34-c"
-      srvPort = atoi(optarg);
+      _srvPort = atoi(optarg);
 #pragma clang diagnostic pop
      break;
 
@@ -237,7 +247,7 @@ void parseCmdArgs(int argc, char** argv, char* srvIP, uint16_t& srvPort)
 
   // Copy the temporary option's values into the references provided by the caller
   //
-  // NOTE: Rememeber that such values are NOT validated here
+  // NOTE: Remember that such values are NOT validated here
   strncpy(srvIP, _srvIP, 15);
   srvPort = _srvPort;
  }
@@ -256,17 +266,6 @@ int main(int argc, char** argv)
   char srvIP[16];      // The IP address as a string of the SafeCloud server to connect to
   uint16_t srvPort;    // The port of the SafeCloud server to connect to
 
-
-
-//  // General Client Information
-//  char name[CLI_NAME_MAX_LENGTH+1];  // The client's username in the SafeCloud application
-//  char* downDir = nullptr;           // The client's download directory
-//
-//  // Client Cryptographic information
-//  static X509_STORE* cliStore  = nullptr; // The client's X.509 certificates store
-//  static EVP_PKEY*   cliRSAKey = nullptr; // The client's long-term RSA key pair
-
-
   /* ----------------------- Function Body ----------------------- */
 
   // Register the SIGINT, SIGTERM and SIGQUIT signals handler
@@ -283,6 +282,7 @@ int main(int argc, char** argv)
   clientInit(srvIP,srvPort);
 
   // Print the SafeCloud client welcome message
+  printWelcomeMessage();
 
   // Call the client logic main loop
   clientLoop();

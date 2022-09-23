@@ -34,8 +34,8 @@ class sClient
     unsigned char*      _iv;        // The client's current initialization vector value
     const unsigned int  _ivSize;    // Initialization vector size (12 bytes = 96 bits using AES_GCM)
 
-    sMessage*           _sentMsg;   // The last SafeCloud Message sent from the client
-    sMessage*           _recvMsg;   // The last SafeCloud Message received from the client
+//    sMessage*           _sentMsg;   // The last SafeCloud Message sent from the client
+//    sMessage*           _recvMsg;   // The last SafeCloud Message received from the client
 
     char*               _tempDir;   // The path to the client's temporary directory
 
@@ -48,3 +48,5 @@ class sClient
     /* -------------------- Getters and Setters -------------------- */
     char* getName();  // Returns the client's name
  };
+
+#endif //SAFECLOUD_SCLIENT_H

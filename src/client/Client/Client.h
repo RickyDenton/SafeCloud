@@ -6,33 +6,34 @@
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"
+#include <string>
 
 class Client
  {
   private:
 
-   /* ========================= Attributes ========================= */
+   /* ================================= ATTRIBUTES ================================= */
 
-   /* -------------------- General Information -------------------- */
+   /* ---------------------------- General Information ---------------------------- */
    struct sockaddr_in _srvAddr;     // The SafeCloud server listening socket type, IP and Port in network representation order
    X509_STORE*        _certStore;   // The client's X.509 certificates store
    CliConnMgr*        _cliConnMgr;  // The client's connection manager object
 
-   /* ---------------- Client Personal Information ---------------- */
-   char*     _name;     // The client's username (unique in the SafeCloud application)
-   char*     _downDir;  // The client's download directory
-   char*     _tempDir;  // The client's temporary files directory
-   EVP_PKEY* _rsaKey;   // The client's Long-term RSA key pair
+   /* ------------------------ Client Personal Information ------------------------ */
+   std::string _name;     // The client's username (unique in the SafeCloud application)
+   std::string _downDir;  // The client's download directory
+   std::string _tempDir;  // The client's temporary files directory
+   EVP_PKEY*   _rsaKey;   // The client's long-term RSA key pair
 
-   /* -------------------- Client Object Flags -------------------- */
+   /* ---------------------------- Client Object Flags ---------------------------- */
    bool _loggedIn;   // Whether the client has logged in within the SafeCloud application (locally, meaning that its personal parameters have been initialized)
    bool _connected;  // Whether the client is connected with the remote SafeCloud server
    bool _shutdown;   // Used to inform the client object to gracefully terminate upon receiving an OS signal
 
 
-   /* =========================== Methods =========================== */
+   /* =============================== PRIVATE METHODS =============================== */
 
-   /* ---------------- Client Object Initialization ---------------- */
+   /* ------------------------ Client Object Initialization ------------------------ */
 
    /**
      * @brief Sets the IP address and port of the SafeCloud server to connect to
@@ -67,13 +68,40 @@ class Client
      * @throws ERR_CA_CRL_OPEN_FAILED          The CA CRL file could not be opened
      * @throws ERR_CA_CRL_CLOSE_FAILED         The CA CRL file could not be closed
      * @throws ERR_CA_CRL_INVALID              The CA CRL is invalid
-     * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initalized
+     * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initialized
      * @throws ERR_STORE_ADD_CACERT_FAILED     Error in adding the CA certificate to the X.509 store
      * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
      * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
      */
    void buildX509Store();
 
+
+   /* -------------------------------- Client Login -------------------------------- */
+
+   /**
+     * @brief   Reads a character from stdin while temporarily disabling
+     *          its echoing on stdout (getUserPwd() helper function)
+     * @return  The character read from stdin
+     */
+   static signed char getchHide();
+
+
+   /**
+     * @brief  Reads the user's password while concealing its
+     *         characters with asterisks "*" (login() helper function)
+     * @return The user-provided password
+     */
+   static std::string getUserPwd();
+
+   /**
+    * @brief           Attempts to locally authenticate the user by retrieving and decrypting
+    *                  its RSA long-term private key (login() helper function)
+    * @param username  The candidate user name
+    * @param password  The candidate user password
+    */
+  void getUserRSAKey(std::string& username,std::string& password);
+
+   /* -------------------------------- Client Login -------------------------------- */
 
    // TODO
    // bool srvConnect();
@@ -100,7 +128,7 @@ class Client
     * @throws ERR_CA_CRL_OPEN_FAILED          The CA CRL file could not be opened
     * @throws ERR_CA_CRL_CLOSE_FAILED         The CA CRL file could not be closed
     * @throws ERR_CA_CRL_INVALID              The CA CRL is invalid
-    * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initalized
+    * @throws ERR_STORE_INIT_FAILED           The X.509 certificate store could not be initialized
     * @throws ERR_STORE_ADD_CACERT_FAILED     Error in adding the CA certificate to the X.509 store
     * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
     * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
@@ -114,7 +142,15 @@ class Client
 
    /* ======================== Other Methods ======================== */
 
-
+   /**
+     * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
+     *        for its username and password, authentication consisting in successfully retrieving the
+     *        user's long-term RSA key pair encrypted with such password stored in a ".pem" file with
+     *        a predefined path function of the provided username
+     * @return 'true' if the client successfully logged in or 'false' otherwise
+     * @throws ERR_CLIENT_ALREADY_CONNECTED The client is already connected with the SafeCloud server
+     * @throws ERR_CLIENT_ALREADY_LOGGED_IN The client is already logged in within the SafeCloud application
+     */
    bool login();
 
 

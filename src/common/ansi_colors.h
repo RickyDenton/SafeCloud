@@ -1,5 +1,5 @@
-#ifndef SAFECLOUD_COLORS_H
-#define SAFECLOUD_COLORS_H
+#ifndef SAFECLOUD_ANSI_COLORS_H
+#define SAFECLOUD_ANSI_COLORS_H
 
 /* List of ANSI color codes used for severity-based logging formatting */
 
@@ -46,4 +46,4 @@
 #define BOLDBRIGHTWHITE   "\e[1;97m"
 
 
-#endif //SAFECLOUD_COLORS_H
+#endif //SAFECLOUD_ANSI_COLORS_H
