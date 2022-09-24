@@ -1,14 +1,14 @@
 #ifndef SAFECLOUD_CLIENT_OLD_H
 #define SAFECLOUD_CLIENT_OLD_H
 
-/* SafeCloud Client Class Definition */
+/* SafeCloud Client Class Definition *//*
 
-/* ================================== INCLUDES ================================== */
+*//* ================================== INCLUDES ================================== *//*
 #include <stdio.h>
 #include <unistd.h>
 #include <unordered_map>
 
-/* ============================== CLASS DEFINITION ============================== */
+*//* ============================== CLASS DEFINITION ============================== *//*
 
 enum clientType
  {
@@ -21,7 +21,7 @@ class client_old
  {
   private:
 
-   /* ------------------------- Attributes ------------------------- */
+   *//* ------------------------- Attributes ------------------------- *//*
 
    // TODO: STUB
 
@@ -33,18 +33,18 @@ class client_old
    int        _skey;      // The client's session key
    int        _iv;        // The client's initialization vector
 
-   /* -------------------------- Methods -------------------------- */
+   *//* -------------------------- Methods -------------------------- *//*
 
    // Reads data from the client's connection socket into the specified buffer
    bool recvCheck(char* buf, size_t bufSize, ssize_t& recvSize);
 
   public:
 
-   /* ---------------- Constructors and Destructor ---------------- */
+   *//* ---------------- Constructors and Destructor ---------------- *//*
    client_old(int csk, const char* ip, int port);
    ~client_old();
 
-   /* ----------------------- Other Methods ----------------------- */
+   *//* ----------------------- Other Methods ----------------------- *//*
 
    // Attempts to read data destined to the client from its connection socket and performs
    // the appropriate actions depending on its cliType and state, returning an indication
@@ -56,12 +56,12 @@ class client_old
  };
 
 
-/* ============================== TYPE DEFINITIONS ============================== */
+*//* ============================== TYPE DEFINITIONS ============================== *//*
 
 // An unordered map used for associating connection sockets' file descriptors to their client objects
 typedef std::unordered_map<int,client_old*> clientMap;
 
 // An iterator for the clientMap type
-typedef std::unordered_map<int,client_old*>::iterator connMapIt;
+typedef std::unordered_map<int,client_old*>::iterator connMapIt;*/
 
 #endif //SAFECLOUD_CLIENT_OLD_H

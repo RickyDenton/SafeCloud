@@ -25,13 +25,9 @@ class ConnMgr
    std::string* _tmpDir;              // The connection's temporary directory
 
    // General-purpose buffer for sending and receiving data
-   unsigned char*     _buf;          // General-purpose buffer
-   const unsigned int _bufSize;      // General-purpose buffer size (CONN_BUF_SIZE)
-
-   // TODO: Check if needed
-   // Out-of-band buffer for asynchronous messages
-   unsigned char*      _oobBuf;      // Out-of-Band buffer
-   const unsigned int  _oobBufSize;  // Out-of-Band buffer size
+   unsigned char      _buf[CONN_BUF_SIZE];  // General-purpose buffer
+   const unsigned int _bufSize;             // General-purpose buffer size (CONN_BUF_SIZE)
+   unsigned int       _bufInd;              // First available byte in the general-purpose buffer
 
    // Cryptographic quantities
    unsigned char* _iv[IV_SIZE];      // The connection's initialization vector
@@ -48,8 +44,20 @@ class ConnMgr
 
   public:
 
-   /* ================= Constructors and Destructor ================= */
+   /* ================= Constructor and Destructor ================= */
+
+   /**
+    * @brief        ConnMgr object constructor
+    * @param csk    The connection socket's file descriptor
+    * @param name   The client's name associated with this connection
+    * @param tmpDir The connection's temporary directory
+    */
    ConnMgr(int csk, std::string* name, std::string* tmpDir);
+
+   /**
+    * @brief Connection Manager object destructor, which closes its associated connection
+    *        socket and safely deletes all the connection's sensitive information
+    */
    ~ConnMgr();
 
    /* ======================== Other Methods ======================== */
@@ -60,7 +68,6 @@ class ConnMgr
    // sendOk()
    // sendClose()
    // sendCloseError()
-  std::string* getName();
  };
 
 

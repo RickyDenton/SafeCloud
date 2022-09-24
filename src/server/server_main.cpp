@@ -6,6 +6,7 @@
 #include <iostream>
 #include <signal.h>
 #include <string.h>
+#include <unistd.h>
 
 // TCP/IP Libraries
 #include <arpa/inet.h>

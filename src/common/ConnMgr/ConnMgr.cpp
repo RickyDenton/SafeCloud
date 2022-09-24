@@ -1,7 +1,6 @@
 /* SafeCloud Connection Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
-#include <stdlib.h>
 #include <unistd.h>
 #include <string>
 #include "ConnMgr.h"
@@ -9,6 +8,7 @@
 #include "scode.h"
 #include "errlog.h"
 #include <dirent.h>
+#include <arpa/inet.h>
 
 /* =============================== PRIVATE METHODS =============================== */
 // TODO
@@ -21,12 +21,15 @@ void ConnMgr::cleanTmpDir()
   DIR*           tmpDir;    // Temporary directory file descriptor
   struct dirent* tmpFile;   // Information on a file in the temporary directory
 
-  // Absolute path of a file in the temporary length, whose max length is obtained by the
-  // of length the temporary directory path plus the maximum file name length (+1 for the '\0')
+  // Absolute path of a file in the temporary directly, whose maximum length is given by the length
+  // of the temporary directory's path plus the maximum file name length (+1 for the '\0' terminator)
   char tmpFileAbsPath[strlen(_tmpDir->c_str() + NAME_MAX + 1)];
 
+  // Convert the temporary directory's path to a C string
+  const char* _tmpDirC = _tmpDir->c_str();
+
   // Open the temporary directory
-  tmpDir = opendir(_tmpDir->c_str());
+  tmpDir = opendir(_tmpDirC);
   if(!tmpDir)
    LOG_SCODE(ERR_TMPDIR_OPEN_FAILED,*_tmpDir,ERRNO_DESC);
   else
@@ -35,7 +38,7 @@ void ConnMgr::cleanTmpDir()
     while((tmpFile = readdir(tmpDir)) != NULL)
      {
       // Build the file's absolute path
-      sprintf(tmpFileAbsPath, "%s/%s", "path/of/folder", tmpFile->d_name);
+      sprintf(tmpFileAbsPath, "%s/%s",_tmpDirC, tmpFile->d_name);
 
       // Delete the file
       if(remove(tmpFileAbsPath) == -1)
@@ -46,51 +49,48 @@ void ConnMgr::cleanTmpDir()
     if(closedir(tmpDir) == -1)
      LOG_SCODE(ERR_FILE_CLOSE_FAILED,*_tmpDir, ERRNO_DESC);
    }
+
+  // Free the temporary directory's path as a C string
+  delete _tmpDirC;
  }
 
 
-/* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
+/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
  * @brief        ConnMgr object constructor
  * @param csk    The connection socket's file descriptor
- * @param ip     The connection endpoint's IP address
- * @param port   The connection endpoint's port
  * @param name   The client's name associated with this connection
  * @param tmpDir The connection's temporary directory
  */
-ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir),
-_buf(), _bufSize(CONN_BUF_SIZE), _oobBuf(), _oobBufSize(CONN_OOBUF_SIZE), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
- {
-  // Allocate the connection's buffers
-  _buf = (unsigned char*)malloc(CONN_BUF_SIZE);
-  _oobBuf = (unsigned char*)malloc(CONN_OOBUF_SIZE);
- }
+ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _buf(),
+                                                                    _bufSize(CONN_BUF_SIZE), _bufInd(0), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
+ {}
 
 
 /**
- * @brief Connection Manager object destructor, which closes its associated connection socket and safely deletes
- *        sensitive information such as the general-purpose and out-of band buffers, the IV and the session key
+ * @brief Connection Manager object destructor, which closes its associated connection
+ *        socket and safely deletes all the connection's sensitive information
  */
 ConnMgr::~ConnMgr()
  {
   // Close the connection socket
   // TODO: Check if adding a "bye" message here, but it should probably be implemented elsewhere
   if(close(_csk) != 0)
-   LOG_SCODE(ERR_CSK_CLOSE_FAILED,ERRNO_DESC);
-  else
-    LOG_DEBUG("Connection socket '" + std::to_string(_csk) + "' closed")
+   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
 
-  // Delete the contents of the connection's temporary directory
-  cleanTmpDir();
+  // If set, delete the contents of the connection's temporary directory
+  if(_tmpDir != nullptr)
+   cleanTmpDir();
 
   // Safely delete all the connection's sensitive information
-  OPENSSL_cleanse(&_buf, _bufSize);
-  OPENSSL_cleanse(&_oobBuf, _oobBufSize);
-  OPENSSL_cleanse(&_name, _name->length()+1);
-  OPENSSL_cleanse(&_iv, _ivSize);
-  OPENSSL_cleanse(&_skey, _skeySize);
-  OPENSSL_cleanse(&_tmpDir, _tmpDir->length()+1);
+  if(_name != nullptr)
+   OPENSSL_cleanse(_name, _name->length()+1);
+  if(_tmpDir != nullptr)
+   OPENSSL_cleanse(_tmpDir, _tmpDir->length()+1);
+  OPENSSL_cleanse(_buf, _bufSize);
+  OPENSSL_cleanse(_iv, _ivSize);
+  OPENSSL_cleanse(_skey, _skeySize);
  }
 
 
@@ -98,13 +98,78 @@ ConnMgr::~ConnMgr()
 
 // TODO
 
+// ERR_CSK_RECV_FAILED
+
 bool ConnMgr::recvData()
  {
-  return true;
- };
+  ssize_t recvRet; // Number of bytes read from the connection socket
 
-std::string* ConnMgr::getName()
- { return _name; }
+  // Attempt to read up to (_bufSize - _bufInd) bytes from the connection socket into the general purpose buffer
+  recvRet = recv(_csk, _buf, (_bufSize - _bufInd), 0);
+
+  LOG_DEBUG(*_name + " recv() returned " + std::to_string(recvRet))
+
+  // Depending on the number of bytes that were read from the connection socket
+  switch(recvRet)
+   {
+    // recv() error
+    case -1:
+     THROW_SCODE(ERR_CSK_RECV_FAILED,*_name,ERRNO_DESC);
+
+    // Abrupt peer disconnection
+    case 0:
+     THROW_SCODE(ERR_PEER_DISCONNECTED,*_name);
+
+    // > 0 => number of bytes read from socket
+    default:
+
+     // Process the incoming client data
+     // _bufInd += recvRet;
+
+     // TODO: implement appropriately
+     // TODO --------------------------------------------------------------------------------------------------------
+     _buf[_bufInd + recvRet] = '\0';
+
+     char cliMsg[1024];
+     memcpy(cliMsg,&_buf[_bufInd],recvRet+1);
+
+     char hello[] = "Hello from server";
+     char login_success[] = "Login successful";
+
+     if(!strcmp(cliMsg, "close"))
+      return false;
+
+     // If the client "logged in"
+     if(!strcmp(cliMsg, "login"))
+      {
+       // Inform the user that the login was successful
+       send(_csk, (const void*)login_success, sizeof(login_success), 0);
+
+       // Log that the user has logged in
+       LOG_INFO("\"" + *_name + "\" has logged in as \"Alice" + std::to_string(_csk) + "\"")
+
+       // Set the user's "name"
+       *_name = "Alice" + std::to_string(_csk);
+
+       // Return that the client connection must be maintained
+       return true;
+      }
+
+    // Otherwise, it is just a random message
+
+    // Echo the client message
+    std::cout << "\"" << *_name << "\" says \"" << cliMsg << "\"" << std::endl;
+
+    // Reply a predefined message
+    send(_csk, (const void*)hello, sizeof(hello), 0);
+
+    // Return that the client connection must be maintained
+    return true;
+    // TODO --------------------------------------------------------------------------------------------------------
+
+   }
+
+ }
 
 // sendOk()
 // sendClose()

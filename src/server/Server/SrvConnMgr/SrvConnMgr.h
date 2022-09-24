@@ -23,8 +23,20 @@ class SrvConnMgr : public ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   SrvConnMgr(int csk, std::string* name, std::string* tmpDir, X509* srvCert, std::string* _poolDir);
-   // Same destructor of the ConnMgr base class
+
+   /**
+    * @brief          SrvConnMgr object constructor
+    * @param csk      The connection socket's file descriptor
+    * @param guestIdx The connected client's temporary identifier
+    * @param srvCert  The server's X.509 certificate
+    */
+   SrvConnMgr(int csk, unsigned int guestIdx, X509* srvCert);
+
+   /**
+    * @brief SrvConnMgr object destructor, which safely deletes
+    *        the server-specific connection sensitive information
+    */
+   ~SrvConnMgr();
 
   /* ======================== Other Methods ======================== */
   // TODO

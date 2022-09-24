@@ -78,7 +78,6 @@ enum scode
   // Connection socket
   ERR_CSK_INIT_FAILED,
   ERR_CSK_CONN_FAILED,
-  ERR_SRV_ECONNRESET,
   ERR_CLIENT_ALREADY_LOGGED_IN,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
@@ -90,6 +89,7 @@ enum scode
   // Connection Sockets
   ERR_CSK_CLOSE_FAILED,
   ERR_CSK_RECV_FAILED,
+  ERR_PEER_DISCONNECTED,
 
   // Files and Directories
   ERR_FILE_CLOSE_FAILED,
@@ -189,7 +189,6 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     // Connection Socket
     { ERR_CSK_INIT_FAILED,          {FATAL,"Connection Socket Creation Failed"} },
     { ERR_CSK_CONN_FAILED,          {FATAL,"Fatal error in connecting with the server"} },
-    { ERR_SRV_ECONNRESET,           {WARNING,"The Server abruptly closed the connection"} },
     { ERR_CLIENT_ALREADY_CONNECTED, {ERROR,"The client is already connected to the SafeCloud server"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
@@ -199,8 +198,9 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_SRV_PORT_INVALID,  {ERROR,"The SafeCloud Server port is invalid"} },
 
     // Connection sockets
-    { ERR_CSK_CLOSE_FAILED,  {FATAL,"Connection Socket Close Failed"} },
-    { ERR_CSK_RECV_FAILED,   {FATAL,"Error in reading data from connection socket"} },
+    { ERR_CSK_CLOSE_FAILED,  {CRITICAL,"Connection Socket Close Failed"} },
+    { ERR_CSK_RECV_FAILED,   {CRITICAL,"Error in reading data from connection socket"} },
+    { ERR_PEER_DISCONNECTED, {WARNING, "Abrupt peer disconnection"} },
 
     // Files and Directories
     { ERR_FILE_CLOSE_FAILED,     {CRITICAL,"Error in closing the file"} },

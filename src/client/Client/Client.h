@@ -142,6 +142,9 @@ class Client
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
+   // TODO
+   int srvConnect();
+
    /**
      * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
      *        for its username and password, authentication consisting in successfully retrieving the

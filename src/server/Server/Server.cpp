@@ -31,7 +31,7 @@ void Server::setSrvEndpoint(uint16_t& srvPort)
   else   // Otherwise, throw an exception
    THROW_SCODE(ERR_SRV_PORT_INVALID);
 
-  LOG_DEBUG("SafeCloud server port set to" + std::to_string(srvPort))
+  LOG_DEBUG("SafeCloud server port set to " + std::to_string(srvPort))
  }
 
 
@@ -48,40 +48,43 @@ void Server::getServerRSAKey()
   char* RSAKeyFilePath; // The server's long-term RSA private key file path
 
   // Derive the expected absolute, or canonicalized, path of the server's private key file
-  RSAKeyFilePath = realpath(SRV_CERT_PATH,NULL);
+  RSAKeyFilePath = realpath(SRV_PRIVK_PATH,NULL);
   if(!RSAKeyFilePath)
-   THROW_SCODE(ERR_SRV_PRIVKFILE_NOT_FOUND, SRV_CERT_PATH, ERRNO_DESC);
+   THROW_SCODE(ERR_SRV_PRIVKFILE_NOT_FOUND, SRV_PRIVK_PATH, ERRNO_DESC);
 
-  // Attempt to open the server's RSA private key file
-  RSAKeyFile = fopen(RSAKeyFilePath, "r");
-  if(!RSAKeyFile)
+  // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in an exception
+  try
    {
+    // Attempt to open the server's RSA private key file
+    RSAKeyFile = fopen(RSAKeyFilePath, "r");
+    if(!RSAKeyFile)
+     THROW_SCODE(ERR_SRV_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Attempt to read the server's long-term RSA private key from its file
+    _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, NULL);
+
+    // Close the RSA private key file
+    if(fclose(RSAKeyFile) != 0)
+     THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Ensure that a valid private key has been read
+    if(!_rsaKey)
+     THROW_SCODE(ERR_SRV_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
+
+    // At this point the server's long-term RSA private key is valid
+    LOG_DEBUG("SafeCloud server long-term RSA private key successfully loaded")
+
+    // Free the RSA key file path
     free(RSAKeyFilePath);
-    THROW_SCODE(ERR_SRV_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
    }
-
-  // Attempt to read the server's long-term RSA private key from its file
-  _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, NULL);
-
-  // Close the RSA private key file
-  if(fclose(RSAKeyFile) != 0)
+  catch(sCodeException& excp)
    {
+    // Free the RSA key file path
     free(RSAKeyFilePath);
-    THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Re-throw the exception
+    throw;
    }
-
-  // Ensure that a valid private key has been read
-  if(!_rsaKey)
-   {
-    free(RSAKeyFilePath);
-    THROW_SCODE(ERR_SRV_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
-   }
-
-  // At this point the server's long-term RSA private key is valid
-  LOG_DEBUG("Server long-term private key successfully loaded")
-
-  // Free the RSA key file path
-  free(RSAKeyFilePath);
  }
 
 
@@ -116,7 +119,7 @@ void Server::getServerCert()
   // and, in DEBUG_MODE, print its subject and issuer
 #ifdef DEBUG_MODE
   std::string certSubject = X509_NAME_oneline(X509_get_subject_name(srvCert), NULL, 0);
-  LOG_DEBUG("Server certificate successfully loaded: " + certSubject)
+  LOG_DEBUG("SafeCloud server certificate successfully loaded: " + certSubject)
 #endif
 
   // Set the valid server certificate
@@ -168,8 +171,8 @@ void Server::closeConn(connMapIt cliIt)
  {
   size_t connClients;  // Number of connected clients AFTER the client's disconnection
 
-  // Log the client's disconnection
-  LOG_INFO(*cliIt->second->getName() + " has disconnected")
+  // Remove the connection socket from the set of file descriptors of open sockets
+  FD_CLR(cliIt->first, &_skSet);
 
   // Delete the client's connection manager
   delete(cliIt->second);
@@ -244,18 +247,15 @@ void Server::newClientData(int ski)
 void Server::newClientConnection()
  {
   /* ----------------- Client Endpoint Information ----------------- */
-  struct sockaddr_in cliAddr{};                         // The client socket type, IP and Port
-  static unsigned int cliAddrLen = sizeof(sockaddr_in); // The (static) size of a sockaddr_in structure
-  char cliIP[16];                                       // The client IP address
-  int cliPort;                                          // The client port
+  struct sockaddr_in  cliAddr{};                         // The client socket type, IP and Port
+  static unsigned int cliAddrLen = sizeof(sockaddr_in);  // The (static) size of a sockaddr_in structure
+  char cliIP[16];                                        // The client IP address
+  int  cliPort;                                          // The client port
 
   /* ----------------- Client SrvConnMgr Creation ----------------- */
-  int csk = -1;                 // The client's assigned connection socket
-  size_t connClients;           // Number of connected clients BEFORE the client's connection
-  std::string* tempName;        // The client's temporary name
-  std::string* tempDir;         // The client's temporary directory
-  std::string* tempPool;        // The client's temporary pool directory
-  SrvConnMgr* srvConnMgr;       // The client's assigned connection manager
+  int          csk = -1;     // The client's assigned connection socket
+  size_t       connClients;  // Number of connected clients BEFORE the client's connection
+  SrvConnMgr*  srvConnMgr;   // The client's assigned connection manager
 
   // Used to check whether the newly created server connection
   // manager was successfully added to the connections' map
@@ -296,21 +296,9 @@ void Server::newClientConnection()
     return;
    }
 
-  // Prepare the new client's temporary name, temporary directory and pool directory
-  tempName = new std::string("Guest" + std::to_string(_guestIdx++));
-  tempDir = new std::string("");
-  tempPool = new std::string("");
-
-  // If the temporary _guestIdx identifier has overflowed, reset it to 1
-  if(_guestIdx == 0)
-   {
-    LOG_INFO("Maximum number of guest identifiers reached (" + std::to_string(UINT_MAX) + "), starting back from \'1\'")
-    _guestIdx = 1;
-   }
-
   // Attempt to initialize the client's connection manager
   try
-   { srvConnMgr = new SrvConnMgr(csk, tempName, tempDir, _srvCert, tempPool); }
+   { srvConnMgr = new SrvConnMgr(csk,_guestIdx,_srvCert); }
   catch(sCodeException& excp)
    {
     // TODO: check how to implement this
@@ -322,6 +310,13 @@ void Server::newClientConnection()
 
     // Continue checking the next socket descriptor in the server's main loop
     return;
+   }
+
+  // If the temporary guest identifier would overflow, reset it to 1
+  if(++_guestIdx == 0)
+   {
+    LOG_INFO("Maximum number of guest identifiers reached (" + std::to_string(UINT_MAX) + "), starting back from \'1\'")
+    _guestIdx = 1;
    }
 
   // Create the client's entry in the connections' map
@@ -352,8 +347,7 @@ void Server::newClientConnection()
 
   // Log the new client connection and continue checking
   // the next socket descriptor in the server's main loop
-  LOG_INFO(*tempName + " has connected")
-  LOG_DEBUG("Number of connected clients: " + std::to_string(connClients))
+  LOG_DEBUG("Number of connected clients: " + std::to_string(connClients+1))
  }
 
 
@@ -391,14 +385,22 @@ void Server::srvLoop()
     // Depending on the pselect() return
     switch(pselRet)
      {
-      /* pselect() FATAL error */
+      /* pselect() error */
       case -1:
-       THROW_SCODE(ERR_SRV_PSELECT_FAILED,ERRNO_DESC);
+
+       // The only allowed pselect() error is it being interrupted by receiving an OS signal
+       if(errno == EINTR)
+        {
+         // TODO: At this point _shutdown == 1, so perform the cleanup operations...
+        }
+
+       // Otherwise it is a fatal error, and the SafeCloud server must be aborted
+       else
+        THROW_SCODE(ERR_SRV_PSELECT_FAILED,ERRNO_DESC);
 
       /* pselect() timeout */
       case 0:
-       // TODO: Remove and check server shutdown
-       LOG_DEBUG("psel() timeout")
+       // TODO: Check server shutdown (MAYBE NOT NECESSARY BECAUSE IT BECOMES INTERRUPTED? BUT DO SO ANYWAY)
        break;
 
       /* pselRet = Number of open sockets with available input data */
@@ -478,7 +480,7 @@ Server::~Server()
 
   // If open, close the listening socket
   if(_lsk != -1 && close(_lsk) != 0)
-   LOG_SCODE(ERR_LSK_CLOSE_FAILED, strerror(errno));
+   LOG_SCODE(ERR_LSK_CLOSE_FAILED,ERRNO_DESC);
 
   // Safely erase all sensitive attributes
   EVP_PKEY_free(_rsaKey);

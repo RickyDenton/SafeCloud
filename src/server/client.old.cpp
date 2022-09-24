@@ -1,7 +1,8 @@
 /* SafeCloud guest object implementation */
 
 
-/* ================================== INCLUDES ================================== */
+/* ================================== INCLUDES ================================== *//*
+
 
 // Miscellaneous Libraries
 #include <iostream>
@@ -18,8 +19,11 @@
 using namespace std;
 
 
-/* ============================= UTILITY FUNCTIONS ============================= */
+*/
+/* ============================= UTILITY FUNCTIONS ============================= *//*
 
+
+*/
 /**
  * @brief          Reads data from the client's connection socket into the specified buffer
  *                 and returns whether valid application data was successfully read (recvSize > 0)
@@ -27,7 +31,8 @@ using namespace std;
  * @param bufSize  The maximum data to be read from the socket (the buffer's size)
  * @param recvSize The reference where to write the number of bytes read from the socket
  * @return         'true' if valid application data was read from the socket (recvSize > 0) or 'false' otherwise
- */
+ *//*
+
 bool client_old::recvCheck(char* buf, size_t bufSize, ssize_t& recvSize)
  {
   // Attempt to read data from the client's connection socket
@@ -73,50 +78,66 @@ bool client_old::recvCheck(char* buf, size_t bufSize, ssize_t& recvSize)
  }
 
 
-/* ======================== CLASS METHODS IMPLEMENTATION ======================== */
+*/
+/* ======================== CLASS METHODS IMPLEMENTATION ======================== *//*
 
-/* ------------------------ Constructors and Destructor ------------------------ */
 
+*/
+/* ------------------------ Constructors and Destructor ------------------------ *//*
+
+
+*/
 /**
  * @brief      Client object constructor
  * @param csk  The client's connection socket
  * @param ip   The client's IP address
  * @param port The client's port
  * @note Arrays must be initialized manually as ISO C++ forbids doing so via initialization lists
- */
+ *//*
+
 client_old::client_old(int csk, const char* ip, int port) : _cliType(GUEST), _csk(csk), _ip(), _port(port), _name(), _skey(0), _iv(0)
  {
   sprintf(_ip,"%15s",ip);         // Client's IP address
   sprintf(_name,"Guest%d",_csk);  // Client's name
  }
 
+*/
 /**
  * @brief Client object destructor, which safely deletes its sensible attributes
- */
+ *//*
+
 client_old::~client_old()
  {
   safeFree(this,sizeof(client_old));
  }
 
 
-/* ------------------------------- Other Methods ------------------------------- */
+*/
+/* ------------------------------- Other Methods ------------------------------- *//*
 
+
+*/
 /**
  * @brief Attempts to read data destined to the client from its connection socket
  *        and performs the appropriate actions depending on its cliType and state
  * @return 'true' if the client connection should be maintained or 'false' otherwise
- */
+ *//*
+
 bool client_old::recvData()
  {
 
-  /* ---------------------- Local Variables ---------------------- */
+  */
+/* ---------------------- Local Variables ---------------------- *//*
+
   char cliMsg[1024];
   char hello[] = "Hello from server";
   char login_success[] = "Login successful";
 
   ssize_t recvSize;  // Number of bytes read from the connection socket
 
-  /* ------------------------ Method Body ------------------------ */
+  */
+/* ------------------------ Method Body ------------------------ *//*
+
 
   // Attempt to read data from the client's connection socket, checking for errors
 
@@ -168,9 +189,11 @@ bool client_old::recvData()
  }
 
 
+*/
 /**
  * @brief Returns the client's name
  * @return The client's name
- */
+ *//*
+
 char* client_old::getName()
- { return _name; }
+ { return _name; }*/

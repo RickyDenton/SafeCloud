@@ -10,6 +10,7 @@
 
 #include <unistd.h>
 #include "errlog.h"
+#include "../client_utils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -253,44 +254,47 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
   if(!RSAKeyFilePath)
    THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,CLI_USER_PRIVK_PATH(username),ERRNO_DESC);
 
-  // Attempt to open the user's RSA private key file
-  RSAKeyFile = fopen(RSAKeyFilePath, "r");
-  if(!RSAKeyFile)
+  // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in an exception
+  try
    {
+    // Attempt to open the user's RSA private key file
+    RSAKeyFile = fopen(RSAKeyFilePath, "r");
+    if(!RSAKeyFile)
+     THROW_SCODE(ERR_LOGIN_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Attempt to read the user's long-term RSA private key from its file
+    _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, (void*)password.c_str());
+
+    // Safely delete the user's password, as it is no longer required
+    OPENSSL_cleanse(&password[0], password.size());
+
+    // Close the RSA private key file
+    if(fclose(RSAKeyFile) != 0)
+     THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Ensure that a valid private key has been read
+    if(!_rsaKey)
+      THROW_SCODE(ERR_LOGIN_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
+
+    // At this point, being the RSA private key valid,
+    // the client has successfully locally authenticated
+    LOG_DEBUG("Client long-term private key successfully loaded")
+
+    // Free the RSA key file path
     free(RSAKeyFilePath);
-    THROW_SCODE(ERR_LOGIN_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
    }
-
-  // Attempt to read the user's long-term RSA private key from its file
-  _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, (void*)password.c_str());
-
-  // Safely delete the user's password, as it is no longer required
-  OPENSSL_cleanse(&password[0], password.size());
-
-  // Close the RSA private key file
-  if(fclose(RSAKeyFile) != 0)
+  catch(sCodeException& excp)
    {
+    // Free the RSA key file path
     free(RSAKeyFilePath);
-    THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+
+    // Re-throw the exception
+    throw;
    }
-
-  // Ensure that a valid private key has been read
-  if(!_rsaKey)
-   {
-    free(RSAKeyFilePath);
-    THROW_SCODE(ERR_LOGIN_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
-   }
-
-  // At this point, being the RSA private key valid,
-  // the client has successfully locally authenticated
-  LOG_DEBUG("Client long-term private key successfully loaded")
-
-  // Free the RSA key file path
-  free(RSAKeyFilePath);
  }
 
 
-/* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
+/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
  * @brief         SafeCloud client object constructor, which initializes the IP and port of
@@ -342,6 +346,71 @@ Client::~Client()
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
+
+
+// TODO: Check everything back
+int Client::srvConnect()
+ {
+  // If not connected, bla bla bla
+
+  /* ---------------------- Local Variables ---------------------- */
+  int connRes;    // Stores the server connection establishment result
+  int csk;
+
+
+  // Attempt to create a connection socket
+  csk = socket(AF_INET, SOCK_STREAM, 0);
+  if(csk == -1)
+   THROW_SCODE(ERR_CSK_INIT_FAILED, strerror(errno));
+
+  LOG_DEBUG("Connection socket file descriptor: " + std::to_string(csk))
+
+  //cout << "Attempting to connect with SafeCloud server at " << srvIP << ":" << ntohs(srvAddr.sin_port) << "..." << endl;
+
+  // Server connection attempt (which for recoverable errors can be repeated on user's discretion)
+  do
+   {
+    connRes = connect(csk, (const struct sockaddr*)&_srvAddr, sizeof(_srvAddr));
+
+    // If a connection could not be established
+    if(connRes != 0)
+     {
+      // Log the connection error as for the ERRNO variable
+      switch(errno)
+       {
+        /* These represent recoverable errors, which prompt the user whether to retry the connection */
+        case ECONNREFUSED:
+         LOG_WARNING("Connection refused from remote host (probably the SafeCloud server is not running)")
+        break;
+
+        case ENETUNREACH:
+         LOG_ERROR("Network is unreachable")
+        break;
+
+        case ETIMEDOUT:
+         LOG_ERROR("Server timeout in accepting the connection")
+        break;
+
+        /* Others are non-recoverable errors, with the client application that should be terminated */
+        default:
+         LOG_SCODE(ERR_CSK_CONN_FAILED, ERRNO_DESC);
+       }
+
+      // In case of recoverable errors, ask the user whether another connection
+      // attempt should be performed, closing the client application if it should not
+      if(!askReconnection())
+       return -1; // RETURN FALSE?
+
+     } // if(!connRes)
+
+   } while(connRes != 0);
+
+  // At this point, connection with the server was established successfully
+  // cout << "Successfully connected with SafeCloud server at " << srvIP << ":" << to_string(ntohs(srvAddr.sin_port)) << endl;
+  return csk;
+ }
+
+
 
 /**
  * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting

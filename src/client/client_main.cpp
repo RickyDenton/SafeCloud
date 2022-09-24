@@ -19,6 +19,7 @@
 #include "errlog.h"
 #include "Client/Client.h"
 #include "utils.h"
+#include "client_utils.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 static Client* cli;  // The singleton Client object
@@ -73,19 +74,134 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
 
 /* ------------------------------ Client Main Loop ------------------------------ */
 
-int clientLoop()
+// TODO!
+bool recvCheck(int csk, char* buf,size_t bufSize,ssize_t& recvSize)
  {
-  bool conn;
+ // Attempt to read data from the client's connection socket
+ recvSize = recv(csk, buf, bufSize - 1, 0);
 
-  conn = cli->login();
-   if(conn)
-    {
-     std::string lala;
-     std::cout << "CONNECTED" << std::endl;
-    }
-  return(EXIT_SUCCESS);
+ LOG_DEBUG("recv() returned " + std::to_string(recvSize))
+
+ // Depending on the recv() return:
+ switch(recvSize)
+  {
+  // Generic Error
+  case -1:
+
+   // Log the error
+   LOG_SCODE(ERR_CSK_RECV_FAILED,ERRNO_DESC);
+
+   // Inform that the recv() contents are not valid and
+   // that the current server connection should be aborted
+   return false;
+
+
+   // The server orderly closed the connection
+  case 0:
+
+   // TODO: check, possibly merge with the previous case
+   // Log that the server has orderly disconnected
+   LOG_WARNING("The server has abruptly disconnected")
+
+   // Inform that the recv() contents are not valid and
+   // that the current server connection should be aborted
+   return false;
+
+   // recvSize > 0, valid data was read
+  default:
+
+   // Add the string termination character at the end of the data for safety purposes
+   // TODO: This won't be necessary
+   buf[recvSize] = '\0';
+
+   // Inform that the recv() contents are valid
+   return true;
+  }
  }
 
+
+
+// TODO!
+/**
+ * @brief Depending on the user's choice, attempts to reconnect with the SafeCloud server
+ * @return 'true' if connection with the SafeCloud server was successfully re-established, or 'false' otherwise
+ */
+int srvConnDown(int& csk)
+ {
+  // Ask the user on whether a reconnection attempt with the server should be performed,
+  if(askReconnection())
+   {
+    // If it should, close the current connection socket
+    if(close(csk) != 0)
+     LOG_SCODE(ERR_CSK_CLOSE_FAILED, strerror(errno));
+    else
+     {
+      LOG_DEBUG("Connection socket '" + std::to_string(csk) + "' closed")
+      csk = -1;
+     }
+
+    // Attempt to reconnect with the server
+    return cli->srvConnect();
+  }
+
+
+  // Otherwise, inform the client loop that connection was not
+  // re-established (and so that the application must terminate)
+  return false;
+ }
+
+int clientLoop()
+ {
+  bool login;
+  int csk;
+
+  login = cli->login();
+  if(login)
+   {
+    std::cout << "LOGGED IN" << std::endl;
+
+    csk = cli->srvConnect();
+    if(csk != -1)
+     {
+      std::cout << "CONNECTED" << std::endl;
+
+      char cliMsg[1024];
+      char srvAnswer[1024];
+      ssize_t recvSize;        // Number of bytes read from the connection socket
+
+      while(1)
+       {
+        std::cout << "Message to send to server: ";
+        std::cin >> cliMsg;
+
+        send(csk, cliMsg, strlen(cliMsg), 0);
+
+        // If the client wants to close the communication, exit from the clientLoop loop
+        if(!strcmp(cliMsg, "close"))
+         break;
+
+        // Otherwise attempt to read data from the client's connection socket, checking for errors
+        if(recvCheck(csk, srvAnswer, sizeof(srvAnswer), recvSize))
+         {
+          // If no error, just echo the server message
+          std::cout << "Server answered: \"" << srvAnswer << "\"" << std::endl;
+         }
+
+         // Otherwise the current server connection must be closed and, as an error recovery
+         // mechanism, ask the client on whether a new connection attempt should be performed
+        else
+         if((csk = srvConnDown(csk)) != -1)
+          break;
+       }
+     }
+    else
+     std::cout << "NOT CONNECTED" << std::endl;
+   }
+  else
+   std::cout << "NOT LOGGED IN" << std::endl;
+
+  return(EXIT_SUCCESS);
+ }
 
 /* ---------------------------- Client Initialization ---------------------------- */
 
