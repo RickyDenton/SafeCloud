@@ -62,6 +62,6 @@ class client_old
 typedef std::unordered_map<int,client_old*> clientMap;
 
 // An iterator for the clientMap type
-typedef std::unordered_map<int,client_old*>::iterator cliMapIt;
+typedef std::unordered_map<int,client_old*>::iterator connMapIt;
 
 #endif //SAFECLOUD_CLIENT_OLD_H

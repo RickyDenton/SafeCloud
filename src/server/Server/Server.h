@@ -23,12 +23,25 @@ class Server
 
    /* ----------------------- Client Connections Management ----------------------- */
 
-  // A map associating the file descriptors of open connection
+   // A map associating the file descriptors of open connection
    // sockets to their associated srvConnMgr objects (one per client)
-   cliMap _cliMap;
+   connMap _connMap;
 
-   // Used as a temporary identifier for users that
-   // have not yet authenticated within the application
+  // The set of file descriptors of open sockets
+  // (listening socket + connection sockets)
+   fd_set _skSet;
+
+   // The maximum socket file descriptor value in the server's execution (pselect() optimization purposes)
+   /*
+    * NOTE: This value may refer to a socket that is no longer open, as updating it in case
+    *       the SrvConnMgr with the maximum "csk" value terminates would require searching for
+    *       the new maximum file descriptor in the _connMap map, which is inefficient due to it
+    *       being an unordered map (and changing it to an ordered map would in turn make all
+    *       other operations less efficient, nullifying the advantages of such approach)
+    */
+   int _skMax;
+
+   // Used as a temporary identifier for users that have not yet authenticated within the server
    unsigned int _guestIdx;
 
    /* ---------------------------- Server Object Flags ---------------------------- */
@@ -73,6 +86,35 @@ class Server
     */
   void initLsk();
 
+  /* --------------------------------- Server Loop --------------------------------- */
+
+  /**
+   * @brief       Closes a client connection by deleting its associated SrvConnMgr
+   *              object and removing its associated entry from the connections' map
+   * @param cliIt The iterator to the client's entry in the connections' map
+   */
+  void closeConn(connMapIt cliIt);
+
+  /**
+   * @brief     Passes the incoming client data to its associated SrvConnMgr object,
+   *            which returns whether to maintain or close the client's connection
+   * @param ski The connection socket with available input data
+   */
+  void newClientData(int ski);
+
+  /**
+   * @brief Accepts an incoming client connection, creating its client object and entry in the connections' map
+   */
+  void newClientConnection();
+
+  /**
+   * @brief  Server main loop, awaiting and serving input data on any open socket
+   *         (listening + connection socket) and managing external shutdown requests
+   * @note   This method returns only in case of errors or should the server
+   *         be instructed to terminate via the shutdownSignal() method
+   * @throws ERR_SRV_PSELECT_FAILED pselect() call failed
+   */
+  void srvLoop();
 
   public:
 
@@ -101,6 +143,15 @@ class Server
    ~Server();
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
+
+  /**
+   * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
+   * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method
+   + @throws ERR_SRV_ALREADY_STARTED The server has already started listening on its listening socket
+   * @throws ERR_LSK_LISTEN_FAILED   Failed to listen on the server's listening socket
+   * @throws ERR_SRV_PSELECT_FAILED  pselect() call failed
+   */
+  void start();
 
   /**
    * @brief Asynchronously instructs the server object to

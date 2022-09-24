@@ -12,7 +12,6 @@ class ConnMgr
 
    enum connState
     {
-     NOCONN,      // TCP Connection not established yet
      KEYXCHANGE,  // Connection in the STSM key establishment phase
      SESSION      // Connection in the session phase
     };
@@ -22,8 +21,8 @@ class ConnMgr
    // General connection information
    connState    _connState;           // Current connection state (key establishment or session)
    const int    _csk;                 // The connection socket's file descriptor
-   std::string& _name;                // The client's name associated with this connection
-   std::string& _tmpDir;              // The connection's temporary directory
+   std::string* _name;                // The client's name associated with this connection
+   std::string* _tmpDir;              // The connection's temporary directory
 
    // General-purpose buffer for sending and receiving data
    unsigned char*     _buf;          // General-purpose buffer
@@ -50,14 +49,18 @@ class ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   ConnMgr(int csk, std::string& name, std::string& tmpDir);
+   ConnMgr(int csk, std::string* name, std::string* tmpDir);
    ~ConnMgr();
 
    /* ======================== Other Methods ======================== */
-   // TODO
+
+   bool recvData();
+
+  // TODO
    // sendOk()
    // sendClose()
    // sendCloseError()
+  std::string* getName();
  };
 
 

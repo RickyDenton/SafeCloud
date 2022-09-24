@@ -21,9 +21,7 @@
 #include "utils.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
-
-// The singleton Client object
-static Client* cli;
+static Client* cli;  // The singleton Client object
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 

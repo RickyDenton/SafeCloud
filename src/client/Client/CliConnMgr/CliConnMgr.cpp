@@ -18,6 +18,6 @@
  * @param cliStore The client's X.509 certificate store used for validating the server's signature
  * @param _downDir The client's download directory
  */
-CliConnMgr::CliConnMgr(int csk, std::string& name, std::string& tmpDir, X509_STORE* cliStore, std::string& downDir)
+CliConnMgr::CliConnMgr(int csk, std::string* name, std::string* tmpDir, X509_STORE* cliStore, std::string* downDir)
                        : ConnMgr(csk,name,tmpDir), _cliStore(cliStore), _downDir(downDir), _cliSTSMMgr(nullptr), _cliSessMgr(nullptr)
  {}

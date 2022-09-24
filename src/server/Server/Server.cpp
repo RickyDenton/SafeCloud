@@ -7,6 +7,8 @@
 #include "errlog.h"
 #include "defaults.h"
 #include <unistd.h>
+#include <arpa/inet.h>
+#include <string>
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -147,21 +149,285 @@ void Server::initLsk()
   if(bind(_lsk, (struct sockaddr*)&_srvAddr, sizeof(_srvAddr)) < 0)
    THROW_SCODE(ERR_LSK_BIND_FAILED,ERRNO_DESC);
 
+  // Add the listening socket to the set of file descriptors of open
+  // sockets and initialize the maximum socket file descriptor value to it
+  FD_SET(_lsk, &_skSet);
+  _skMax = _lsk;
+
   LOG_DEBUG("SafeCloud server listening socket successfully initialized")
  }
 
+/* --------------------------------- Server Loop --------------------------------- */
 
-/*
-// Attempt to make the server listen on the listening socket
-if(listen(lsk, SRV_MAX_QUEUED_CONN) < 0)
-{
-LOG_CODE_DSCR_FATAL(ERR_LSK_LISTEN_FAILED,strerror(errno))
-exit(EXIT_FAILURE);
-}
+/**
+ * @brief       Closes a client connection by deleting its associated SrvConnMgr
+ *              object and removing its associated entry from the connections' map
+ * @param cliIt The iterator to the client's entry in the connections' map
+ */
+void Server::closeConn(connMapIt cliIt)
+ {
+  size_t connClients;  // Number of connected clients AFTER the client's disconnection
 
-// Log that the server's listening socket was initialized successfully
-LOG_INFO("SafeCloud server now listening on all local network interfaces on port " + to_string(ntohs(srvAddr.sin_port)) + ", awaiting client connections...")
-  */
+  // Log the client's disconnection
+  LOG_INFO(*cliIt->second->getName() + " has disconnected")
+
+  // Delete the client's connection manager
+  delete(cliIt->second);
+
+  // Remove the client's entry from the connections' map
+  _connMap.erase(cliIt);
+
+  // Retrieve the updated number of connected clients
+  connClients = _connMap.size();
+
+  // If the last client has disconnected, reset the "_connected" status variable
+  if(connClients == 0)
+   _connected = false;
+
+  LOG_DEBUG("Number of connected clients: " + std::to_string(connClients))
+ }
+
+
+/**
+ * @brief     Passes the incoming client data to its associated SrvConnMgr object,
+ *            which returns whether to maintain or close the client's connection
+ * @param ski The connection socket with available input data
+ */
+void Server::newClientData(int ski)
+ {
+  connMapIt connIt;        // _connMap iterator
+  SrvConnMgr* srvConnMgr;  // The client's assigned connection manager
+  bool keepConn;           // Indicates whether the client connection should be maintained or not
+
+  // Retrieve the connection's map entry associated with "ski"
+  connIt = _connMap.find(ski);
+
+  // If the entry was not found (which should NEVER happen)
+  if(connIt == _connMap.end())
+   {
+    // Attempt to manually close the unmatched connection socket as
+    // an error recovery mechanism, discarding any possible error
+    close(ski);
+
+    // Log the error and continue checking the next
+    // socket descriptor in the server's main loop
+    LOG_SCODE(ERR_CSK_MISSING_MAP,std::to_string(ski));
+    return;
+   }
+
+  // Retrieve the pointer to the client's connection manager
+  srvConnMgr = connIt->second;
+
+  // Pass the incoming client data to the SrvConnMgr object, which
+  // returns whether to maintain or close the client's connection
+  try
+   { keepConn = srvConnMgr->recvData(); }
+  catch(sCodeException& excp)
+   {
+    // TODO: Check
+    handleScodeException(excp);
+
+    // The connection must be closed
+    keepConn = false;
+   }
+
+  // If necessary close the client's connection and continue
+  // checking the next socket descriptor in the server's main loop
+  if(!keepConn)
+   closeConn(connIt);
+ }
+
+
+/**
+ * @brief Accepts an incoming client connection, creating its client object and entry in the connections' map
+ */
+void Server::newClientConnection()
+ {
+  /* ----------------- Client Endpoint Information ----------------- */
+  struct sockaddr_in cliAddr{};                         // The client socket type, IP and Port
+  static unsigned int cliAddrLen = sizeof(sockaddr_in); // The (static) size of a sockaddr_in structure
+  char cliIP[16];                                       // The client IP address
+  int cliPort;                                          // The client port
+
+  /* ----------------- Client SrvConnMgr Creation ----------------- */
+  int csk = -1;                 // The client's assigned connection socket
+  size_t connClients;           // Number of connected clients BEFORE the client's connection
+  std::string* tempName;        // The client's temporary name
+  std::string* tempDir;         // The client's temporary directory
+  std::string* tempPool;        // The client's temporary pool directory
+  SrvConnMgr* srvConnMgr;       // The client's assigned connection manager
+
+  // Used to check whether the newly created server connection
+  // manager was successfully added to the connections' map
+  std::pair<connMapIt,bool> empRet;
+
+
+  // Attempt to accept the incoming client connection, obtaining
+  // the file descriptor of its assigned connection socket
+  csk = accept(_lsk, (struct sockaddr*)&cliAddr, &cliAddrLen);
+
+  // If the accept() failed, log the error and continue checking
+  // the next socket descriptor in the server's main loop
+  if(csk == -1)
+   {
+    LOG_SCODE(ERR_CSK_ACCEPT_FAILED,ERRNO_DESC);
+    return;
+   }
+
+  // Retrieve the new client's IP and Port
+  inet_ntop(AF_INET, &cliAddr.sin_addr.s_addr, cliIP, INET_ADDRSTRLEN);
+  cliPort = ntohs(cliAddr.sin_port);
+
+  // Retrieve the number of currently connected clients
+  connClients = _connMap.size();
+
+  // Ensure that the maximum number of client connections has not been reached
+  /*
+   * NOTE: This constraint is due to the fact that the pselect() allows to monitor
+   *       up to FD_SETSIZE = 1024 file descriptors, listening socket included
+   */
+  if(connClients == SRV_MAX_CONN)
+   {
+    // Inform the client that the server cannot accept further connections
+    // TODO: Implement in a SafeCloud Message
+
+    // Log the error and continue checking the next socket descriptor in the server's main loop
+    LOG_SCODE(ERR_CSK_MAX_CONN,std::string(cliIP) + std::to_string(cliPort));
+    return;
+   }
+
+  // Prepare the new client's temporary name, temporary directory and pool directory
+  tempName = new std::string("Guest" + std::to_string(_guestIdx++));
+  tempDir = new std::string("");
+  tempPool = new std::string("");
+
+  // If the temporary _guestIdx identifier has overflowed, reset it to 1
+  if(_guestIdx == 0)
+   {
+    LOG_INFO("Maximum number of guest identifiers reached (" + std::to_string(UINT_MAX) + "), starting back from \'1\'")
+    _guestIdx = 1;
+   }
+
+  // Attempt to initialize the client's connection manager
+  try
+   { srvConnMgr = new SrvConnMgr(csk, tempName, tempDir, _srvCert, tempPool); }
+  catch(sCodeException& excp)
+   {
+    // TODO: check how to implement this
+    // Log the error
+    handleScodeException(excp);
+
+    // Delete the srvConnMgr object
+    delete srvConnMgr;
+
+    // Continue checking the next socket descriptor in the server's main loop
+    return;
+   }
+
+  // Create the client's entry in the connections' map
+  empRet = _connMap.emplace(csk, srvConnMgr);
+
+  // Ensure the newly assigned connection socket not to be already present in the connection map
+  // NOTE: With no errors in the server's logic this check is unnecessary, but it's still performed for its negligible cost
+  if(!empRet.second)
+   {
+    LOG_CRITICAL("The connection socket assigned to a new client is already present in the connections' map! (" + std::to_string(csk) + ")")
+
+    // Close the pre-existing client connection and remove its entry from the connections' map as
+    // an error recovery mechanism (as the kernel is probably more right than the application)
+    closeConn(empRet.first);
+
+    // Re-insert the new client manager into the connections' map (operation that in this case is always supposed to succeed)
+    _connMap.emplace(csk, srvConnMgr);
+   }
+
+  // Add the new client's connection socket to the set of file descriptors of open sockets
+  // and, if it's the one of maximum value, update the "_skMax" variable accordingly
+  FD_SET(csk, &_skSet);
+  _skMax = std::max(_skMax, csk);
+
+  // If this is the first client to have connected, set the "_connected" status variable
+  if(connClients == 0)
+   _connected = true;
+
+  // Log the new client connection and continue checking
+  // the next socket descriptor in the server's main loop
+  LOG_INFO(*tempName + " has connected")
+  LOG_DEBUG("Number of connected clients: " + std::to_string(connClients))
+ }
+
+
+/**
+ * @brief  Server main loop, awaiting and serving input data on any open socket
+ *         (listening + connection socket) and managing external shutdown requests
+ * @note   This method returns only in case of errors or should the server
+ *         be instructed to terminate via the shutdownSignal() method
+ * @throws ERR_SRV_PSELECT_FAILED pselect() call failed
+ */
+void Server::srvLoop()
+ {
+  // Set of file descriptors of open sockets used
+  // for asynchronously reading incoming client data
+  fd_set skReadSet;
+
+  // pselect() return
+  int pselRet;
+
+  // Structure used for specifying a pselect() timeout
+  struct timespec selTimeout = {SRV_PSELECT_TIMEOUT,0};
+
+  // Initialize the set of file descriptor of open sockets
+  // used for asynchronously reading incoming client data
+  FD_ZERO(&skReadSet);
+
+  while(1)
+   {
+    // Reset the list of sockets to wait input data from to all open sockets
+    skReadSet = _skSet;
+
+    // Wait for input data to be available on any open socket up to a predefined timeout
+    pselRet = pselect(_skMax + 1, &skReadSet, NULL, NULL, &selTimeout, NULL);
+
+    // Depending on the pselect() return
+    switch(pselRet)
+     {
+      /* pselect() FATAL error */
+      case -1:
+       THROW_SCODE(ERR_SRV_PSELECT_FAILED,ERRNO_DESC);
+
+      /* pselect() timeout */
+      case 0:
+       // TODO: Remove and check server shutdown
+       LOG_DEBUG("psel() timeout")
+       break;
+
+      /* pselRet = Number of open sockets with available input data */
+      default:
+
+       LOG_DEBUG("Number of sockets with available input data: " + std::to_string(pselRet))
+
+       // Browse all sockets file descriptors from 0 to _skMax
+       for(int ski = 0; ski <= _skMax; ski++)
+
+        // If input data is available on socket "ski"
+        if(FD_ISSET(ski, &skReadSet))
+         {
+          // If "ski" is the server's listening socket, a new client is attempting to connect with the SafeCloud server
+          if(ski == _lsk)
+           newClientConnection();
+
+          // Otherwise "ski" is a connection socket of an existing client which has sent new data to the server
+          else
+           newClientData(ski);
+
+          // Once the listening or connection socket has been served, decrement the number of sockets with pending
+          // input data and, if no other is present, break the "for" loop for restarting the main server loop
+          if(--pselRet == 0)
+           break;
+         }
+     } // switch(pselRet)
+   } // while(1)
+ } // srvLoop()
 
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
@@ -180,8 +446,8 @@ LOG_INFO("SafeCloud server now listening on all local network interfaces on port
  * @throws ERR_LSK_SO_REUSEADDR_FAILED   Error in setting the listening socket's SO_REUSEADDR option
  * @throws ERR_LSK_BIND_FAILED           Error in binding the listening socket on the specified host port
  */
-Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvCert(nullptr), _guestIdx(1),
-                                   _started(false), _connected(false), _shutdown(false)
+Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvCert(nullptr), _connMap(), _skSet(),
+                                   _skMax(-1), _guestIdx(1), _started(false), _connected(false), _shutdown(false)
  {
   // Set the server endpoint parameters
   setSrvEndpoint(srvPort);
@@ -191,6 +457,10 @@ Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvC
 
   // Retrieve the server's certificate
   getServerCert();
+
+  // Initialize the sets of file descriptors used for asynchronously
+  // reading client data from sockets via the pselect()
+  FD_ZERO(&_skSet);
 
   // Initialize the server's listening socket and bind it on the specified OS port
   initLsk();
@@ -203,7 +473,7 @@ Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvC
 Server::~Server()
  {
   // Cycle through the entire connected clients' map and delete the associated SrvConnMgr objects
-  for(cliMapIt it = _cliMap.begin(); it != _cliMap.end(); ++it)
+  for(connMapIt it = _connMap.begin(); it != _connMap.end(); ++it)
    { delete it->second; }
 
   // If open, close the listening socket
@@ -217,6 +487,33 @@ Server::~Server()
 
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
+
+/**
+ * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
+ * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method
+ + @throws ERR_SRV_ALREADY_STARTED The server has already started listening on its listening socket
+ * @throws ERR_LSK_LISTEN_FAILED   Failed to listen on the server's listening socket
+ * @throws ERR_SRV_PSELECT_FAILED  pselect() call failed
+ */
+void Server::start()
+ {
+  // Check that the server has not already started
+  if(_started)
+   THROW_SCODE(ERR_SRV_ALREADY_STARTED);
+
+  // Start listening on the listening socket, allowing up to a predefined maximum number of queued connections
+  if(listen(_lsk, SRV_MAX_QUEUED_CONN) < 0)
+   THROW_SCODE(ERR_LSK_LISTEN_FAILED,ERRNO_DESC);
+
+  // Set that the SafeCloud server has started
+  _started = true;
+
+  // Log that the server is now listening on the listening socket
+  LOG_INFO("SafeCloud server now listening on all local network interfaces on port " + std::to_string(ntohs(_srvAddr.sin_port)) + ", awaiting client connections...")
+
+  // Call the server main loop
+  srvLoop();
+ }
 
 /**
  * @brief Asynchronously instructs the server object to

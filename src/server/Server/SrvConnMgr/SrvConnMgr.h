@@ -9,13 +9,13 @@
 #include <openssl/evp.h>
 #include <unordered_map>
 
-class SrvConnMgr : ConnMgr
+class SrvConnMgr : public ConnMgr
  {
   private:
 
     /* ------------------------- Attributes ------------------------- */
     X509*        _srvCert;   // The server's X.509 certificate
-    std::string& _poolDir;   // The client's pool directory
+    std::string* _poolDir;   // The client's pool directory
 
     SrvSTSMMgr* _srvSTSMMgr;  // The server's STSM key handshake manager
     SrvSessMgr* _srvSessMgr;  // The server's session manager
@@ -23,7 +23,7 @@ class SrvConnMgr : ConnMgr
   public:
 
    /* ================= Constructors and Destructor ================= */
-   SrvConnMgr(int csk, std::string& name, std::string& tmpDir, X509* srvCert, std::string& _poolDir);
+   SrvConnMgr(int csk, std::string* name, std::string* tmpDir, X509* srvCert, std::string* _poolDir);
    // Same destructor of the ConnMgr base class
 
   /* ======================== Other Methods ======================== */
@@ -35,9 +35,9 @@ class SrvConnMgr : ConnMgr
 
 // An unordered map mapping the file descriptors of open connection sockets with
 // their associated srvConnMgr object, and thus a client connected with the server
-typedef std::unordered_map<int,SrvConnMgr*> cliMap;
+typedef std::unordered_map<int,SrvConnMgr*> connMap;
 
-// cliMap type iterator
-typedef std::unordered_map<int,SrvConnMgr*>::iterator cliMapIt;
+// connMap type iterator
+typedef std::unordered_map<int,SrvConnMgr*>::iterator connMapIt;
 
 #endif //SAFECLOUD_SRVCONNMGR_H

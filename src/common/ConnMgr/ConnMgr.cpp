@@ -6,7 +6,6 @@
 #include <string>
 #include "ConnMgr.h"
 #include "defaults.h"
-#include "utils.h"
 #include "scode.h"
 #include "errlog.h"
 #include <dirent.h>
@@ -24,12 +23,12 @@ void ConnMgr::cleanTmpDir()
 
   // Absolute path of a file in the temporary length, whose max length is obtained by the
   // of length the temporary directory path plus the maximum file name length (+1 for the '\0')
-  char tmpFileAbsPath[strlen(_tmpDir.c_str() + NAME_MAX + 1)];
+  char tmpFileAbsPath[strlen(_tmpDir->c_str() + NAME_MAX + 1)];
 
   // Open the temporary directory
-  tmpDir = opendir(_tmpDir.c_str());
+  tmpDir = opendir(_tmpDir->c_str());
   if(!tmpDir)
-   LOG_SCODE(ERR_TMPDIR_OPEN_FAILED,std::string(_tmpDir),ERRNO_DESC);
+   LOG_SCODE(ERR_TMPDIR_OPEN_FAILED,*_tmpDir,ERRNO_DESC);
   else
    {
     // For each file in the temporary folder
@@ -45,7 +44,7 @@ void ConnMgr::cleanTmpDir()
 
     // Close the temporary folder
     if(closedir(tmpDir) == -1)
-     LOG_SCODE(ERR_FILE_CLOSE_FAILED,std::string(_tmpDir), ERRNO_DESC);
+     LOG_SCODE(ERR_FILE_CLOSE_FAILED,*_tmpDir, ERRNO_DESC);
    }
  }
 
@@ -60,7 +59,7 @@ void ConnMgr::cleanTmpDir()
  * @param name   The client's name associated with this connection
  * @param tmpDir The connection's temporary directory
  */
-ConnMgr::ConnMgr(int csk, std::string& name, std::string& tmpDir) : _connState(NOCONN), _csk(csk), _name(name), _tmpDir(tmpDir),
+ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir),
 _buf(), _bufSize(CONN_BUF_SIZE), _oobBuf(), _oobBufSize(CONN_OOBUF_SIZE), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
  {
   // Allocate the connection's buffers
@@ -78,7 +77,7 @@ ConnMgr::~ConnMgr()
   // Close the connection socket
   // TODO: Check if adding a "bye" message here, but it should probably be implemented elsewhere
   if(close(_csk) != 0)
-   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::string(strerror(errno)));
+   LOG_SCODE(ERR_CSK_CLOSE_FAILED,ERRNO_DESC);
   else
     LOG_DEBUG("Connection socket '" + std::to_string(_csk) + "' closed")
 
@@ -86,16 +85,26 @@ ConnMgr::~ConnMgr()
   cleanTmpDir();
 
   // Safely delete all the connection's sensitive information
-  safeFree(reinterpret_cast<void*&>(_buf), _bufSize);
-  safeFree(reinterpret_cast<void*&>(_oobBuf), _oobBufSize);
-  safeFree(reinterpret_cast<void*&>(_iv), _ivSize);
-  safeFree(reinterpret_cast<void*&>(_skey), _skeySize);
+  OPENSSL_cleanse(&_buf, _bufSize);
+  OPENSSL_cleanse(&_oobBuf, _oobBufSize);
+  OPENSSL_cleanse(&_name, _name->length()+1);
+  OPENSSL_cleanse(&_iv, _ivSize);
+  OPENSSL_cleanse(&_skey, _skeySize);
+  OPENSSL_cleanse(&_tmpDir, _tmpDir->length()+1);
  }
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 // TODO
+
+bool ConnMgr::recvData()
+ {
+  return true;
+ };
+
+std::string* ConnMgr::getName()
+ { return _name; }
 
 // sendOk()
 // sendClose()

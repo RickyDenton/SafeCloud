@@ -31,6 +31,7 @@
 
 #define SRV_MAX_QUEUED_CONN 30            // The maximum number of incoming client connection requests before further are refused (listen() argument)
 #define SRV_MAX_CONN        FD_SETSIZE-1  // The maximum number of concurrent client connections before further are rejected (select() limitation, 1024 (FD_SETSIZE) - 1 (Listening Socket))
+#define SRV_PSELECT_TIMEOUT 1             // The server's pselect() timeout in seconds
 
 /* -------------------------- Server Files Parameters -------------------------- */
 

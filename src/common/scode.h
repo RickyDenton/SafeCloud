@@ -29,11 +29,15 @@ enum scode
   ERR_LSK_SO_REUSEADDR_FAILED,
   ERR_LSK_BIND_FAILED,
   ERR_LSK_LISTEN_FAILED,
+  ERR_SRV_ALREADY_STARTED,
   ERR_LSK_CLOSE_FAILED,
 
   // Connection Sockets
   ERR_CSK_ACCEPT_FAILED,
   ERR_CSK_MAX_CONN,
+  ERR_CSK_MISSING_MAP,
+
+
 
   // Clients
   ERR_CLI_CONN_ERROR,
@@ -45,7 +49,7 @@ enum scode
   ERR_USR_ECONNRESET,
 
   // Other
-  ERR_SELECT_FAILED,
+  ERR_SRV_PSELECT_FAILED,
 
 
   /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
@@ -68,6 +72,8 @@ enum scode
   ERR_LOGIN_PRIVK_INVALID,
   ERR_DOWNDIR_NOT_FOUND,
   ERR_CLIENT_ALREADY_CONNECTED,
+
+
 
   // Connection socket
   ERR_CSK_INIT_FAILED,
@@ -148,14 +154,16 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LSK_SO_REUSEADDR_FAILED,{FATAL,"Failed to set the listening socket's SO_REUSEADDR option"} },
     { ERR_LSK_BIND_FAILED,        {FATAL,"Failed to bind the listening socket on the specified OS port"} },
     { ERR_LSK_LISTEN_FAILED,      {FATAL,"Failed to listen on the listening socket"} },
+    { ERR_SRV_ALREADY_STARTED,    {CRITICAL,"The server has already started listening on its listening socket"} },
     { ERR_LSK_CLOSE_FAILED,       {FATAL,"Listening Socket Closing Failed"} },
 
     // Connection Sockets
-    { ERR_CSK_ACCEPT_FAILED, {FATAL,"Connection Socket Accept Failed"} },
-    { ERR_CSK_MAX_CONN,      {WARNING,"Maximum number of client connections reached, an incoming guest connection has been refused"} },
+    { ERR_CSK_ACCEPT_FAILED,      {CRITICAL,"Failed to accept an incoming client connection"} },
+    { ERR_CSK_MAX_CONN,           {WARNING, "Maximum number of client connections reached, an incoming client connection has been rejected"} },
+    { ERR_CSK_MISSING_MAP,        {CRITICAL,"Connection socket with available input data is missing from the connections' map"} },
 
     // Other
-    { ERR_SELECT_FAILED,     {FATAL,"Select Failed"} },
+    { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
 

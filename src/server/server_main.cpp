@@ -18,9 +18,7 @@
 #include "Server/Server.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
-
-// The singleton Server object
-static Server* srv;
+static Server* srv;  // The singleton Server object
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
@@ -221,6 +219,7 @@ int main(int argc, char** argv)
    { srv->start(); }
   CATCH_SCODE
 
-  // Execution should NEVER reach this point
-  terminate(EXIT_FAILURE);
+  // Execution reaching here implies that the server has
+  // gracefully terminated after receiving an OS signal
+  terminate(EXIT_SUCCESS);
  }
