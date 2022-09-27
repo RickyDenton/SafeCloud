@@ -24,10 +24,10 @@ int getYNChar();
 
 
 /**
- * @brief Prompt the user on whether to attempt to re-establish a connection with the SafeCloud Server
- * @return 'true' if the user wants to reconnect, 'false' otherwise
+ * @brief  Asks the user a yes-no question, continuously reading a character from stdin until a valid response is provided (y/Y or n/N)
+ * @return 'true' if the user answers y/Y or 'false' if it answers 'n/N'
  */
-bool askReconnection();
+bool askUser(const char* question);
 
 
 #endif //SAFECLOUD_CLIENT_UTILS_H

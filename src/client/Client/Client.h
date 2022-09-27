@@ -6,7 +6,9 @@
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"
+#include "errlog.h"
 #include <string>
+
 
 class Client
  {
@@ -15,9 +17,10 @@ class Client
    /* ================================= ATTRIBUTES ================================= */
 
    /* ---------------------------- General Information ---------------------------- */
-   struct sockaddr_in _srvAddr;     // The SafeCloud server listening socket type, IP and Port in network representation order
-   X509_STORE*        _certStore;   // The client's X.509 certificates store
-   CliConnMgr*        _cliConnMgr;  // The client's connection manager object
+   struct sockaddr_in _srvAddr;           // The SafeCloud server listening socket type, IP and Port in network representation order
+   X509_STORE*        _certStore;         // The client's X.509 certificates store
+   CliConnMgr*        _cliConnMgr;        // The client's connection manager object
+   unsigned char      _remLoginAttempts;  // The remaining number of client's login attempts
 
    /* ------------------------ Client Personal Information ------------------------ */
    std::string _name;     // The client's username (unique in the SafeCloud application)
@@ -26,9 +29,8 @@ class Client
    EVP_PKEY*   _rsaKey;   // The client's long-term RSA key pair
 
    /* ---------------------------- Client Object Flags ---------------------------- */
-   bool _loggedIn;   // Whether the client has logged in within the SafeCloud application (locally, meaning that its personal parameters have been initialized)
    bool _connected;  // Whether the client is connected with the remote SafeCloud server
-   bool _shutdown;   // Whether the client object should gracefully close the server connection and terminate
+   bool _shutdown;   // Whether the client object is shutting down
 
 
    /* =============================== PRIVATE METHODS =============================== */
@@ -79,6 +81,24 @@ class Client
    /* -------------------------------- Client Login -------------------------------- */
 
    /**
+    * @brief Prints the SafeCloud client welcome message
+    */
+   static void printWelcomeMessage();
+
+   /**
+    * @brief Safely deletes all client's information
+    */
+   void delCliInfo();
+
+   /**
+    * @brief           Client's login error handler, which deletes the client's personal
+    *                  information and decreases the number of remaining login attempts
+    * @param loginExcp The login-related sCodeException
+    * @throws          ERR_CLI_LOGIN_FAILED Maximum number of login attempts reached
+    */
+   void loginError(sCodeException& loginExcp);
+
+   /**
      * @brief   Reads a character from stdin while temporarily disabling
      *          its echoing on stdout (getUserPwd() helper function)
      * @return  The character read from stdin
@@ -99,12 +119,40 @@ class Client
     * @param username  The candidate user name
     * @param password  The candidate user password
     */
-  void getUserRSAKey(std::string& username,std::string& password);
+   void getUserRSAKey(std::string& username,std::string& password);
 
-   /* -------------------------------- Client Login -------------------------------- */
+   /**
+    * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
+    *        for its username and password, authentication consisting in successfully retrieving the
+    *        user's long-term RSA key pair encrypted with such password stored in a ".pem" file with
+    *        a predefined path function of the provided username
+    * @throws ERR_CLI_LOGIN_FAILED Client's login attempts expired
+    */
+  void login();
 
-   // TODO
-   // bool srvConnect();
+  /* ----------------------------- Server Connection ----------------------------- */
+
+  /**
+   * @brief           Client's connection error handler, which resets the server's connection and, in case of
+   *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
+   * @param loginExcp The connection-related sCodeException
+   * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
+   *                                       for it to be handled in the loginError() handler)
+   */
+  void connError(sCodeException& connExcp);
+
+
+   // TODO: Write description
+   // Server TCP connection + STSM Handshake
+   void srvConnect();
+
+  /* ------------------------------ Client Commands ------------------------------ */
+
+  // TODO
+  bool cmdPrompt();
+
+
+  // TODO
    // bool uploadFile();
    // bool downloadFile();
    // bool deleteFile();
@@ -142,44 +190,33 @@ class Client
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   // TODO
-   int srvConnect();
-
    /**
-     * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
-     *        for its username and password, authentication consisting in successfully retrieving the
-     *        user's long-term RSA key pair encrypted with such password stored in a ".pem" file with
-     *        a predefined path function of the provided username
-     * @return 'true' if the client successfully logged in or 'false' otherwise
-     * @throws ERR_CLIENT_ALREADY_CONNECTED The client is already connected with the SafeCloud server
-     * @throws ERR_CLIENT_ALREADY_LOGGED_IN The client is already logged in within the SafeCloud application
-     */
-   bool login();
+    * @brief Starts the SafeCloud Client by:
+    *          1) Asking the user to locally login within the application via its username and password
+    *          2) Attempting to connect with the SafeCloud server
+    *          3) Establishing a shared secret key via the STSM protocol
+    *          4) Prompting and executing client's commands
+    * @throws TODO
+    */
+   void start();
 
    /**
     * @brief Asynchronously instructs the client object to
-    *        gracefully close the server connection and terminate
+    *        gracefully close the server connection and shut down
     */
    void shutdownSignal();
-
-   /**
-     * @brief  Returns whether the client is locally logged in within the SafeCloud application
-     * @return 'true' if logged in, 'false' otherwise
-     */
-   bool isLoggedIn();
 
    /**
     * @brief  Returns whether the client is currently connected with the SafeCloud server
     * @return 'true' if connected, 'false' otherwise
     */
-   bool isConnected();
+   bool isConnected() const;
 
    /**
-    * @brief   Returns whether the client object has been instructed
-    *          to gracefully close all connections and terminate
+    * @brief   Returns whether the client object is shutting down
     * @return 'true' if the client object is shutting down, 'false' otherwise
     */
-   bool isShuttingDown();
+   bool isShuttingDown() const;
 
 
    // TODO

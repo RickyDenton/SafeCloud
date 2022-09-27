@@ -3,13 +3,10 @@
 
 /* SafeCloud application default parameter values */
 
-// Enable for DEBUG mode (implemented via Clion CMake running configurations
-// #define DEBUG_MODE
-
 /* ============================= SHARED PARAMETERS ============================= */
 
-#define CONN_BUF_SIZE   5 * 1024 * 1024   // 5 MB
-#define CONN_OOBUF_SIZE 24                // The size of a signaling message TODO: check if necessary
+// Connection Buffers
+#define CONN_BUF_SIZE (4 * 1024 * 1024)   // 4 MB
 
 // Client Object Parameters
 #define CLI_NAME_MAX_LENGTH 30            // The username maximum length (`\0' not included)
@@ -54,7 +51,7 @@
 /* -------------------------- Client Files Parameters -------------------------- */
 
 // Client Login
-#define CLI_MAX_AUTH_ATTEMPTS 3
+#define CLI_MAX_LOGIN_ATTEMPTS 3
 
 // CA Files
 #define CLI_CA_DIR_PATH                  "./CA/"

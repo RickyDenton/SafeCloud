@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include "errlog.h"
 #include "../client_utils.h"
+#include "client_excp.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -164,7 +165,74 @@ void Client::buildX509Store()
  }
 
 
-/* ================================ CLIENT LOGIN UTILITIES ================================ */
+/* ================================= CLIENT LOGIN METHODS ================================= */
+
+/**
+ * @brief Prints the SafeCloud client welcome message
+ */
+void Client::printWelcomeMessage()
+ {
+  std::cout << "   _____        __      _____ _                 _ \n";
+  std::cout << "  / ____|      / _|    / ____| |               | |\n";
+  std::cout << " | (___   __ _| |_ ___| |    | | ___  _   _  __| |\n";
+  std::cout << "  \\___ \\ / _` |  _/ _ \\ |    | |/ _ \\| | | |/ _` |\n";
+  std::cout << "  ____) | (_| | ||  __/ |____| | (_) | |_| | (_| |\n";
+  std::cout << " |_____/ \\__,_|_| \\___|\\_____|_|\\___/ \\__,_|\\__,_|" << std::endl;
+ }
+
+
+/**
+ * @brief Safely deletes all client's information
+ */
+void Client::delCliInfo()
+ {
+  OPENSSL_cleanse(&_name[0], _name.size());
+  OPENSSL_cleanse(&_downDir[0], _downDir.size());
+  OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
+  EVP_PKEY_free(_rsaKey);
+ }
+
+
+/**
+ * @brief           Client's login error handler, which deletes the client's personal
+ *                  information and decreases the number of remaining login attempts
+ * @param loginExcp The login-related sCodeException
+ * @throws          ERR_CLI_LOGIN_FAILED Maximum number of login attempts reached
+ */
+void Client::loginError(sCodeException& loginExcp)
+ {
+  // Safely delete all client's information
+  delCliInfo();
+
+  // In DEBUG_MODE always log the login exception in its entirety
+#ifdef DEBUG_MODE
+  handleScodeException(loginExcp);
+#else
+  // In release mode only log in their entirety errors of CRITICAL severity, while all
+  // others are concealed with a generic "wrong username or password" error so to not
+  // provide information whether a client with the provided username exists or not
+  if(loginExcp.scode != ERR_FILE_CLOSE_FAILED && loginExcp.scode != ERR_DOWNDIR_NOT_FOUND &&
+     loginExcp.scode != ERR_TMPDIR_NOT_FOUND)
+   {
+    loginExcp.scode = ERR_LOGIN_WRONG_NAME_OR_PWD;
+    loginExcp.addDscr = "";
+    loginExcp.reason = "";
+   }
+  handleScodeException(loginExcp);
+#endif
+
+  // For non-FATAL errors, decrease the number of client's login attempts and, if none is left
+  if(--_remLoginAttempts == 0)
+   {
+    // Set the client as shutting down AND throw that they have expired their login attempts
+    /*
+     * NOTE: Setting that the client is shutting down is more for semantics/error prevention purposes,
+     *       as the ERR_CLI_LOGIN_FAILED sCodeException is necessarily handled outside the start() method
+     */
+    _shutdown = true;
+    THROW_SCODE(ERR_CLI_LOGIN_FAILED);
+   }
+ }
 
 
 /**
@@ -233,7 +301,6 @@ std::string Client::getUserPwd()
  }
 
 
-
 /**
  * @brief                                  Attempts to locally authenticate the user by retrieving and decrypting
  *                                         its RSA long-term private key (login() helper function)
@@ -294,7 +361,188 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
  }
 
 
+/**
+ * @brief  Attempts to locally log-in a client within the SafeCloud application by prompting
+ *         for its username and password, with the authentication consisting in successfully
+ *         retrieving the user's long-term RSA key pair encrypted with such password stored
+ *         in a ".pem" file with a predefined path function of the provided username
+ * @throws ERR_LOGIN_NAME_EMPTY            Username is empty
+ * @throws ERR_LOGIN_NAME_TOO_LONG         Username it too long
+ * @throws ERR_LOGIN_NAME_WRONG_FORMAT     First non-alphabet character in the username
+ * @throws ERR_LOGIN_NAME_INVALID_CHARS    Invalid characters in the username
+ * @throws ERR_LOGIN_PWD_EMPTY             The user's password is empty
+ * @throws ERR_LOGIN_PWD_TOO_LONG          The user's password is too long
+ * @throws ERR_LOGIN_PRIVKFILE_NOT_FOUND   The user RSA private key file was not found
+ * @throws ERR_LOGIN_PRIVKFILE_OPEN_FAILED Error in opening the user's RSA private key file
+ * @throws ERR_FILE_CLOSE_FAILED           Error in closing the user's RSA private key file
+ * @throws ERR_LOGIN_PRIVK_INVALID         The contents of the user's private key file could not be interpreted as a valid RSA key pair
+ * @throws ERR_DOWNDIR_NOT_FOUND           The authenticated client's download directory was not found
+ * @throws ERR_TMPDIR_NOT_FOUND            The authenticated client's temporary directory was not found
+ *
+ */
+void Client::login()
+ {
+  std::string username;  // The candidate client's name
+  std::string password;  // The candidate client's password
+
+  try
+   {
+    // Prompt for the client's name
+    std::cout << "Username: ";
+    std::getline(std::cin, username);
+    LOG_DEBUG("User-provided name: \"" + username + "\"")
+
+    // Prompt for the client's password, concealing its input characters
+    std::cout << "Password: ";
+    password = getUserPwd();
+    LOG_DEBUG("User-provided password: \"" + password + "\"")
+
+    // Sanitize the provided username
+    sanitizeUsername(username);
+    LOG_DEBUG("Sanitized username: \"" + username + "\"")
+
+    // Ensure the password not to be empty
+    if(password.empty())
+     THROW_SCODE(ERR_LOGIN_PWD_EMPTY);
+
+    // Ensure the password to be at most "CLI_PWD_MAX_LENGTH" characters
+    if(password.length() > CLI_PWD_MAX_LENGTH)
+     THROW_SCODE(ERR_LOGIN_PWD_TOO_LONG, password);
+
+    // Attempt to locally authenticate the user by retrieving
+    // and decrypting its RSA long-term private key
+    getUserRSAKey(username, password);
+
+    /* At this point, being the RSA private key valid, the client has successfully authenticated locally */
+
+    // Set the client's name
+    _name = username;
+
+    // Set the client's download directory
+    _downDir = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(), NULL);
+    if(_downDir.empty())
+     THROW_SCODE(ERR_DOWNDIR_NOT_FOUND, CLI_USER_DOWN_PATH(username), ERRNO_DESC);
+
+    // Set the client's temporary files directory
+    _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(), NULL);
+    if(_tempDir.empty())
+     THROW_SCODE(ERR_TMPDIR_NOT_FOUND, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
+
+    LOG_DEBUG("User \"" + _name + "\" successfully logged in")
+    LOG_DEBUG("Download directory: " + _downDir)
+    LOG_DEBUG("Temporary directory " + _tempDir)
+   }
+
+  // In case of errors, safely delete the "username" and "password" strings and re-throw the exception
+  // for its handling to continue at the end of the client login() loop in the start() function
+  catch(sCodeException& excp)
+    {
+     OPENSSL_cleanse(&password[0], password.size());
+     OPENSSL_cleanse(&username[0], username.size());
+     throw;
+    }
+ }
+
+
+/* ============================== CLIENT CONNECTION METHODS ============================== */
+
+/**
+ * @brief           Client's connection error handler, which resets the server's connection and, in case of
+ *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
+ * @param loginExcp The connection-related sCodeException
+ * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
+ *                                       for it to be handled in the loginError() handler)
+ */
+void Client::connError(sCodeException& connExcp)
+ {
+  // Reset the client's connection by deleting its
+  // _cliConnMgr and resetting its "connected" flag
+  delete _cliConnMgr;
+  _connected = false;
+
+  // The special ERR_SRV_LOGIN_FAILED scode (which as for the current
+  // application's version should NEVER happen) requires the user to
+  // log-in again, and must be handled in catch clause of the login loop
+  if(connExcp.scode == ERR_SRV_LOGIN_FAILED)
+   throw;
+
+  // Otherwise handle the exception via its default handler
+  handleScodeException(connExcp);
+
+  // In case of non-FATAL errors and if the client is not already shutting
+  // down, prompt the user whether a reconnection attempt with the server
+  // should be performed (preserving its login information)
+  if(!_shutdown)
+   {
+    bool connRetry = askUser("Do you want to attempt to reconnect with the server?");
+
+    // If the client answered no, shut down the application, otherwise
+    // restart the client's connection loop in the start() method
+    if(!connRetry)
+     _shutdown = true;
+   }
+ }
+
+
+// TODO: Write description
+// Server TCP connection + STSM Handshake
+void Client::srvConnect()
+ {
+  int csk;      // The connection socket towards the SafeCloud server
+  int connRes;  // connect() operation result
+
+  // Attempt to create a connection socket, with failure
+  // to do so representing an unrecoverable error
+  csk = socket(AF_INET, SOCK_STREAM, 0);
+  if(csk == -1)
+   THROW_SCODE(ERR_CSK_INIT_FAILED,ERRNO_DESC);
+
+// In DEBUG_MODE, log the TCP connection attempt
+#ifdef DEBUG_MODE
+  char srvIP[16];
+  inet_ntop(AF_INET, &_srvAddr.sin_addr.s_addr, srvIP, INET_ADDRSTRLEN);
+  LOG_DEBUG("Attempting to establish a TCP connection with the SafeCloud server at " + std::string(srvIP) + ":" + std::to_string(ntohs(_srvAddr.sin_port)) + "...")
+#endif
+
+  // Attempt to establish a connection with the SafeCloud server
+  connRes = connect(csk, (const struct sockaddr*)&_srvAddr, sizeof(_srvAddr));
+
+  // If the connection attempt failed, throw an exception depending
+  // on the error's severity as for the 'errno' global variable
+  if(connRes != 0)
+   {
+    // Recoverable connection errors
+    if(errno == ECONNREFUSED || errno == ENETUNREACH || errno == ETIMEDOUT)
+     THROW_SCODE(ERR_SRV_UNREACHABLE, ERRNO_DESC);
+
+    // All others are non-recoverable FATAL errors
+    THROW_SCODE(ERR_CSK_CONN_FAILED, ERRNO_DESC);
+   }
+
+  // Initialize the connection's manager
+  _cliConnMgr = new CliConnMgr(csk,&_name,&_tempDir,&_downDir,_rsaKey,_certStore);
+
+  // Establish a shared session key with the server
+  _cliConnMgr->startSTSM();
+
+  // At this point the client has successfully connected with the server
+  _connected = true;
+ }
+
+
+/* =========================== CLIENT COMMANDS METHODS =========================== */
+
+// TODO: Stub implementation
+bool Client::cmdPrompt()
+ {
+  std::cout << "IN CMDPROMPT()!" << std::endl;
+  return true;
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+// TODO: Check member initialization list order
 
 /**
  * @brief         SafeCloud client object constructor, which initializes the IP and port of
@@ -314,8 +562,8 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
  * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
  * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
  */
-Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _name(), _downDir(),
-                                                _tempDir(), _rsaKey(nullptr), _loggedIn(false), _connected(false), _shutdown(false)
+Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _remLoginAttempts(CLI_MAX_LOGIN_ATTEMPTS),
+                                                _name(), _downDir(), _tempDir(), _rsaKey(nullptr), _connected(false), _shutdown(false)
  {
   // Attempt to set up the server endpoint parameters
   setSrvEndpoint(srvIP, srvPort);
@@ -334,197 +582,71 @@ Client::~Client()
   // Safely delete the cliConnMgr object
   delete _cliConnMgr;
 
-  // Safely delete the client's cryptographic data
-  EVP_PKEY_free(_rsaKey);
-  X509_STORE_free(_certStore);
+  // Safely delete all client's information
+  delCliInfo();
 
-  // Safely delete the client name and directory paths
-  OPENSSL_cleanse(&_name[0], _name.size());
-  OPENSSL_cleanse(&_downDir[0], _downDir.size());
-  OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
+  // Free the client's X.509 certificates store
+  X509_STORE_free(_certStore);
  }
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 
-// TODO: Check everything back
-int Client::srvConnect()
- {
-  // If not connected, bla bla bla
-
-  /* ---------------------- Local Variables ---------------------- */
-  int connRes;    // Stores the server connection establishment result
-  int csk;
-
-
-  // Attempt to create a connection socket
-  csk = socket(AF_INET, SOCK_STREAM, 0);
-  if(csk == -1)
-   THROW_SCODE(ERR_CSK_INIT_FAILED, strerror(errno));
-
-  LOG_DEBUG("Connection socket file descriptor: " + std::to_string(csk))
-
-  //cout << "Attempting to connect with SafeCloud server at " << srvIP << ":" << ntohs(srvAddr.sin_port) << "..." << endl;
-
-  // Server connection attempt (which for recoverable errors can be repeated on user's discretion)
-  do
-   {
-    connRes = connect(csk, (const struct sockaddr*)&_srvAddr, sizeof(_srvAddr));
-
-    // If a connection could not be established
-    if(connRes != 0)
-     {
-      // Log the connection error as for the ERRNO variable
-      switch(errno)
-       {
-        /* These represent recoverable errors, which prompt the user whether to retry the connection */
-        case ECONNREFUSED:
-         LOG_WARNING("Connection refused from remote host (probably the SafeCloud server is not running)")
-        break;
-
-        case ENETUNREACH:
-         LOG_ERROR("Network is unreachable")
-        break;
-
-        case ETIMEDOUT:
-         LOG_ERROR("Server timeout in accepting the connection")
-        break;
-
-        /* Others are non-recoverable errors, with the client application that should be terminated */
-        default:
-         LOG_SCODE(ERR_CSK_CONN_FAILED, ERRNO_DESC);
-       }
-
-      // In case of recoverable errors, ask the user whether another connection
-      // attempt should be performed, closing the client application if it should not
-      if(!askReconnection())
-       return -1; // RETURN FALSE?
-
-     } // if(!connRes)
-
-   } while(connRes != 0);
-
-  // At this point, connection with the server was established successfully
-  // cout << "Successfully connected with SafeCloud server at " << srvIP << ":" << to_string(ntohs(srvAddr.sin_port)) << endl;
-  return csk;
- }
-
-
 
 /**
- * @brief Attempts to locally authenticate a client within the SafeCloud application by prompting
- *        for its username and password, authentication consisting in successfully retrieving the
- *        user's long-term RSA key pair encrypted with such password stored in a ".pem" file with
- *        a predefined path function of the provided username
- * @return 'true' if the client successfully logged in or 'false' otherwise
- * @throws ERR_CLIENT_ALREADY_CONNECTED The client is already connected with the SafeCloud server
- * @throws ERR_CLIENT_ALREADY_LOGGED_IN The client is already logged in within the SafeCloud application
+ * @brief Starts the SafeCloud Client by:
+ *          1) Asking the user to locally login within the application via its username and password
+ *          2) Attempting to connect with the SafeCloud server
+ *          3) Establishing a shared secret key via the STSM protocol
+ *          4) Prompting and executing client's commands
+ * @throws TODO
  */
-bool Client::login()
+void Client::start()
  {
-  uint8_t remLoginAttempts = CLI_MAX_AUTH_ATTEMPTS; // Maximum login attempts
-  std::string username;                             // The candidate client's name
-  std::string password;                             // The candidate client's password
+  // Print the SafeCloud client welcome message
+  printWelcomeMessage();
 
-  // Ensure that the client is neither connected nor logged-in
-  if(_connected)
-   THROW_SCODE(ERR_CLIENT_ALREADY_CONNECTED);
-  if(_loggedIn)
-   THROW_SCODE(ERR_CLIENT_ALREADY_LOGGED_IN);
-
-  // Print the login header
-  std::cout << "\nLogin" << std::endl;
+  // Print the user login header
+  std::cout << "\nLOGIN" << std::endl;
   std::cout << "-----" << std::endl;
 
-  while(remLoginAttempts > 0)
+  /* --------------------------  1) Client login loop -------------------------- */
+  do
    {
     try
      {
-      // Retrieve the client's username
-      std::cout << "Username: ";
-      std::getline(std::cin,username);
-      LOG_DEBUG("User-provided name: \"" + username + "\"")
+      // Attempt to log in the user in the application
+      login();
 
-      // Retrieve the client's password, hiding the user's input characters
-      std::cout << "Password: ";
-      password = getUserPwd();
-      LOG_DEBUG("User-provided password: \"" + password + "\"")
-
-      // Sanitize the provided username
-      sanitizeUsername(username);
-      LOG_DEBUG("Sanitized username: \"" + username + "\"")
-
-      // Ensure the password not to be empty
-      if(password.empty())
-       THROW_SCODE(ERR_LOGIN_PWD_EMPTY);
-
-      // Ensure the password to be at most "CLI_PWD_MAX_LENGTH" characters
-      if(password.length() > CLI_PWD_MAX_LENGTH)
-       THROW_SCODE(ERR_LOGIN_PWD_TOO_LONG, password);
-
-      // Attempt to locally authenticate the user by retrieving
-      // and decrypting its RSA long-term private key
-      getUserRSAKey(username, password);
-
-      /* At this point, being the RSA private key valid, the client has successfully authenticated locally */
-
-      // Set the client's name
-      _name = username;
-
-      // Set the client's download directory
-      _downDir = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(),NULL);
-      if(_downDir.empty())
-       THROW_SCODE(ERR_DOWNDIR_NOT_FOUND,CLI_USER_DOWN_PATH(username),ERRNO_DESC);
-
-      // Set the client's temporary files directory
-      _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(),NULL);
-      if(_tempDir.empty())
-       THROW_SCODE(ERR_TMPDIR_NOT_FOUND,CLI_USER_TEMP_DIR_PATH(username),ERRNO_DESC);
-
-      LOG_DEBUG("User \"" + _name + "\" successfully logged in")
-      LOG_DEBUG("Download directory: " + _downDir)
-      LOG_DEBUG("Temporary directory " + _tempDir)
-
-      // Set the user as logged in and return the success of the operation
-      _loggedIn = true;
-      return true;
-     }
-    catch(sCodeException& excp)
-     {
-      // In case of errors, safely delete the client's personal information
-      OPENSSL_cleanse(&password[0], password.size());
-      OPENSSL_cleanse(&username[0], username.size());
-      OPENSSL_cleanse(&_name[0], _name.size());
-      OPENSSL_cleanse(&_downDir[0], _downDir.size());
-      OPENSSL_cleanse(&_tempDir[0], _tempDir.size());
-      EVP_PKEY_free(_rsaKey);
-
-      // In DEBUG_MODE always log the exception in its entirety
-#ifdef DEBUG_MODE
-      handleScodeException(excp);
-#else
-      // In release mode only log in their entirety errors of CRITICAL severity, while all
-      // others are concealed with a generic "wrong username or password" error so to not
-      // provide information whether a client with the provided username exists or not
-      if(excp.scode != ERR_FILE_CLOSE_FAILED && excp.scode != ERR_DOWNDIR_NOT_FOUND && excp.scode != ERR_TMPDIR_NOT_FOUND)
+      /* ----------------------  2) Server Connection Loop ---------------------- */
+      do
        {
-        excp.scode = ERR_LOGIN_WRONG_NAME_OR_PWD;
-        excp.addDscr = "";
-        excp.reason = "";
-       }
-      handleScodeException(excp);
-#endif
+        try
+         {
+          // Attempt to connect the client with the SafeCloud server
+          srvConnect();
 
-      // Decrement the remaining number of client authentication attempts
-      remLoginAttempts--;
+          // Prompt and process the user's application commands
+          // TODO: Another do-try loop here?
+          _shutdown = cmdPrompt();
+         }
+
+        // Connection error
+        catch(sCodeException& connExcp)
+         { connError(connExcp); }
+
+       } while(!_shutdown);
+       /* ----------------------  2) Server Connection Loop ---------------------- */
      }
-   } // while(remLoginAttempts > 0)
 
-  // If the client has exhausted their login attempts, print
-  // an error and return that the login was unsuccessful
-  LOG_ERROR("Maximum number of login attempts reached, please try again later")
-  return false;
+    // Login error
+    catch(sCodeException& loginExcp)
+     { loginError(loginExcp); }
+   } while(!_shutdown);
+  /* --------------------------  1- Client login loop -------------------------- */
+
+  // Execution reaching here implies that the SafeCloud client has terminated successfully
  }
 
 
@@ -537,18 +659,10 @@ void Client::shutdownSignal()
 
 
 /**
- * @brief  Returns whether the client is locally logged in within the SafeCloud application
- * @return 'true' if logged in, 'false' otherwise
- */
-bool Client::isLoggedIn()
- { return _loggedIn; }
-
-
-/**
  * @brief  Returns whether the client is currently connected with the SafeCloud server
  * @return 'true' if connected, 'false' otherwise
  */
-bool Client::isConnected()
+bool Client::isConnected() const
  { return _connected; }
 
 
@@ -557,7 +671,7 @@ bool Client::isConnected()
  *          to gracefully close all connections and terminate
  * @return 'true' if the client object is shutting down, 'false' otherwise
  */
-bool Client::isShuttingDown()
+bool Client::isShuttingDown() const
  { return _shutdown; }
 
 // TODO:
@@ -567,76 +681,3 @@ bool Client::isShuttingDown()
 // bool deleteFile();
 // bool renameFile();
 // bool listFiles();
-
-
-/**
- * @brief         Attempts to establish a connection with the SafeCloud server, prompting the user on whether
- *                to retry the connection in case of recoverable errors (ECONNREFUSED, ENETUNREACH, ETIMEDOUT)
- */
-//void serverConnect()
-// {
-//  /* ---------------------- Local Variables ---------------------- */
-//  char srvIP[16]; // The server IP address (logging purposes)
-//  int connRes;    // Stores the server connection establishment result
-//
-//
-//  // Convert the server IP address from network to string representation for logging purposes
-//  inet_ntop(AF_INET, &srvAddr.sin_addr.s_addr, srvIP, INET_ADDRSTRLEN);
-//
-//  /* ----------------------- Function Body ----------------------- */
-//
-//  // Attempt to create a connection socket
-//  csk = socket(AF_INET, SOCK_STREAM, 0);
-//  if(csk == -1)
-//   {
-//    LOG_CODE_DSCR_FATAL(ERR_CSK_INIT_FAILED, strerror(errno))
-//    exit(EXIT_FAILURE);
-//   }
-//
-//  LOG_DEBUG("Connection socket file descriptor: " + to_string(csk))
-//
-//  // Server connection attempt (which for recoverable errors can be repeated on user's discretion)
-//  do
-//   {
-//    LOG_DEBUG("Attempting to connect with SafeCloud server at " + string(srvIP) + ":" + to_string(ntohs(srvAddr.sin_port)) + "...")
-//
-//    connRes = connect(csk, (const struct sockaddr*)&srvAddr, sizeof(srvAddr));
-//
-//    // If a connection could not be established
-//    if(connRes != 0)
-//     {
-//      // Log the connection error as for the ERRNO variable
-//      switch(errno)
-//       {
-//        /* These represent recoverable errors, which prompt the user whether to retry the connection */
-//        case ECONNREFUSED:
-//         LOG_WARNING("Connection refused from remote host (probably the SafeCloud server is not running)")
-//        break;
-//
-//        case ENETUNREACH:
-//         LOG_ERROR("Network is unreachable")
-//        break;
-//
-//        case ETIMEDOUT:
-//         LOG_ERROR("Server timeout in accepting the connection")
-//        break;
-//
-//        /* Others are non-recoverable errors, with the client application that should be terminated */
-//        default:
-//         LOG_CODE_DSCR_FATAL(ERR_CSK_CONN_FAILED, strerror(errno))
-//        clientShutdown(EXIT_FAILURE);
-//       }
-//
-//      // In case of recoverable errors, ask the user whether another connection
-//      // attempt should be performed, closing the client application if it should not
-//      if(!askReconnection())
-//       clientShutdown(EXIT_SUCCESS);
-//
-//     } // if(!connRes)
-//
-//   } while(connRes != 0);
-//
-//  // At this point, connection with the server was established successfully
-//  cout << "Successfully connected with SafeCloud server at " << srvIP << ":" << to_string(ntohs(srvAddr.sin_port)) << endl;
-// }
-

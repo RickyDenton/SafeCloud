@@ -13,24 +13,32 @@ class SrvConnMgr : public ConnMgr
  {
   private:
 
-    /* ------------------------- Attributes ------------------------- */
-    X509*        _srvCert;   // The server's X.509 certificate
-    std::string* _poolDir;   // The client's pool directory
+    /* ================================= ATTRIBUTES ================================= */
+    std::string* _poolDir;    // The connected client's pool directory
 
-    SrvSTSMMgr* _srvSTSMMgr;  // The server's STSM key handshake manager
-    SrvSessMgr* _srvSessMgr;  // The server's session manager
+    SrvSTSMMgr* _srvSTSMMgr;  // The child server STSM key establishment manager
+    SrvSessMgr* _srvSessMgr;  // The child server session manager
+
+   /* =============================== FRIEND CLASSES =============================== */
+   friend class SrvSTSMMgr;
+   friend class SrvSessMgr;
+
+   /* =============================== PRIVATE METHODS =============================== */
+
 
   public:
 
-   /* ================= Constructors and Destructor ================= */
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
     * @brief          SrvConnMgr object constructor
-    * @param csk      The connection socket's file descriptor
+    * @param csk      The connection socket associated with this manager
     * @param guestIdx The connected client's temporary identifier
+    * @param rsaKey   The server's long-term RSA key pair
     * @param srvCert  The server's X.509 certificate
+    * @note The constructor also initializes the _srvSTSMMgr child object
     */
-   SrvConnMgr(int csk, unsigned int guestIdx, X509* srvCert);
+   SrvConnMgr(int csk, unsigned int guestIdx, EVP_PKEY* rsaKey, X509* srvCert);
 
    /**
     * @brief SrvConnMgr object destructor, which safely deletes
@@ -38,8 +46,19 @@ class SrvConnMgr : public ConnMgr
     */
    ~SrvConnMgr();
 
-  /* ======================== Other Methods ======================== */
-  // TODO
+  /* ============================= OTHER PUBLIC METHODS ============================= */
+
+  // TODO: Fix description depending on the _srvSessMgr.bufferFull() implementation
+  /**
+   * @brief Reads data from the client's connection socket and, if a full data block has been received.
+   *        passes it to the appropriate handler depending on the connection state, propagating its
+   *        indication on whether to maintain the client's connection to the Server object
+   * @return 'true' if the client connection must be maintained or 'false' otherwise
+   * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
+   * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
+   */
+  bool recvHandleData();
+
  };
 
 

@@ -10,8 +10,8 @@
 #include <dirent.h>
 #include <arpa/inet.h>
 
-/* =============================== PRIVATE METHODS =============================== */
-// TODO
+
+/* ============================== PROTECTED METHODS ============================== */
 
 /**
  * @brief Deletes the contents of the connection's temporary directory
@@ -21,12 +21,12 @@ void ConnMgr::cleanTmpDir()
   DIR*           tmpDir;    // Temporary directory file descriptor
   struct dirent* tmpFile;   // Information on a file in the temporary directory
 
-  // Absolute path of a file in the temporary directly, whose maximum length is given by the length
-  // of the temporary directory's path plus the maximum file name length (+1 for the '\0' terminator)
-  char tmpFileAbsPath[strlen(_tmpDir->c_str() + NAME_MAX + 1)];
-
-  // Convert the temporary directory's path to a C string
+  // Convert the connection's temporary directory path to a C string
   const char* _tmpDirC = _tmpDir->c_str();
+
+  // Absolute path of a file in the temporary directly, whose maximum length is given by the
+  // length of the temporary directory's path plus the maximum file name length (+1 for the '/')
+  char tmpFileAbsPath[strlen(_tmpDirC) + NAME_MAX + 1];
 
   // Open the temporary directory
   tmpDir = opendir(_tmpDirC);
@@ -37,6 +37,10 @@ void ConnMgr::cleanTmpDir()
     // For each file in the temporary folder
     while((tmpFile = readdir(tmpDir)) != NULL)
      {
+      // Skip the directory and its parent's pointers
+      if(!strcmp(tmpFile->d_name,".") ||!strcmp(tmpFile->d_name,".."))
+       continue;
+
       // Build the file's absolute path
       sprintf(tmpFileAbsPath, "%s/%s",_tmpDirC, tmpFile->d_name);
 
@@ -55,27 +59,105 @@ void ConnMgr::cleanTmpDir()
  }
 
 
+/* ---------------------------------- Data I/O ---------------------------------- */
+
+/**
+ * @brief Marks the contents of the primary connection buffer as
+ *        consumed, resetting the index of its first significant byte
+ */
+void ConnMgr::clearPriBuf()
+ { _priBufInd = 0; }
+
+
+/**
+ * @brief Marks the contents of the secondary connection buffer as
+ *        consumed, resetting the index of its first significant byte
+ */
+void ConnMgr::clearSecBuf()
+ { _secBufInd = 0; }
+
+
+/**
+ * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
+ *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
+ * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+ * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
+ * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+ */
+bool ConnMgr::recvData()
+ {
+  size_t maxReadBytes;  // Maximum number of bytes that can be read from the connection socket
+  ssize_t recvRet;      // Connection socket recv() return
+
+  /* Determine the maximum number of bytes that can be read from connection socket into the primary connection buffer as:
+       - If the expected size of the data block to be received is NOT known (_recvBlockSize == 0), as the difference
+         between the buffer's size and the index of its first available byte (for preventing buffer overflows)
+       - If instead the expected size of the data block to be received IS known (_recvBlockSize > 0), as the minimum
+         between the previous difference and the difference between such expected size and the index of the first
+         available byte in the buffer (for preventing reading a possible following block in the buffer)               */
+  if(_recvBlockSize == 0)
+   maxReadBytes = (_bufSize - _priBufInd);
+  else
+   maxReadBytes = std::min((_bufSize - _priBufInd),(_recvBlockSize - _priBufInd));
+
+  // Attempt to read up to the maximum allowed bytes from the connection socket into the primary connection buffer
+  recvRet = recv(_csk, _priBuf, maxReadBytes, 0);
+
+  LOG_DEBUG(*_name + " recv() returned " + std::to_string(recvRet) + " (maxReadBytes = " + std::to_string(recvRet) + ")")
+
+  // Depending on the recv() return
+  switch(recvRet)
+   {
+    // recv() FATAL error
+    case -1:
+     THROW_SCODE(ERR_CSK_RECV_FAILED,ERRNO_DESC);
+
+    // Abrupt server disconnection
+    case 0:
+     THROW_SCODE(ERR_PEER_DISCONNECTED,*_name);
+
+    // > 0 => recvRet = number of bytes read from socket (<= maxReadBytes)
+    default:
+
+     // If the expected size of the data block to be received is NOT known (_recvBlockSize == 0),
+     // set it to the first 16 bytes of the received data ("msgSize" field of a sMsgHeader)
+     if(_recvBlockSize == 0)
+      _recvBlockSize = (uint16_t)(_priBuf[0]);
+
+    // Update the number of significant bytes in the primary buffer
+    _priBufInd += recvRet;
+
+    // Return whether a full data block is available for consumption in the primary connection buffer
+    if(_recvBlockSize == (_priBufInd - 1))
+     return true;
+    else
+     return false;
+   }
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
  * @brief        ConnMgr object constructor
- * @param csk    The connection socket's file descriptor
- * @param name   The client's name associated with this connection
+ * @param csk    The connection socket associated with this manager
+ * @param name   The client name associated with this connection
  * @param tmpDir The connection's temporary directory
  */
-ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _buf(),
-                                                                    _bufSize(CONN_BUF_SIZE), _bufInd(0), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
+ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0), _secBuf(),
+                                                                    _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
  {}
 
 
 /**
- * @brief Connection Manager object destructor, which closes its associated connection
- *        socket and safely deletes all the connection's sensitive information
+ * @brief Connection Manager object destructor, which:\n
+ *          1) Closes its associated connection socket\n
+ *          2) Delete the contents of the connection's temporary directory\n
+ *          3) Safely deletes all the connection's sensitive information
  */
 ConnMgr::~ConnMgr()
  {
   // Close the connection socket
-  // TODO: Check if adding a "bye" message here, but it should probably be implemented elsewhere
   if(close(_csk) != 0)
    LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
 
@@ -84,11 +166,8 @@ ConnMgr::~ConnMgr()
    cleanTmpDir();
 
   // Safely delete all the connection's sensitive information
-  if(_name != nullptr)
-   OPENSSL_cleanse(_name, _name->length()+1);
-  if(_tmpDir != nullptr)
-   OPENSSL_cleanse(_tmpDir, _tmpDir->length()+1);
-  OPENSSL_cleanse(_buf, _bufSize);
+  OPENSSL_cleanse(_priBuf, _bufSize);
+  OPENSSL_cleanse(_secBuf, _bufSize);
   OPENSSL_cleanse(_iv, _ivSize);
   OPENSSL_cleanse(_skey, _skeySize);
  }
@@ -98,78 +177,7 @@ ConnMgr::~ConnMgr()
 
 // TODO
 
-// ERR_CSK_RECV_FAILED
 
-bool ConnMgr::recvData()
- {
-  ssize_t recvRet; // Number of bytes read from the connection socket
-
-  // Attempt to read up to (_bufSize - _bufInd) bytes from the connection socket into the general purpose buffer
-  recvRet = recv(_csk, _buf, (_bufSize - _bufInd), 0);
-
-  LOG_DEBUG(*_name + " recv() returned " + std::to_string(recvRet))
-
-  // Depending on the number of bytes that were read from the connection socket
-  switch(recvRet)
-   {
-    // recv() error
-    case -1:
-     THROW_SCODE(ERR_CSK_RECV_FAILED,*_name,ERRNO_DESC);
-
-    // Abrupt peer disconnection
-    case 0:
-     THROW_SCODE(ERR_PEER_DISCONNECTED,*_name);
-
-    // > 0 => number of bytes read from socket
-    default:
-
-     // Process the incoming client data
-     // _bufInd += recvRet;
-
-     // TODO: implement appropriately
-     // TODO --------------------------------------------------------------------------------------------------------
-     _buf[_bufInd + recvRet] = '\0';
-
-     char cliMsg[1024];
-     memcpy(cliMsg,&_buf[_bufInd],recvRet+1);
-
-     char hello[] = "Hello from server";
-     char login_success[] = "Login successful";
-
-     if(!strcmp(cliMsg, "close"))
-      return false;
-
-     // If the client "logged in"
-     if(!strcmp(cliMsg, "login"))
-      {
-       // Inform the user that the login was successful
-       send(_csk, (const void*)login_success, sizeof(login_success), 0);
-
-       // Log that the user has logged in
-       LOG_INFO("\"" + *_name + "\" has logged in as \"Alice" + std::to_string(_csk) + "\"")
-
-       // Set the user's "name"
-       *_name = "Alice" + std::to_string(_csk);
-
-       // Return that the client connection must be maintained
-       return true;
-      }
-
-    // Otherwise, it is just a random message
-
-    // Echo the client message
-    std::cout << "\"" << *_name << "\" says \"" << cliMsg << "\"" << std::endl;
-
-    // Reply a predefined message
-    send(_csk, (const void*)hello, sizeof(hello), 0);
-
-    // Return that the client connection must be maintained
-    return true;
-    // TODO --------------------------------------------------------------------------------------------------------
-
-   }
-
- }
 
 // sendOk()
 // sendClose()

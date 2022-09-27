@@ -13,7 +13,7 @@
 #include <openssl/err.h>
 #include "defaults.h"
 
-/* =========================== LOGGING UTILITY MACROS =========================== */
+/* ============================== MACROS DEFINITIONS ============================== */
 
 // Returns a human-readable description of the error stored in the 'errno' global variable
 #define ERRNO_DESC strerror(errno)
@@ -23,7 +23,7 @@
 #define OSSL_ERR_CODE ERR_get_error()
 
 // Returns a human-readable error description of the last OpenSSL error code
-#define OSSL_ERR_DESC ERR_error_string(ERR_get_error(),NULL) \
+#define OSSL_ERR_DESC ERR_error_string(OSSL_ERR_CODE,NULL) \
 
 /* ------------------------------- LOG_SCODE Macros ------------------------------- */
 
@@ -57,7 +57,7 @@
 /* -------------------- scodeExceptions Throwing and Catching -------------------- */
 
 /**
- * THROW_SCODE macros, passing their arguments to the handleScodeException() function:
+ * THROW_SCODE macros, passing their arguments to the appropriate sCodeException constructor
  *  - 1 argument   -> scode only
  *  - 2 arguments  -> scode + additional description
  *  - 3 arguments  -> scode + additional description + error reason
@@ -149,7 +149,7 @@ class sCodeException : public std::exception
   /* ----------------- Non-DEBUG_MODE Constructors ----------------- */
 #ifndef DEBUG_MODE
   // scode-only constructor (with implicit source file name and line)
-  explicit sCodeException(const enum scode scodeExcept) : scode(scodeExcept)
+  sCodeException(const enum scode scodeExcept) : scode(scodeExcept)
    {}
 
   // scode + additional description constructor (with implicit source file name and line)
@@ -163,7 +163,7 @@ class sCodeException : public std::exception
   /* ------------------- DEBUG_MODE Constructors ------------------- */
 
   // scode-only constructor (with implicit source file name and line)
-  explicit sCodeException(const enum scode scodeExcept, std::string srcFileName,const unsigned int line)
+  sCodeException(const enum scode scodeExcept, std::string srcFileName,const unsigned int line)
     : scode(scodeExcept), srcFile(std::move(srcFileName)), lineNumber(line)
    {}
 

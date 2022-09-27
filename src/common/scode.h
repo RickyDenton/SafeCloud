@@ -8,7 +8,7 @@
 /* ============================== TYPE DEFINITIONS ============================== */
 
 // SafeCloud application status codes definitions
-enum scode
+enum scode : unsigned char
  {
   // Operation Successful
   OK = 0,
@@ -36,6 +36,7 @@ enum scode
   ERR_CSK_ACCEPT_FAILED,
   ERR_CSK_MAX_CONN,
   ERR_CSK_MISSING_MAP,
+  ERR_CLI_DISCONNECTED,
 
 
 
@@ -71,14 +72,18 @@ enum scode
   ERR_LOGIN_PRIVKFILE_OPEN_FAILED,
   ERR_LOGIN_PRIVK_INVALID,
   ERR_DOWNDIR_NOT_FOUND,
-  ERR_CLIENT_ALREADY_CONNECTED,
-
+  ERR_SRV_LOGIN_FAILED,
+  ERR_CLI_LOGIN_FAILED,
 
 
   // Connection socket
   ERR_CSK_INIT_FAILED,
+  ERR_SRV_UNREACHABLE,
   ERR_CSK_CONN_FAILED,
-  ERR_CLIENT_ALREADY_LOGGED_IN,
+
+
+
+  ERR_SRV_DISCONNECTED,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -104,13 +109,20 @@ enum scode
   ERR_LOGIN_NAME_INVALID_CHARS,
   ERR_LOGIN_WRONG_NAME_OR_PWD,
 
+  // OpenSSL Errors
+  ERR_OSSL_EVP_PKEY_NEW,
+  ERR_OSSL_EVP_PKEY_ASSIGN,
+  ERR_OSSL_EVP_PKEY_CTX_NEW,
+  ERR_OSSL_EVP_PKEY_KEYGEN_INIT,
+  ERR_OSSL_EVP_PKEY_KEYGEN,
+
   // Unknown error
-  ERR_UNKNOWN = -1
+  ERR_UNKNOWN
  };
 
 
 // SafeCloud Severity Levels
-enum severityLvl
+enum severityLvl : unsigned char
  {
   FATAL,     // Unrecoverable error, the application must be terminated
   CRITICAL,  // Unrecoverable error
@@ -158,9 +170,10 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LSK_CLOSE_FAILED,       {FATAL,"Listening Socket Closing Failed"} },
 
     // Connection Sockets
-    { ERR_CSK_ACCEPT_FAILED,      {CRITICAL,"Failed to accept an incoming client connection"} },
-    { ERR_CSK_MAX_CONN,           {WARNING, "Maximum number of client connections reached, an incoming client connection has been rejected"} },
-    { ERR_CSK_MISSING_MAP,        {CRITICAL,"Connection socket with available input data is missing from the connections' map"} },
+    { ERR_CSK_ACCEPT_FAILED, {CRITICAL,"Failed to accept an incoming client connection"} },
+    { ERR_CSK_MAX_CONN,      {WARNING, "Maximum number of client connections reached, an incoming client connection has been rejected"} },
+    { ERR_CSK_MISSING_MAP,   {CRITICAL,"Connection socket with available input data is missing from the connections' map"} },
+    { ERR_CLI_DISCONNECTED,  {WARNING, "Abrupt client disconnection"} },
 
     // Other
     { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },
@@ -178,18 +191,22 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STORE_REJECT_REVOKED_FAILED, {FATAL,"Error in configuring the store so to reject revoked certificates"} },
 
     // Client Login
-    { ERR_LOGIN_PWD_EMPTY,              {ERROR,"The user-provided password is empty"} },
-    { ERR_LOGIN_PWD_TOO_LONG,           {ERROR,"The user-provided password is too long"} },
-    { ERR_LOGIN_PRIVKFILE_NOT_FOUND,    {ERROR,"The user RSA private key file was not found"} },
-    { ERR_LOGIN_PRIVKFILE_OPEN_FAILED,  {ERROR,"Error in opening the user's RSA private key file"} },
-    { ERR_LOGIN_PRIVK_INVALID,          {ERROR,"The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
+    { ERR_LOGIN_PWD_EMPTY,              {ERROR,   "The user-provided password is empty"} },
+    { ERR_LOGIN_PWD_TOO_LONG,           {ERROR,   "The user-provided password is too long"} },
+    { ERR_LOGIN_PRIVKFILE_NOT_FOUND,    {ERROR,   "The user RSA private key file was not found"} },
+    { ERR_LOGIN_PRIVKFILE_OPEN_FAILED,  {ERROR,   "Error in opening the user's RSA private key file"} },
+    { ERR_LOGIN_PRIVK_INVALID,          {ERROR,   "The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
     { ERR_DOWNDIR_NOT_FOUND,            {CRITICAL,"The client's download directory was not found"} },
-    { ERR_CLIENT_ALREADY_LOGGED_IN,     {ERROR,"The client is already locally logged in in the SafeCloud application"} },
+    { ERR_SRV_LOGIN_FAILED,             {ERROR,   "Server-side client authentication failed"} },    // This should NEVER happen
+    { ERR_CLI_LOGIN_FAILED,             {CRITICAL,"Maximum number of login attempts reached, please try again later"} },
 
     // Connection Socket
-    { ERR_CSK_INIT_FAILED,          {FATAL,"Connection Socket Creation Failed"} },
-    { ERR_CSK_CONN_FAILED,          {FATAL,"Fatal error in connecting with the server"} },
-    { ERR_CLIENT_ALREADY_CONNECTED, {ERROR,"The client is already connected to the SafeCloud server"} },
+    { ERR_CSK_INIT_FAILED,   {FATAL,  "Connection Socket Creation Failed"} },
+    { ERR_SRV_UNREACHABLE,   {WARNING,"Failed to connected with the server"} },
+    { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the server"} },
+    { ERR_SRV_DISCONNECTED,  {WARNING, "The server has abruptly disconnected"} },
+
+
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -199,8 +216,9 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     // Connection sockets
     { ERR_CSK_CLOSE_FAILED,  {CRITICAL,"Connection Socket Close Failed"} },
-    { ERR_CSK_RECV_FAILED,   {CRITICAL,"Error in reading data from connection socket"} },
-    { ERR_PEER_DISCONNECTED, {WARNING, "Abrupt peer disconnection"} },
+    { ERR_CSK_RECV_FAILED,   {CRITICAL,"Error in receiving data from the connection socket"} },
+    { ERR_PEER_DISCONNECTED,  {WARNING,"Abrupt peer disconnection"} },
+
 
     // Files and Directories
     { ERR_FILE_CLOSE_FAILED,     {CRITICAL,"Error in closing the file"} },
@@ -214,6 +232,22 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LOGIN_NAME_WRONG_FORMAT,  {ERROR,"The user-provided name is of invalid format"} },
     { ERR_LOGIN_NAME_INVALID_CHARS, {ERROR,"The user-provided name contains invalid characters"} },
     { ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,"Wrong username or password"} },
+
+    // OpenSSL Errors
+    { ERR_OSSL_EVP_PKEY_NEW,         {FATAL,"EVP_PKEY structure allocation failed"} },
+    { ERR_OSSL_EVP_PKEY_ASSIGN,      {FATAL,"Error in assigning a value to the EVP_PKEY structure"} },
+    { ERR_OSSL_EVP_PKEY_CTX_NEW,     {FATAL,"Error in creating an EVP_PKEY context"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN_INIT, {FATAL,"Error in creating a EVP_PKEY key generation context"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN,      {FATAL,"EVP_PKEY Key generation error"} },
+
+
+
+
+
+
+
+
+
 
     // Unknown
     { ERR_UNKNOWN, {CRITICAL,"Unknown Error"} }

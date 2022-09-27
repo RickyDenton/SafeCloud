@@ -19,10 +19,9 @@
 #include "errlog.h"
 #include "Client/Client.h"
 #include "utils.h"
-#include "client_utils.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
-static Client* cli;  // The singleton Client object
+Client* cli;  // The singleton Client object
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
@@ -74,6 +73,7 @@ void OSSignalsCallback(__attribute__((unused)) int signum)
 
 /* ------------------------------ Client Main Loop ------------------------------ */
 
+/*
 // TODO!
 bool recvCheck(int csk, char* buf,size_t bufSize,ssize_t& recvSize)
  {
@@ -122,10 +122,10 @@ bool recvCheck(int csk, char* buf,size_t bufSize,ssize_t& recvSize)
 
 
 // TODO!
-/**
+*//**
  * @brief Depending on the user's choice, attempts to reconnect with the SafeCloud server
  * @return 'true' if connection with the SafeCloud server was successfully re-established, or 'false' otherwise
- */
+ *//*
 int srvConnDown(int& csk)
  {
   // Ask the user on whether a reconnection attempt with the server should be performed,
@@ -201,22 +201,11 @@ int clientLoop()
    std::cout << "NOT LOGGED IN" << std::endl;
 
   return(EXIT_SUCCESS);
- }
+ }*/
 
 /* ---------------------------- Client Initialization ---------------------------- */
 
-/**
- * @brief Prints the SafeCloud client welcome message
- */
-void printWelcomeMessage()
- {
-  std::cout << "   _____        __      _____ _                 _ \n";
-  std::cout << "  / ____|      / _|    / ____| |               | |\n";
-  std::cout << " | (___   __ _| |_ ___| |    | | ___  _   _  __| |\n";
-  std::cout << "  \\___ \\ / _` |  _/ _ \\ |    | |/ _ \\| | | |/ _` |\n";
-  std::cout << "  ____) | (_| | ||  __/ |____| | (_) | |_| | (_| |\n";
-  std::cout << " |_____/ \\__,_|_| \\___|\\_____|_|\\___/ \\__,_|\\__,_|" << std::endl;
- }
+
 
 
 /**
@@ -385,12 +374,17 @@ int main(int argc, char** argv)
   // it the IP and port of the SafeCloud server to connect to
   clientInit(srvIP,srvPort);
 
-  // Print the SafeCloud client welcome message
-  printWelcomeMessage();
+  // Start the SafeCloud Client
+  try
+   { cli->start(); }
+  catch(sCodeException& excp)
+   {
+    // If an error occurred in the client's execution,
+    // handle it and terminate the application
+    handleScodeException(excp);
+    terminate(EXIT_FAILURE);
+   }
 
-  // Call the client logic main loop
-  clientLoop();
-
-  // Exiting from the client's main loop implies that the application must terminate
+  // If the SafeCloud client closed gracefully, terminate the application
   terminate(EXIT_SUCCESS);
  }

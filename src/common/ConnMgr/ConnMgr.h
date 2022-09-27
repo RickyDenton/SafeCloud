@@ -10,24 +10,30 @@ class ConnMgr
  {
   protected:
 
+   // Connection current state
    enum connState
     {
      KEYXCHANGE,  // Connection in the STSM key establishment phase
      SESSION      // Connection in the session phase
     };
 
-   /* ========================= Attributes ========================= */
+   /* ================================= ATTRIBUTES ================================= */
 
    // General connection information
-   connState    _connState;           // Current connection state (key establishment or session)
-   const int    _csk;                 // The connection socket's file descriptor
+   connState    _connState;           // Connection current state (key establishment or session)
+   const int    _csk;                 // The connection socket associated with this manager
    std::string* _name;                // The client's name associated with this connection
    std::string* _tmpDir;              // The connection's temporary directory
 
-   // General-purpose buffer for sending and receiving data
-   unsigned char      _buf[CONN_BUF_SIZE];  // General-purpose buffer
-   const unsigned int _bufSize;             // General-purpose buffer size (CONN_BUF_SIZE)
-   unsigned int       _bufInd;              // First available byte in the general-purpose buffer
+   // Communication Buffers
+   unsigned char      _priBuf[CONN_BUF_SIZE];  // Primary communication buffer
+   unsigned int       _priBufInd;              // Index of the first available byte, or number of
+                                               // significant bytes, in the primary communication buffer
+   unsigned char      _secBuf[CONN_BUF_SIZE];  // Secondary communication buffer
+   unsigned int       _secBufInd;              // Index of the first available byte, or number of
+                                               // significant bytes, in the secondary communication buffer
+   const unsigned int _bufSize;                // Communication buffers size (CONN_BUF_SIZE)
+   uint16_t           _recvBlockSize;          // Expected size of a data block being received
 
    // Cryptographic quantities
    unsigned char* _iv[IV_SIZE];      // The connection's initialization vector
@@ -35,34 +41,62 @@ class ConnMgr
    unsigned char* _skey[SKEY_SIZE];  // The connection's symmetric key
    unsigned short _skeySize;         // The connection's symmetric key size (SKEY_SIZE = 16 bytes = 128 bit, AES128_GCM)
 
-   /* =========================== Methods =========================== */
+   /* ============================== PROTECTED METHODS ============================== */
 
    /**
     * @brief Deletes the contents of the connection's temporary directory
     */
    void cleanTmpDir();
 
+   /* ---------------------------------- Data I/O ---------------------------------- */
+
+   /**
+     * @brief Marks the contents of the primary connection buffer as
+     *        consumed, resetting the index of its first significant byte
+     */
+   void clearPriBuf();
+
+   /**
+    * @brief Marks the contents of the secondary connection buffer as
+    *        consumed, resetting the index of its first significant byte
+    */
+   void clearSecBuf();
+
+   /**
+    * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
+    *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
+    * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+    * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+    */
+   bool recvData();
+
+
+
   public:
 
-   /* ================= Constructor and Destructor ================= */
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
     * @brief        ConnMgr object constructor
-    * @param csk    The connection socket's file descriptor
-    * @param name   The client's name associated with this connection
+    * @param csk    The connection socket associated with this manager
+    * @param name   The client name associated with this connection
     * @param tmpDir The connection's temporary directory
     */
    ConnMgr(int csk, std::string* name, std::string* tmpDir);
 
    /**
-    * @brief Connection Manager object destructor, which closes its associated connection
-    *        socket and safely deletes all the connection's sensitive information
+    * @brief Connection Manager object destructor, which:\n
+    *          1) Closes its associated connection socket\n
+    *          2) Delete the contents of the connection's temporary directory\n
+    *          3) Safely deletes all the connection's sensitive information
     */
    ~ConnMgr();
 
-   /* ======================== Other Methods ======================== */
+   /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   bool recvData();
+
+
 
   // TODO
    // sendOk()

@@ -5,7 +5,6 @@
 // Miscellaneous Libraries
 #include <iostream>
 #include <signal.h>
-#include <string.h>
 #include <unistd.h>
 
 // TCP/IP Libraries
@@ -15,11 +14,10 @@
 // SafeCloud Libraries
 #include "defaults.h"
 #include "errlog.h"
-#include "client_old.h"
 #include "Server/Server.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
-static Server* srv;  // The singleton Server object
+Server* srv;  // The singleton Server object
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
@@ -31,7 +29,7 @@ static Server* srv;  // The singleton Server object
  */
 void terminate(int exitStatus)
  {
-  // Delete the client object
+  // Delete the server object
   delete srv;
 
   // Print the closing message
@@ -87,8 +85,8 @@ void serverInit(uint16_t& srvPort)
     if(excp.scode == ERR_SRV_PORT_INVALID)
      std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
 
-    // All other exceptions should be handled by the general handleScodeException()
-    // function (which, being all of FATAL severity, will terminate the execution)
+     // All other exceptions should be handled by the general handleScodeException()
+     // function (which, being all of FATAL severity, will terminate the execution)
     else
      handleScodeException(excp);
 
@@ -215,12 +213,17 @@ int main(int argc, char** argv)
   // object by passing the OS port it must bind on
   serverInit(srvPort);
 
-  // Start listening on the listening socket and accept client connections
+  // Start the SafeCloud server
   try
    { srv->start(); }
-  CATCH_SCODE
+  catch(sCodeException& excp)
+   {
+    // If an error occurred in the server's execution,
+    // handle it and terminate the application
+    handleScodeException(excp);
+    terminate(EXIT_FAILURE);
+   }
 
-  // Execution reaching here implies that the server has
-  // gracefully terminated after receiving an OS signal
+  // If the SafeCloud server closed gracefully, terminate the application
   terminate(EXIT_SUCCESS);
  }

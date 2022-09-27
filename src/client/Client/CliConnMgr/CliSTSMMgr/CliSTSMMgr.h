@@ -5,35 +5,50 @@
 
 #include "ConnMgr/STSMMgr/STSMMgr.h"
 
-/* ------------------------- STSM Client States ------------------------- */
-enum STSMCliState
- {
-  // The client has yet to send its 'hello' message
-  INIT,
+// Forward Declaration
+class CliConnMgr;
 
-  // The client has sent its 'hello' message and is awaiting the server's 'auth' message
-  WAITING_SRV_AUTH,
-
-  // The client has sent its 'auth' message and is awaiting the server 'ok' message
-  WAITING_SRV_OK
- };
-
-
-class CliSTSMMgr : STSMMgr
+class CliSTSMMgr : public STSMMgr
  {
   private:
 
-   /* ------------------------- Attributes ------------------------- */
+   // STSM Client States
+   enum STSMCliState
+    {
+     // The client has yet to send its 'hello' message
+     INIT,
+
+     // The client has sent its 'hello' message and is awaiting the server's 'auth' message
+     WAITING_SRV_AUTH,
+
+     // The client has sent its 'auth' message and is awaiting the server 'ok' message
+     WAITING_SRV_OK
+    };
+
+   /* ================================= ATTRIBUTES ================================= */
    enum STSMCliState _stsmCliState;  // Current client state in the STSM key exchange protocol
+   CliConnMgr&       _cliConnMgr;    // The parent CliConnMgr instance managing this object
    X509_STORE*       _cliStore;      // The client's already-initialized X.509 certificate store used for validating the server's signature
+
+   /* =============================== PRIVATE METHODS =============================== */
 
   public:
 
-   /* ---------------- Constructors and Destructor ---------------- */
-   CliSTSMMgr(int csk, char* name, unsigned char* buf, unsigned int bufSize, EVP_PKEY* myRSALongPrivKey, unsigned char* iv, unsigned char* skey, X509_STORE* cliStore);
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+   /**
+    * @brief                  CliSTSMMgr object constructor
+    * @param myRSALongPrivKey The client's long-term RSA key pair
+    * @param cliConnMgr       A reference to the parent CliConnMgr object
+    * @param cliStore         The client's X.509 certificates store
+    */
+   CliSTSMMgr(EVP_PKEY* myRSALongPrivKey, CliConnMgr& cliConnMgr, X509_STORE* cliStore);
+
    // Same destructor of the STSMMgr base class
 
-   /* ------------------------------- Other Methods ------------------------------- */
+   /* ============================= OTHER PUBLIC METHODS ============================= */
+
+   void startSTSM();
 
    // TODO:
    //

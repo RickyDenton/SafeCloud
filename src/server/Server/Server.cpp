@@ -224,7 +224,7 @@ void Server::newClientData(int ski)
   // Pass the incoming client data to the SrvConnMgr object, which
   // returns whether to maintain or close the client's connection
   try
-   { keepConn = srvConnMgr->recvData(); }
+   { keepConn = srvConnMgr->recvHandleData(); }
   catch(sCodeException& excp)
    {
     // TODO: Check
@@ -298,7 +298,7 @@ void Server::newClientConnection()
 
   // Attempt to initialize the client's connection manager
   try
-   { srvConnMgr = new SrvConnMgr(csk,_guestIdx,_srvCert); }
+   { srvConnMgr = new SrvConnMgr(csk,_guestIdx,_rsaKey,_srvCert); }
   catch(sCodeException& excp)
    {
     // TODO: check how to implement this

@@ -26,31 +26,39 @@ class STSMMgr
  {
   protected:
 
-   /* ------------------------- Attributes ------------------------- */
+   /* ================================= ATTRIBUTES ================================= */
 
-   // Connection information
-   const int _csk;                        // The connection socket on which to perform the STSM protocol
-   char*     _name;                       // The client's username
-
-   // Buffer for sending and receiving STSM messages
-   unsigned char*     _buf;               // STSM Buffer
-   unsigned int       _bufInd;            // Index to the first available byte in the STSM buffer
-   const unsigned int _bufSize;           // STSM Buffer size (must be >= 4MB)
-
-   // Cryptographic quantities
+   // STSM shared cryptographic quantities
    EVP_PKEY*          _myRSALongPrivKey;  // The actor's long-term RSA private key
    EVP_PKEY*          _myDHEKey;          // The actor's ephemeral DH key pair
    EVP_PKEY*          _otherDHEPubKey;    // The other actor's ephemeral DH public key
-   unsigned char*     _iv;                // The initialization vector of implicit IV_SIZE = 12 bytes (96 bit, AES_GCM)
-   unsigned char*     _skey;              // The symmetric key of implicit SKEY_SIZE = 16 bytes (128 bit, AES_GCM)
+
+   /* =============================== PRIVATE METHODS =============================== */
+
+   /**
+    * @brief  Generates an ephemeral DH key pair on 2048 bit using the set of standard DH parameters
+    * @return The address of the EVP_PKEY structure holding the newly generated ephemeral DH key pair
+    */
+   static EVP_PKEY* DHE_2048_Keygen();
+
 
   public:
 
-   /* ---------------- Constructors and Destructor ---------------- */
-   STSMMgr(int csk, char* name, unsigned char* buf, unsigned int bufSize, EVP_PKEY* myRSALongPrivKey, unsigned char* iv, unsigned char* skey);
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+   /**
+    * @brief                  STSMMgr object constructor
+    * @param myRSALongPrivKey The actor's long-term RSA private key
+    * @note The constructor initializes the actor's ephemeral DH 2048 key pair
+    */
+   explicit STSMMgr(EVP_PKEY* myRSALongPrivKey);
+
+   /**
+    * @brief STSMMgr object destructor, which safely deletes its sensitive attributes
+    */
    ~STSMMgr();
 
-  /* ------------------------------- Other Methods ------------------------------- */
+   /* ============================= OTHER PUBLIC METHODS ============================= */
 
   // TODO:
   // void sendSTSMError(int csk,int buf,int bufSize);     // Inform the other that the STSM handshake has failed, close the connection

@@ -5,7 +5,6 @@
 // Miscellaneous Libraries
 #include <iostream>
 
-using namespace std;
 
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
@@ -56,9 +55,9 @@ int getYNChar()
  // Read the first character from stdin until a y/Y or n/N is provided
  do
   {
-  ret = get1char();
-  if((ret != 'Y') && (ret != 'N') && (ret != 'y') && (ret != 'n'))
-   std::cout << "Please answer \"yes\" (y/Y) or \"no\" (n/N): ";
+   ret = get1char();
+   if((ret != 'Y') && (ret != 'N') && (ret != 'y') && (ret != 'n'))
+    std::cout << "Please answer \"yes\" (y/Y) or \"no\" (n/N): ";
   } while((ret != 'Y') && (ret != 'N') && (ret != 'y') && (ret != 'n'));
 
  return ret;
@@ -66,20 +65,19 @@ int getYNChar()
 
 
 /**
- * @brief Prompt the user on whether to attempt to re-establish a connection with the SafeCloud Server
- * @return 'true' if the user wants to reconnect, 'false' otherwise
+ * @brief  Asks the user a yes-no question, continuously reading a character from stdin until a valid response is provided (y/Y or n/N)
+ * @return 'true' if the user answers y/Y or 'false' if it answers 'n/N'
  */
-bool askReconnection()
+bool askUser(const char* question)
  {
-  int retryConn;  // A character representing the user choice on whether attempting to re-establish connection with the server (y/Y or n/N)
+  // Ask the user the question
+  std::cout << question << " (Y/N): ";
 
-  cout << "Try again to connect with the server? (Y/N): ";
+  // Read the user's y/N or n/N answer
+  int userAnswer = getYNChar();
 
-  // Read the first y/Y or n/N character from standard input
-  retryConn = getYNChar();
-
-  // Return true or false depending on the user's choice
-  if((retryConn == 'Y') || (retryConn == 'y'))
+  // Return true or false depending on the user's answer
+  if((userAnswer == 'Y') || (userAnswer == 'y'))
    return true;
   return false;
  }

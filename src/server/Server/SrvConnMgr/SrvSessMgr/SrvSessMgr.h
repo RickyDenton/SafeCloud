@@ -20,6 +20,10 @@ class SrvSessMgr : SessMgr
 
     /* ======================== Other Methods ======================== */
 
+    // TODO: Placeholder implementation
+    bool SessBlockHandler()
+     { return true; }
+
   // TODO
  };
 

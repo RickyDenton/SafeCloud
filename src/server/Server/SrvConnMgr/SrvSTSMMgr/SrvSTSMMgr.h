@@ -5,32 +5,49 @@
 
 #include "ConnMgr/STSMMgr/STSMMgr.h"
 
-/* ----------------------------- STSM Server States ----------------------------- */
-enum STSMSrvState
- {
-  // The server has not yet received the client's 'hello' message
-  WAITING_CLI_HELLO,
+// Forward Declaration
+class SrvConnMgr;
 
-  // The server has sent its 'auth' message and is awaiting the client's one
-  WAITING_CLI_AUTH
- };
-
-
-class SrvSTSMMgr : STSMMgr
+class SrvSTSMMgr : public STSMMgr
  {
    private:
 
-    /* ------------------------- Attributes ------------------------- */
+    // STSM Server States
+    enum STSMSrvState
+     {
+      // The server has not yet received the client's 'hello' message
+      WAITING_CLI_HELLO,
+
+      // The server has sent its 'auth' message and is awaiting the client's one
+      WAITING_CLI_AUTH
+     };
+
+    /* ================================= ATTRIBUTES ================================= */
     enum STSMSrvState _stsmSrvState;  // Current server state in the STSM key exchange protocol
+    SrvConnMgr&       _srvConnMgr;    // The parent SrvConnMgr instance managing this object
     X509*             _srvCert;       // The server's X.509 certificate
+
+    /* =============================== PRIVATE METHODS =============================== */
 
    public:
 
-    /* ---------------- Constructors and Destructor ---------------- */
-    SrvSTSMMgr(int csk, char* name, unsigned char* buf, unsigned int bufSize, EVP_PKEY* myRSALongPrivKey, unsigned char* iv, unsigned char* skey, X509* srvCert);
+    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+    /**
+     * @brief                  SrvSTSMMgr object constructor
+     * @param myRSALongPrivKey The server's long-term RSA key pair
+     * @param srvConnMgr       The parent SrvConnMgr instance managing this object
+     * @param srvCert          The server's X.509 certificate
+     */
+    SrvSTSMMgr(EVP_PKEY* myRSALongPrivKey, SrvConnMgr& srvConnMgr, X509* srvCert);
+
     // Same destructor of the STSMMgr base class
 
-  /* ------------------------------- Other Methods ------------------------------- */
+    /* ============================= OTHER PUBLIC METHODS ============================= */
+
+    // TODO: Placeholder implementation
+    bool STSMMsgHandler()
+     { return true; }
 
   // TODO:
   //
