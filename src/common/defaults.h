@@ -19,7 +19,7 @@
 
 // Cryptographic Parameters (AES128_GCM)
 #define SKEY_SIZE 16                      // Session Key size (16 bytes, 128 bit)
-#define IV_SIZE   12                      // IV size (12 bytes, 96 bit)
+
 
 
 /* ============================= SERVER PARAMETERS ============================= */

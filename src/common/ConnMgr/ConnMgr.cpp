@@ -7,6 +7,7 @@
 #include "defaults.h"
 #include "scode.h"
 #include "errlog.h"
+#include "ConnMgr/STSMMgr/STSMMsg.h"
 #include <dirent.h>
 #include <arpa/inet.h>
 
@@ -58,6 +59,47 @@ void ConnMgr::cleanTmpDir()
   delete _tmpDirC;
  }
 
+
+/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+/**
+ * @brief        ConnMgr object constructor
+ * @param csk    The connection socket associated with this manager
+ * @param name   The client name associated with this connection
+ * @param tmpDir The connection's temporary directory
+ */
+ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0),
+                                                                    _secBuf(), _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _skey(), _iv()
+ {}
+
+
+/**
+ * @brief Connection Manager object destructor, which:\n
+ *          1) Closes its associated connection socket\n
+ *          2) Delete the contents of the connection's temporary directory\n
+ *          3) Safely deletes all the connection's sensitive information
+ */
+ConnMgr::~ConnMgr()
+ {
+  // Delete the connection's symmetric key and IV
+  OPENSSL_cleanse(&_skey[0], SKEY_SIZE);
+  delete _iv;
+
+  // Safely delete the connection's buffers
+  OPENSSL_cleanse(&_priBuf[0], _bufSize);
+  OPENSSL_cleanse(&_secBuf[0], _bufSize);
+
+  // Close the connection socket
+  if(close(_csk) != 0)
+   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
+
+  // If set, delete the contents of the connection's temporary directory
+  if(_tmpDir != nullptr)
+   cleanTmpDir();
+ }
+
+
+/* ============================ OTHER PUBLIC METHODS ============================ */
 
 /* ---------------------------------- Data I/O ---------------------------------- */
 
@@ -119,16 +161,20 @@ bool ConnMgr::recvData()
     // > 0 => recvRet = number of bytes read from socket (<= maxReadBytes)
     default:
 
+     std::cout << "_recvBlockSize = " << _recvBlockSize << " _priBufInd = " << _priBufInd << std::endl;
+
      // If the expected size of the data block to be received is NOT known (_recvBlockSize == 0),
      // set it to the first 16 bytes of the received data ("msgSize" field of a sMsgHeader)
      if(_recvBlockSize == 0)
-      _recvBlockSize = (uint16_t)(_priBuf[0]);
+      _recvBlockSize = ((STSMMsg&&)_priBuf).header.len;
 
     // Update the number of significant bytes in the primary buffer
     _priBufInd += recvRet;
 
+    std::cout << "_recvBlockSize = " << _recvBlockSize << " _priBufInd = " << _priBufInd << std::endl;
+
     // Return whether a full data block is available for consumption in the primary connection buffer
-    if(_recvBlockSize == (_priBufInd - 1))
+    if(_recvBlockSize == _priBufInd)
      return true;
     else
      return false;
@@ -136,47 +182,30 @@ bool ConnMgr::recvData()
  }
 
 
-/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
-
-/**
- * @brief        ConnMgr object constructor
- * @param csk    The connection socket associated with this manager
- * @param name   The client name associated with this connection
- * @param tmpDir The connection's temporary directory
- */
-ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0), _secBuf(),
-                                                                    _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _iv(), _ivSize(IV_SIZE), _skey(), _skeySize(SKEY_SIZE)
- {}
-
-
-/**
- * @brief Connection Manager object destructor, which:\n
- *          1) Closes its associated connection socket\n
- *          2) Delete the contents of the connection's temporary directory\n
- *          3) Safely deletes all the connection's sensitive information
- */
-ConnMgr::~ConnMgr()
+// TODO: Write better
+void ConnMgr::sendData()
  {
-  // Close the connection socket
-  if(close(_csk) != 0)
-   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
+  // Retrieve the length of the data block to be sent from the first 16 bits in the primary connection buffer
+  // uint16_t blockLen = (uint16_t)_priBuf[0];
 
-  // If set, delete the contents of the connection's temporary directory
-  if(_tmpDir != nullptr)
-   cleanTmpDir();
 
-  // Safely delete all the connection's sensitive information
-  OPENSSL_cleanse(_priBuf, _bufSize);
-  OPENSSL_cleanse(_secBuf, _bufSize);
-  OPENSSL_cleanse(_iv, _ivSize);
-  OPENSSL_cleanse(_skey, _skeySize);
+  size_t blockLen = ((STSMMsg&&)_priBuf).header.len;
+
+
+  // Inform the user that the login was successful
+  send(_csk, (const void*)&_priBuf, blockLen, 0);
+
+  LOG_DEBUG("Sent " + std::to_string(blockLen) + " bytes")
+
+  // TODO
+  // Increment the IV, and, if close to overflow, prepare and send a rekeying message (SESSION ONLY)
+  if(_iv->incIV())
+   {
+
+
+   }
+
  }
-
-
-/* ============================ OTHER PUBLIC METHODS ============================ */
-
-// TODO
-
 
 
 // sendOk()

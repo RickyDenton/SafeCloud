@@ -38,16 +38,13 @@ enum scode : unsigned char
   ERR_CSK_MISSING_MAP,
   ERR_CLI_DISCONNECTED,
 
+  // STSM Server protocol
+  ERR_STSM_SRV_MALFORMED_MSG,
+  ERR_STSM_SRV_CHALLENGE_FAILED,
+  ERR_STSM_SRV_CERT_REJECTED,
+  ERR_STSM_SRV_LOGIN_FAILED,
+  ERR_STSM_SRV_UNKNOWN_TYPE,
 
-
-  // Clients
-  ERR_CLI_CONN_ERROR,
-
-  // Guests
-  ERR_GST_ECONNRESET,
-
-  // Users
-  ERR_USR_ECONNRESET,
 
   // Other
   ERR_SRV_PSELECT_FAILED,
@@ -72,18 +69,21 @@ enum scode : unsigned char
   ERR_LOGIN_PRIVKFILE_OPEN_FAILED,
   ERR_LOGIN_PRIVK_INVALID,
   ERR_DOWNDIR_NOT_FOUND,
-  ERR_SRV_LOGIN_FAILED,
   ERR_CLI_LOGIN_FAILED,
-
 
   // Connection socket
   ERR_CSK_INIT_FAILED,
   ERR_SRV_UNREACHABLE,
   ERR_CSK_CONN_FAILED,
-
-
-
   ERR_SRV_DISCONNECTED,
+
+  // STSM Client protocol
+  ERR_STSM_CLI_ALREADY_STARTED,
+  ERR_STSM_CLI_MALFORMED_MSG,
+  ERR_STSM_CLI_CHALLENGE_FAILED,
+  ERR_STSM_CLI_CERT_REJECTED,
+  ERR_STSM_CLI_LOGIN_FAILED,
+  ERR_STSM_CLI_UNKNOWN_TYPE,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -115,6 +115,14 @@ enum scode : unsigned char
   ERR_OSSL_EVP_PKEY_CTX_NEW,
   ERR_OSSL_EVP_PKEY_KEYGEN_INIT,
   ERR_OSSL_EVP_PKEY_KEYGEN,
+
+  // STSM Generic Errors
+  ERR_STSM_MALFORMED_MSG,
+  ERR_STSM_CHALLENGE_FAILED,
+  ERR_STSM_CERT_REJECTED,
+  ERR_STSM_LOGIN_FAILED,
+  ERR_STSM_UNKNOWN_TYPE,
+
 
   // Unknown error
   ERR_UNKNOWN
@@ -175,6 +183,13 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CSK_MISSING_MAP,   {CRITICAL,"Connection socket with available input data is missing from the connections' map"} },
     { ERR_CLI_DISCONNECTED,  {WARNING, "Abrupt client disconnection"} },
 
+    // STSM Server protocol
+    { ERR_STSM_SRV_MALFORMED_MSG,     {ERROR,"The client reported to have received a malformed STSM message"} },
+    { ERR_STSM_SRV_CHALLENGE_FAILED,  {ERROR,"The client reported that the server failed the STSM authentication challenge"} },
+    { ERR_STSM_SRV_CERT_REJECTED,     {ERROR,"The client has rejected the server's certificate in the STSM protocol"} },
+    { ERR_STSM_SRV_LOGIN_FAILED,      {ERROR,"Unrecognized user in the STSM protocol"} },
+    { ERR_STSM_SRV_UNKNOWN_TYPE,      {ERROR,"The client reported to have received an STSM message of unknown type"} },
+
     // Other
     { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },
 
@@ -197,7 +212,6 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LOGIN_PRIVKFILE_OPEN_FAILED,  {ERROR,   "Error in opening the user's RSA private key file"} },
     { ERR_LOGIN_PRIVK_INVALID,          {ERROR,   "The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
     { ERR_DOWNDIR_NOT_FOUND,            {CRITICAL,"The client's download directory was not found"} },
-    { ERR_SRV_LOGIN_FAILED,             {ERROR,   "Server-side client authentication failed"} },    // This should NEVER happen
     { ERR_CLI_LOGIN_FAILED,             {CRITICAL,"Maximum number of login attempts reached, please try again later"} },
 
     // Connection Socket
@@ -206,6 +220,13 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the server"} },
     { ERR_SRV_DISCONNECTED,  {WARNING, "The server has abruptly disconnected"} },
 
+    // STSM Client protocol
+    { ERR_STSM_CLI_ALREADY_STARTED,   {CRITICAL,"The client has already started the STSM protocol"} },
+    { ERR_STSM_CLI_MALFORMED_MSG,     {CRITICAL,"The server reported to have received a malformed STSM message"} },
+    { ERR_STSM_CLI_CHALLENGE_FAILED,  {CRITICAL,"The server reported that the client failed the STSM authentication challenge"} },
+    { ERR_STSM_CLI_CERT_REJECTED,     {ERROR,"The server's certificate is invalid"} },
+    { ERR_STSM_CLI_LOGIN_FAILED,      {CRITICAL,"The user was not recognized by the server in the STSM protocol"} },
+    { ERR_STSM_CLI_UNKNOWN_TYPE,      {CRITICAL,"The server reported to have received an STSM message of unknown type"} },
 
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
@@ -240,14 +261,12 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_OSSL_EVP_PKEY_KEYGEN_INIT, {FATAL,"Error in creating a EVP_PKEY key generation context"} },
     { ERR_OSSL_EVP_PKEY_KEYGEN,      {FATAL,"EVP_PKEY Key generation error"} },
 
-
-
-
-
-
-
-
-
+    // STSM Generic Errors
+    { ERR_STSM_MALFORMED_MSG,     {CRITICAL,"The peer reported to have received a malformed STSM message"} },
+    { ERR_STSM_CHALLENGE_FAILED,  {CRITICAL,"The peer reported that the actor failed the STSM authentication challenge"} },
+    { ERR_STSM_CERT_REJECTED,     {CRITICAL,"The client has rejected the server's certificate in the STSM protocol"} },
+    { ERR_STSM_LOGIN_FAILED,      {CRITICAL,"Unrecognized user in the STSM protocol"} },
+    { ERR_STSM_UNKNOWN_TYPE,      {CRITICAL,"The peer received an STSM message of unknown type"} },
 
     // Unknown
     { ERR_UNKNOWN, {CRITICAL,"Unknown Error"} }

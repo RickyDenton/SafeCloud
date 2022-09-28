@@ -87,8 +87,3 @@ SrvConnMgr::~SrvConnMgr()
  }
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
-
-bool recvData()
- {
-
- }

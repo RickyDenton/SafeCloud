@@ -3,6 +3,7 @@
 
 /* SafeCloud Application Client */
 
+/* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"

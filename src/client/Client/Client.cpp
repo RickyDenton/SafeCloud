@@ -450,8 +450,8 @@ void Client::login()
  * @brief           Client's connection error handler, which resets the server's connection and, in case of
  *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
  * @param loginExcp The connection-related sCodeException
- * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
- *                                       for it to be handled in the loginError() handler)
+ * @throws          ERR_STSM_CLI_LOGIN_FAILED Server-side STSM client authentication failed (rethrown
+ *                                            for it to be handled in the loginError() handler)
  */
 void Client::connError(sCodeException& connExcp)
  {
@@ -460,10 +460,10 @@ void Client::connError(sCodeException& connExcp)
   delete _cliConnMgr;
   _connected = false;
 
-  // The special ERR_SRV_LOGIN_FAILED scode (which as for the current
+  // The special ERR_STSM_CLI_LOGIN_FAILED scode (which as for the current
   // application's version should NEVER happen) requires the user to
   // log-in again, and must be handled in catch clause of the login loop
-  if(connExcp.scode == ERR_SRV_LOGIN_FAILED)
+  if(connExcp.scode == ERR_STSM_CLI_LOGIN_FAILED)
    throw;
 
   // Otherwise handle the exception via its default handler

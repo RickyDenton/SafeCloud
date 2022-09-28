@@ -5,7 +5,63 @@
 #include "errlog.h"
 #include <string.h>
 
-/* =============================== PRIVATE METHODS =============================== */
+/* ============================== PROTECTED METHODS ============================== */
+#include <functional>
+
+
+
+
+
+// TODO
+/*void STSMMgr::sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, const void(*send)(void))
+ {
+  stsmErrMsg.header.len = 24;
+  stsmErrMsg.header.type = errCode;
+  send();
+ }*/
+
+void STSMMgr::sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, ConnMgr& connMgr)
+ {
+  stsmErrMsg.header.len = 24;
+  stsmErrMsg.header.type = errCode;
+  connMgr.sendData();
+ }
+
+
+
+
+
+// TODO
+void STSMMgr::checkSTSMError(STSMMsgType msgType)
+ {
+  switch(msgType)
+   {
+    // Valid protocol message
+    case CLIENT_HELLO:
+    case SRV_AUTH:
+    case CLI_AUTH:
+    case SRV_OK:
+     return;
+
+    // Parameters error
+    case MALFORMED_MSG:
+     THROW_SCODE(ERR_STSM_MALFORMED_MSG);
+
+    case CHALLENGE_FAILED:
+     THROW_SCODE(ERR_STSM_CHALLENGE_FAILED);
+
+    case CERT_REJECTED:
+     THROW_SCODE(ERR_STSM_CERT_REJECTED);
+
+    case LOGIN_FAILED:
+     THROW_SCODE(ERR_STSM_LOGIN_FAILED);
+
+    default:
+     THROW_SCODE(ERR_STSM_UNKNOWN_TYPE,"(" + std::to_string(msgType) + ")");
+   }
+ }
+
+
 
 /**
  * @brief  Generates an ephemeral DH key pair on 2048 bit using the set of standard DH parameters

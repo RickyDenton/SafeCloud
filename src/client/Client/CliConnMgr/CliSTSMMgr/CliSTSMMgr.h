@@ -32,6 +32,13 @@ class CliSTSMMgr : public STSMMgr
 
    /* =============================== PRIVATE METHODS =============================== */
 
+   void send_client_hello();
+
+
+   void checkCliSTSMError();
+
+   void recvSTSMMsg();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

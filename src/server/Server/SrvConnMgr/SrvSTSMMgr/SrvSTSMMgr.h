@@ -29,6 +29,12 @@ class SrvSTSMMgr : public STSMMgr
 
     /* =============================== PRIVATE METHODS =============================== */
 
+
+    void recv_client_hello();
+    void recv_client_auth();
+
+    void checkSrvSTSMError();
+
    public:
 
     /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -45,9 +51,8 @@ class SrvSTSMMgr : public STSMMgr
 
     /* ============================= OTHER PUBLIC METHODS ============================= */
 
-    // TODO: Placeholder implementation
-    bool STSMMsgHandler()
-     { return true; }
+    // Returns true when switching to session mode
+    bool STSMMsgHandler();
 
   // TODO:
   //

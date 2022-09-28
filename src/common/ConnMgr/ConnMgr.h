@@ -2,6 +2,7 @@
 #define SAFECLOUD_CONNMGR_H
 
 #include "defaults.h"
+#include "ConnMgr/IVMgr/IVMgr.h"
 #include <string>
 
 /* SafeCloud Connection Manager */
@@ -36,10 +37,8 @@ class ConnMgr
    uint16_t           _recvBlockSize;          // Expected size of a data block being received
 
    // Cryptographic quantities
-   unsigned char* _iv[IV_SIZE];      // The connection's initialization vector
-   unsigned short _ivSize;           // The connection's initialization vector size (IV_SIZE = 12 bytes = 96 bit, AES128_GCM)
-   unsigned char* _skey[SKEY_SIZE];  // The connection's symmetric key
-   unsigned short _skeySize;         // The connection's symmetric key size (SKEY_SIZE = 16 bytes = 128 bit, AES128_GCM)
+   unsigned char _skey[SKEY_SIZE];  // The connection's AES_GCM symmetric key
+   IVMgr* _iv;                      // The connection's AES_GCM initialization vector
 
    /* ============================== PROTECTED METHODS ============================== */
 
@@ -47,31 +46,6 @@ class ConnMgr
     * @brief Deletes the contents of the connection's temporary directory
     */
    void cleanTmpDir();
-
-   /* ---------------------------------- Data I/O ---------------------------------- */
-
-   /**
-     * @brief Marks the contents of the primary connection buffer as
-     *        consumed, resetting the index of its first significant byte
-     */
-   void clearPriBuf();
-
-   /**
-    * @brief Marks the contents of the secondary connection buffer as
-    *        consumed, resetting the index of its first significant byte
-    */
-   void clearSecBuf();
-
-   /**
-    * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
-    *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
-    * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
-    * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
-    * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
-    */
-   bool recvData();
-
-
 
   public:
 
@@ -95,7 +69,31 @@ class ConnMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
+  /* ---------------------------------- Data I/O ---------------------------------- */
 
+  /**
+    * @brief Marks the contents of the primary connection buffer as
+    *        consumed, resetting the index of its first significant byte
+    */
+  void clearPriBuf();
+
+  /**
+   * @brief Marks the contents of the secondary connection buffer as
+   *        consumed, resetting the index of its first significant byte
+   */
+  void clearSecBuf();
+
+  /**
+   * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
+   *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
+   * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+   * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
+   * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+   */
+  bool recvData();
+
+
+  void sendData();
 
 
   // TODO

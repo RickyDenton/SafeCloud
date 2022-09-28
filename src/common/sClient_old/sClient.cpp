@@ -6,6 +6,7 @@
 // SafeCloud Libraries
 #include "defaults.h"
 #include "utils.h"
+#include "ConnMgr/IVMgr/IVMgr.h"
 
 using namespace std;
 

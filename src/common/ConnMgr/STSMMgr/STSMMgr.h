@@ -7,6 +7,8 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/conf.h>
+#include "STSMMsg.h"
+#include "ConnMgr/ConnMgr.h"
 
 
 // TODO: WRITE STSM DESCRIPTION
@@ -34,12 +36,18 @@ class STSMMgr
    EVP_PKEY*          _otherDHEPubKey;    // The other actor's ephemeral DH public key
 
    /* =============================== PRIVATE METHODS =============================== */
+   /* ============================== PROTECTED METHODS ============================== */
+
 
    /**
     * @brief  Generates an ephemeral DH key pair on 2048 bit using the set of standard DH parameters
     * @return The address of the EVP_PKEY structure holding the newly generated ephemeral DH key pair
     */
    static EVP_PKEY* DHE_2048_Keygen();
+
+   static void checkSTSMError(STSMMsgType msgType);
+
+   static void sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, ConnMgr& connMgr);
 
 
   public:
