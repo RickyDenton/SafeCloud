@@ -2,7 +2,7 @@
 #define SAFECLOUD_CONNMGR_H
 
 #include "defaults.h"
-#include "ConnMgr/IVMgr/IVMgr.h"
+#include "ConnMgr/IV/IV.h"
 #include <string>
 
 /* SafeCloud Connection Manager */
@@ -38,7 +38,7 @@ class ConnMgr
 
    // Cryptographic quantities
    unsigned char _skey[SKEY_SIZE];  // The connection's AES_GCM symmetric key
-   IVMgr* _iv;                      // The connection's AES_GCM initialization vector
+   IV* _iv;                         // The connection's AES_GCM initialization vector
 
    /* ============================== PROTECTED METHODS ============================== */
 
@@ -93,7 +93,7 @@ class ConnMgr
   bool recvData();
 
 
-  void sendData();
+  void sendMsg();
 
 
   // TODO

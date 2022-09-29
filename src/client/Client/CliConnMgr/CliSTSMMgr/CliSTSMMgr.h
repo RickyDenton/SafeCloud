@@ -32,12 +32,45 @@ class CliSTSMMgr : public STSMMgr
 
    /* =============================== PRIVATE METHODS =============================== */
 
+   /**
+    * @brief  Sends a STSM error message to the server and throws the
+    *         associated exception on the client, aborting the connection
+    * @param  errMsgType The STSM error message type to be sent to the server
+    * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
+    * @throws ERR_STSM_CLI_SRV_CHALLENGE_FAILED Server STSM authentication challenge failed
+    * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
+    * @throws ERR_STSM_UNEXPECTED_MESSAGE       Received an out-of-order STSM message
+    * @throws ERR_STSM_MALFORMED_MESSAGE        Received a malformed STSM message
+    * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
+    * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send a STSM error message of unknown type
+    */
+   void sendCliSTSMErrMsg(STSMMsgType errMsgType);
+
+   /**
+    * @brief  1) Blocks the execution until a STSM message has been received in the associated connection manager's primary buffer\n
+    *         2) Verifies the received message not to consist of a STSM error message, throwing the associated exception otherwise\n
+    *         3) Verifies the received message to be of the appropriate type and length depending on the client's current STSM state
+    * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
+    * @throws ERR_STSM_MALFORMED_MESSAGE        Mismatch between the STSM message type and size
+    * @throws ERR_STSM_CLI_CLI_INVALID_PUBKEY   The server reported that the client's ephemeral public key is invalid
+    * @throws ERR_STSM_CLI_CLI_CHALLENGE_FAILED The server reported the client failing the STSM authentication challenge
+    * @throws ERR_STSM_CLI_CLIENT_LOGIN_FAILED  The server did not recognize the client's username
+    * @throws ERR_STSM_CLI_UNEXPECTED_MESSAGE   The server reported to have received an out-of-order STSM message
+    * @throws ERR_STSM_CLI_MALFORMED_MESSAGE    The server reported to have received a malformed STSM message
+    * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The server reported to have received an STSM message of unknown type
+    */
+   void recvCheckCliSTSMMsg();
+
+   /**
+    * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4)
+    * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
+    * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the client's ephemeral DH public key into the BIO
+    * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the client's ephemeral DH public key from the BIO
+    * @throws ERR_OSSL_RAND_POLL_FAILED            RAND_poll() IV seed generation failed
+    * @throws ERR_OSSL_RAND_BYTES_FAILED           RAND_bytes() IV bytes generation failed
+    */
    void send_client_hello();
 
-
-   void checkCliSTSMError();
-
-   void recvSTSMMsg();
 
   public:
 
@@ -55,17 +88,12 @@ class CliSTSMMgr : public STSMMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   void startSTSM();
-
-   // TODO:
-   //
-   // NOTE: 1) All return the success of the operation TODO: exceptions?
-   //       2) All check for the STSMError message before doing their thing
-   //
-   // bool sendHello();
-   // bool recvSrvAuth ();
-   // bool sendCliAuth();
-   // bool recvSrvOK();
+   /**
+    * @brief  Starts and executes the STSM client protocol, returning once a symmetric key has
+    *         been established and the client is authenticated within the SafeCloud server
+    * @throws TODO
+    */
+   void startCliSTSM();
  };
 
 

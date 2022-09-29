@@ -14,7 +14,7 @@
  * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
  * @throws ERR_SRV_DISCONNECTED Abrupt server disconnection
  */
-void CliConnMgr::recvBlock()
+void CliConnMgr::recvMsg()
  {
   try
    {
@@ -77,7 +77,7 @@ CliConnMgr::~CliConnMgr()
 void CliConnMgr::startSTSM()
  {
   std::cout << "CliConnMgr: STARTING STSM" << std::endl;
-  _cliSTSMMgr->startSTSM();
+  _cliSTSMMgr->startCliSTSM();
   _connState = SESSION;
  }
 

@@ -35,20 +35,13 @@ class STSMMgr
    EVP_PKEY*          _myDHEKey;          // The actor's ephemeral DH key pair
    EVP_PKEY*          _otherDHEPubKey;    // The other actor's ephemeral DH public key
 
-   /* =============================== PRIVATE METHODS =============================== */
    /* ============================== PROTECTED METHODS ============================== */
-
 
    /**
     * @brief  Generates an ephemeral DH key pair on 2048 bit using the set of standard DH parameters
     * @return The address of the EVP_PKEY structure holding the newly generated ephemeral DH key pair
     */
    static EVP_PKEY* DHE_2048_Keygen();
-
-   static void checkSTSMError(STSMMsgType msgType);
-
-   static void sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, ConnMgr& connMgr);
-
 
   public:
 
@@ -68,8 +61,11 @@ class STSMMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-  // TODO:
-  // void sendSTSMError(int csk,int buf,int bufSize);     // Inform the other that the STSM handshake has failed, close the connection
+   /**
+    * @brief Prints the owner's or the peer's ephemeral DH public key
+    * @param EDHPubKey the actor's ephemeral DH public key to be printed
+    */
+   void logEDHPubKey(EVP_PKEY* EDHPubKey);
  };
 
 

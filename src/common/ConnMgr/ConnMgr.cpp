@@ -69,7 +69,7 @@ void ConnMgr::cleanTmpDir()
  * @param tmpDir The connection's temporary directory
  */
 ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0),
-                                                                    _secBuf(), _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _skey(), _iv()
+                                                                    _secBuf(), _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _skey(), _iv(nullptr)
  {}
 
 
@@ -183,7 +183,7 @@ bool ConnMgr::recvData()
 
 
 // TODO: Write better
-void ConnMgr::sendData()
+void ConnMgr::sendMsg()
  {
   // Retrieve the length of the data block to be sent from the first 16 bits in the primary connection buffer
   // uint16_t blockLen = (uint16_t)_priBuf[0];

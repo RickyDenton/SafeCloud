@@ -6,62 +6,6 @@
 #include <string.h>
 
 /* ============================== PROTECTED METHODS ============================== */
-#include <functional>
-
-
-
-
-
-// TODO
-/*void STSMMgr::sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, const void(*send)(void))
- {
-  stsmErrMsg.header.len = 24;
-  stsmErrMsg.header.type = errCode;
-  send();
- }*/
-
-void STSMMgr::sendSTSMErrorMsg(STSMMsg& stsmErrMsg, STSMMsgType errCode, ConnMgr& connMgr)
- {
-  stsmErrMsg.header.len = 24;
-  stsmErrMsg.header.type = errCode;
-  connMgr.sendData();
- }
-
-
-
-
-
-// TODO
-void STSMMgr::checkSTSMError(STSMMsgType msgType)
- {
-  switch(msgType)
-   {
-    // Valid protocol message
-    case CLIENT_HELLO:
-    case SRV_AUTH:
-    case CLI_AUTH:
-    case SRV_OK:
-     return;
-
-    // Parameters error
-    case MALFORMED_MSG:
-     THROW_SCODE(ERR_STSM_MALFORMED_MSG);
-
-    case CHALLENGE_FAILED:
-     THROW_SCODE(ERR_STSM_CHALLENGE_FAILED);
-
-    case CERT_REJECTED:
-     THROW_SCODE(ERR_STSM_CERT_REJECTED);
-
-    case LOGIN_FAILED:
-     THROW_SCODE(ERR_STSM_LOGIN_FAILED);
-
-    default:
-     THROW_SCODE(ERR_STSM_UNKNOWN_TYPE,"(" + std::to_string(msgType) + ")");
-   }
- }
-
-
 
 /**
  * @brief  Generates an ephemeral DH key pair on 2048 bit using the set of standard DH parameters
@@ -132,4 +76,33 @@ STSMMgr::~STSMMgr()
 
   // NOTE: The actor's long-term RSA private key must NOT be
   //       deleted, as it may be reused across multiple connections
+ }
+
+
+/* ============================ OTHER PUBLIC METHODS ============================ */
+
+/**
+ * @brief Prints the owner's or the peer's ephemeral DH public key
+ * @param EDHPubKey the actor's ephemeral DH public key to be printed
+ */
+void logEDHPubKey(EVP_PKEY* EDHPubKey)
+ {
+  // The file BIO used for logging the specified ephemeral DH public key to stdout
+  BIO* EDHPubKeyBIO;
+
+  // Initialize the file BIO
+  EDHPubKeyBIO = BIO_new_fp(stdout, BIO_NOCLOSE);
+  if(!EDHPubKeyBIO)
+   LOG_SCODE(ERR_OSSL_BIO_NEW_FP_FAILED,OSSL_ERR_DESC);
+
+  // Write the specified public key into the file BIO
+  if(EVP_PKEY_print_public(EDHPubKeyBIO, EDHPubKey, 1, NULL) != 1)
+   LOG_SCODE(ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,OSSL_ERR_DESC);
+
+  // Print to stdout all the available information on the ephemeral public key
+  std::cout << EDHPubKeyBIO << std::endl;
+
+  // Free the file BIO
+  if(BIO_free(EDHPubKeyBIO) != 1)
+   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
  }

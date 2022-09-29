@@ -25,17 +25,17 @@ void SrvSTSMMgr::recv_client_hello()
    {
     // TODO REMOVE
     std::cout << "NOT A CLIENT HELLO MESSAGE" << std::endl;
-    sendSTSMErrorMsg((STSMMsg&)cliHello, MALFORMED_MSG, (ConnMgr&)_srvConnMgr);
+    sendSTSMErrorMsg((STSMMsg&)cliHello, ERR_STSM_MALFORMED_MESSAGE, (ConnMgr&)_srvConnMgr);
    }
   if(cliHello->header.len != expLen)
    {
     // TODO REMOVE
     std::cout << "NOT A CLIENT HELLO MESSAGE" << std::endl;
-    sendSTSMErrorMsg((STSMMsg&)cliHello, MALFORMED_MSG, (ConnMgr&)_srvConnMgr);
+    sendSTSMErrorMsg((STSMMsg&)cliHello, ERR_STSM_MALFORMED_MESSAGE, (ConnMgr&)_srvConnMgr);
    }
 
    // Set the IV
-  _srvConnMgr._iv = new IVMgr(cliHello->iv);
+  _srvConnMgr._iv = new IV(cliHello->iv);
 
 
   // TODO Debug
@@ -49,7 +49,7 @@ void SrvSTSMMgr::recv_client_hello()
   /* Client public key setup */
 
   // Write the client's ephemeral DH public key into a BIO
-  BIO* cliPubDHBio = BIO_new_mem_buf(cliHello->cliPubKey, -1);
+  BIO* cliPubDHBio = BIO_new_mem_buf(cliHello->cliEDHPubKey, -1);
 
   // Initialize the client's ephemeral DH public key structure
   _otherDHEPubKey = EVP_PKEY_new();
@@ -85,7 +85,7 @@ void SrvSTSMMgr::checkSrvSTSMError()
  {
   try
    {
-    checkSTSMError(((STSMMsg&&)(_srvConnMgr._priBuf)).header.type);
+    checkSTSMErrorMsg(((STSMMsg&&)(_srvConnMgr._priBuf)).header.type);
    }
   catch(sCodeException& excp)
    {

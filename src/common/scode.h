@@ -38,13 +38,16 @@ enum scode : unsigned char
   ERR_CSK_MISSING_MAP,
   ERR_CLI_DISCONNECTED,
 
-  // STSM Server protocol
-  ERR_STSM_SRV_MALFORMED_MSG,
-  ERR_STSM_SRV_CHALLENGE_FAILED,
-  ERR_STSM_SRV_CERT_REJECTED,
-  ERR_STSM_SRV_LOGIN_FAILED,
-  ERR_STSM_SRV_UNKNOWN_TYPE,
-
+  // STSM Server Errors
+  ERR_STSM_SRV_CLI_INVALID_PUBKEY,
+  ERR_STSM_SRV_SRV_INVALID_PUBKEY,
+  ERR_STSM_SRV_SRV_CHALLENGE_FAILED,
+  ERR_STSM_SRV_SRV_CERT_REJECTED,
+  ERR_STSM_SRV_CLI_CHALLENGE_FAILED,
+  ERR_STSM_SRV_CLIENT_LOGIN_FAILED,
+  ERR_STSM_SRV_UNEXPECTED_MESSAGE,
+  ERR_STSM_SRV_MALFORMED_MESSAGE,
+  ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE,
 
   // Other
   ERR_SRV_PSELECT_FAILED,
@@ -77,13 +80,17 @@ enum scode : unsigned char
   ERR_CSK_CONN_FAILED,
   ERR_SRV_DISCONNECTED,
 
-  // STSM Client protocol
+  // STSM Client errors
   ERR_STSM_CLI_ALREADY_STARTED,
-  ERR_STSM_CLI_MALFORMED_MSG,
-  ERR_STSM_CLI_CHALLENGE_FAILED,
-  ERR_STSM_CLI_CERT_REJECTED,
-  ERR_STSM_CLI_LOGIN_FAILED,
-  ERR_STSM_CLI_UNKNOWN_TYPE,
+  ERR_STSM_CLI_CLI_INVALID_PUBKEY,
+  ERR_STSM_CLI_SRV_INVALID_PUBKEY,
+  ERR_STSM_CLI_SRV_CHALLENGE_FAILED,
+  ERR_STSM_CLI_SRV_CERT_REJECTED,
+  ERR_STSM_CLI_CLI_CHALLENGE_FAILED,
+  ERR_STSM_CLI_CLIENT_LOGIN_FAILED,
+  ERR_STSM_CLI_UNEXPECTED_MESSAGE,
+  ERR_STSM_CLI_MALFORMED_MESSAGE,
+  ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -115,18 +122,26 @@ enum scode : unsigned char
   ERR_OSSL_EVP_PKEY_CTX_NEW,
   ERR_OSSL_EVP_PKEY_KEYGEN_INIT,
   ERR_OSSL_EVP_PKEY_KEYGEN,
+  ERR_OSSL_RAND_POLL_FAILED,
+  ERR_OSSL_RAND_BYTES_FAILED,
+  ERR_OSSL_BIO_NEW_FAILED,
+  ERR_OSSL_BIO_NEW_FP_FAILED,
+  ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,
+  ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,
+  ERR_OSSL_BIO_READ_FAILED,
+  ERR_OSSL_BIO_FREE_FAILED,
 
   // STSM Generic Errors
-  ERR_STSM_MALFORMED_MSG,
-  ERR_STSM_CHALLENGE_FAILED,
-  ERR_STSM_CERT_REJECTED,
-  ERR_STSM_LOGIN_FAILED,
-  ERR_STSM_UNKNOWN_TYPE,
-
+  ERR_STSM_UNEXPECTED_MESSAGE,
+  ERR_STSM_MALFORMED_MESSAGE,
+  ERR_STSM_UNKNOWN_STSMMSG_TYPE,
+  ERR_STSM_UNKNOWN_STSMMSG_ERROR,
 
   // Unknown error
   ERR_UNKNOWN
  };
+
+
 
 
 // SafeCloud Severity Levels
@@ -183,12 +198,16 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CSK_MISSING_MAP,   {CRITICAL,"Connection socket with available input data is missing from the connections' map"} },
     { ERR_CLI_DISCONNECTED,  {WARNING, "Abrupt client disconnection"} },
 
-    // STSM Server protocol
-    { ERR_STSM_SRV_MALFORMED_MSG,     {ERROR,"The client reported to have received a malformed STSM message"} },
-    { ERR_STSM_SRV_CHALLENGE_FAILED,  {ERROR,"The client reported that the server failed the STSM authentication challenge"} },
-    { ERR_STSM_SRV_CERT_REJECTED,     {ERROR,"The client has rejected the server's certificate in the STSM protocol"} },
-    { ERR_STSM_SRV_LOGIN_FAILED,      {ERROR,"Unrecognized user in the STSM protocol"} },
-    { ERR_STSM_SRV_UNKNOWN_TYPE,      {ERROR,"The client reported to have received an STSM message of unknown type"} },
+    // STSM Server Errors
+    { ERR_STSM_SRV_CLI_INVALID_PUBKEY,   {CRITICAL,"The client has provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_SRV_SRV_INVALID_PUBKEY,   {CRITICAL,"The client reported that the server provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_SRV_SRV_CHALLENGE_FAILED, {ERROR,"The client reported the server failing the STSM authentication challenge"} },
+    { ERR_STSM_SRV_SRV_CERT_REJECTED,    {ERROR,"The client rejected the server's X.509 certificate"} },
+    { ERR_STSM_SRV_CLI_CHALLENGE_FAILED, {CRITICAL,"The client has failed the STSM authentication challenge"} },
+    { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {CRITICAL,"Unrecognized username in the STSM protocol"} },
+    { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
+    { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
+    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
 
     // Other
     { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },
@@ -220,14 +239,17 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the server"} },
     { ERR_SRV_DISCONNECTED,  {WARNING, "The server has abruptly disconnected"} },
 
-    // STSM Client protocol
-    { ERR_STSM_CLI_ALREADY_STARTED,   {CRITICAL,"The client has already started the STSM protocol"} },
-    { ERR_STSM_CLI_MALFORMED_MSG,     {CRITICAL,"The server reported to have received a malformed STSM message"} },
-    { ERR_STSM_CLI_CHALLENGE_FAILED,  {CRITICAL,"The server reported that the client failed the STSM authentication challenge"} },
-    { ERR_STSM_CLI_CERT_REJECTED,     {ERROR,"The server's certificate is invalid"} },
-    { ERR_STSM_CLI_LOGIN_FAILED,      {CRITICAL,"The user was not recognized by the server in the STSM protocol"} },
-    { ERR_STSM_CLI_UNKNOWN_TYPE,      {CRITICAL,"The server reported to have received an STSM message of unknown type"} },
-
+    // STSM Client Errors
+    { ERR_STSM_CLI_ALREADY_STARTED,      {CRITICAL,"The client has already started the STSM key exchange protocol"} },
+    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_CLI_SRV_INVALID_PUBKEY,   {CRITICAL,"The server has provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_CLI_SRV_CHALLENGE_FAILED, {CRITICAL,"The server has failed the STSM authentication challenge"} },
+    { ERR_STSM_CLI_SRV_CERT_REJECTED,    {ERROR,   "The server provided an invalid X.509 certificate"} },
+    { ERR_STSM_CLI_CLI_CHALLENGE_FAILED, {CRITICAL,"The server reported the client failing the STSM authentication challenge"} },
+    { ERR_STSM_CLI_CLIENT_LOGIN_FAILED,  {ERROR,   "The server did not recognize the username in the STSM protocol"} },
+    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {CRITICAL,"The server reported to have received an out-of-order STSM message"} },
+    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {CRITICAL,"The server reported to have received a malformed STSM message"} },
+    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {CRITICAL,"The server reported to have received an STSM message of unknown type"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -255,18 +277,25 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,"Wrong username or password"} },
 
     // OpenSSL Errors
-    { ERR_OSSL_EVP_PKEY_NEW,         {FATAL,"EVP_PKEY structure allocation failed"} },
-    { ERR_OSSL_EVP_PKEY_ASSIGN,      {FATAL,"Error in assigning a value to the EVP_PKEY structure"} },
-    { ERR_OSSL_EVP_PKEY_CTX_NEW,     {FATAL,"Error in creating an EVP_PKEY context"} },
-    { ERR_OSSL_EVP_PKEY_KEYGEN_INIT, {FATAL,"Error in creating a EVP_PKEY key generation context"} },
-    { ERR_OSSL_EVP_PKEY_KEYGEN,      {FATAL,"EVP_PKEY Key generation error"} },
+    { ERR_OSSL_EVP_PKEY_NEW,                 {FATAL,"EVP_PKEY structure allocation failed"} },
+    { ERR_OSSL_EVP_PKEY_ASSIGN,              {FATAL,"Error in assigning a value to the EVP_PKEY structure"} },
+    { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"Error in creating an EVP_PKEY context"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"Error in creating a EVP_PKEY key generation context"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN,              {FATAL,"EVP_PKEY Key generation error"} },
+    { ERR_OSSL_RAND_POLL_FAILED,             {FATAL,"Couldn't generate a seed via the RAND_poll() function"} },
+    { ERR_OSSL_RAND_BYTES_FAILED,            {FATAL,"Couldn't generate random bytes via the RAND_bytes() function"} },
+    { ERR_OSSL_BIO_NEW_FAILED,               {FATAL,"OpenSSL Memory BIO Initialization Failed"} },
+    { ERR_OSSL_BIO_NEW_FP_FAILED,            {CRITICAL,"OpenSSL File BIO Initialization Failed"} },
+    { ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,  {FATAL,"Couldn't write the ephemeral DH public key to the designated memory BIO"} },
+    { ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED, {CRITICAL,"Couldn't write the ephemeral DH public key to the designated file BIO"} },
+    { ERR_OSSL_BIO_READ_FAILED,              {FATAL,"Couldn't read the OpenSSL BIO"} },
+    { ERR_OSSL_BIO_FREE_FAILED,              {CRITICAL,"Couldn't free the OpenSSL BIO"} },
 
     // STSM Generic Errors
-    { ERR_STSM_MALFORMED_MSG,     {CRITICAL,"The peer reported to have received a malformed STSM message"} },
-    { ERR_STSM_CHALLENGE_FAILED,  {CRITICAL,"The peer reported that the actor failed the STSM authentication challenge"} },
-    { ERR_STSM_CERT_REJECTED,     {CRITICAL,"The client has rejected the server's certificate in the STSM protocol"} },
-    { ERR_STSM_LOGIN_FAILED,      {CRITICAL,"Unrecognized user in the STSM protocol"} },
-    { ERR_STSM_UNKNOWN_TYPE,      {CRITICAL,"The peer received an STSM message of unknown type"} },
+    { ERR_STSM_UNEXPECTED_MESSAGE,    {CRITICAL,"An out-of-order STSM message has been received"} },
+    { ERR_STSM_MALFORMED_MESSAGE,     {CRITICAL,"A malformed STSM message has been received"} },
+    { ERR_STSM_UNKNOWN_STSMMSG_TYPE,  {CRITICAL,"A STSM message of unknown type has been received"} },
+    { ERR_STSM_UNKNOWN_STSMMSG_ERROR, {FATAL,   "Attempting to send an STSM message of unknown error type"} },
 
     // Unknown
     { ERR_UNKNOWN, {CRITICAL,"Unknown Error"} }
