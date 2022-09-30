@@ -1,11 +1,19 @@
 #ifndef SAFECLOUD_IV_H
 #define SAFECLOUD_IV_H
 
-/*
- * This class represents the IV used in the SafeCloud application for the AES_GCM_128
- * cipher (12 bytes, 96 bit), where, for cross-platform and cross-compiler
- * compatibility purposes, only the least significant 64 bit (8 bytes) are updated
- * at every transmission, while the most significant 32 bit (4 bytes) are fixed
+/* This class represents the IV(s) used in the SafeCloud application, where:
+ *
+ *  - The Key Establishment protocol (STSM) uses an IV on 16 bytes (AES_CBC_128)
+ *  - The Session Phase uses an IV on 12 bytes (AES_GCM_128)
+ *
+ * For providing an IV value to both connection phases and to ensure cross-platform and cross-compiler
+ * compatibility in handling large numbers, IVs consist of 16 bytes initialized at random where:
+ *
+ * - The lower half (8 bytes, 64 bit) is incremented for every encrypted message sent or received, and whose reuse before 2^64
+ *   uses is avoided by the object notifying to its parent connection manager that a new symmetric key should be used (rekeying)
+ *
+ * - The upper half (8 bytes, 64 bit) is instead constant, with the AES_CBC_128 cipher using it in its entirety (for an IV
+ *   size of 16 bytes), while the AES_GCM_128 cipher uses its least significant 4 bytes only (for an IV size of 12 bytes)
  */
 
 /* ================================== INCLUDES ================================== */
@@ -15,9 +23,9 @@
 #include <openssl/conf.h>
 #include <cstdint>
 
-// The minimum (iv_low_start - iv_low) distance after which a new
+// The minimum (iv_var_start - iv_var) distance after which a new
 // symmetric key must be exchanged between parties to prevent IV reuse
-#define IV_LOW_REKEYING_LIMIT 10
+#define IV_VAR_REKEYING_LIMIT 10
 
 
 class IV
@@ -25,14 +33,21 @@ class IV
   public:
 
    /* ================================= ATTRIBUTES ================================= */
-   unsigned char iv_high[4];   // The IV most significant fixed part
-   uint64_t iv_low;            // The IV least significant variable part
-   uint64_t iv_low_start;      // The starting value of the IV least-significant part
+
+   // IV upper half (constant)
+   uint32_t iv_AES_CBC;        // The IV upper half's most significant 4 bytes (AES_CBC_128 only)
+   uint32_t iv_AES_GCM;        // The IV upper half's most significant 4 bytes
+
+   // IV lower half (variable)
+   uint64_t iv_var;
+
+   // The starting value of the IV's variable part (IV reuse protection)
+   uint64_t iv_var_start;
 
    /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
    /**
-    * @brief IV object default constructor, generating a random IV value
+    * @brief IV object default constructor, generating a random IV on 16 bytes
     * @throws ERR_OSSL_RAND_POLL_FAILED  RAND_poll() seed generation failed
     * @throws ERR_OSSL_RAND_BYTES_FAILED RAND_bytes() bytes generation failed
     */
@@ -49,8 +64,8 @@ class IV
    /* ============================ OTHER PUBLIC METHODS ============================ */
 
    /**
-    * @brief  Increments the least significant lower part of the IV
-    * @return A boolean indicating whether the minimum (iv_low_start - iv_low)
+    * @brief  Increments the IV's variable part
+    * @return A boolean indicating whether the minimum (iv_var_start - iv_var)
     *         distance after which a new symmetric key must be exchanged between
     *         parties to prevent IV reuse has been reached
     */

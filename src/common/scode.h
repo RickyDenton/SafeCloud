@@ -241,15 +241,15 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     // STSM Client Errors
     { ERR_STSM_CLI_ALREADY_STARTED,      {CRITICAL,"The client has already started the STSM key exchange protocol"} },
-    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {FATAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_CLI_SRV_INVALID_PUBKEY,   {CRITICAL,"The server has provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_CLI_SRV_CHALLENGE_FAILED, {CRITICAL,"The server has failed the STSM authentication challenge"} },
     { ERR_STSM_CLI_SRV_CERT_REJECTED,    {ERROR,   "The server provided an invalid X.509 certificate"} },
-    { ERR_STSM_CLI_CLI_CHALLENGE_FAILED, {CRITICAL,"The server reported the client failing the STSM authentication challenge"} },
+    { ERR_STSM_CLI_CLI_CHALLENGE_FAILED, {FATAL,"The server reported the client failing the STSM authentication challenge"} },
     { ERR_STSM_CLI_CLIENT_LOGIN_FAILED,  {ERROR,   "The server did not recognize the username in the STSM protocol"} },
-    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {CRITICAL,"The server reported to have received an out-of-order STSM message"} },
-    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {CRITICAL,"The server reported to have received a malformed STSM message"} },
-    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {CRITICAL,"The server reported to have received an STSM message of unknown type"} },
+    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,"The server reported to have received an out-of-order STSM message"} },
+    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,"The server reported to have received a malformed STSM message"} },
+    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,"The server reported to have received an STSM message of unknown type"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -295,7 +295,7 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STSM_UNEXPECTED_MESSAGE,    {CRITICAL,"An out-of-order STSM message has been received"} },
     { ERR_STSM_MALFORMED_MESSAGE,     {CRITICAL,"A malformed STSM message has been received"} },
     { ERR_STSM_UNKNOWN_STSMMSG_TYPE,  {CRITICAL,"A STSM message of unknown type has been received"} },
-    { ERR_STSM_UNKNOWN_STSMMSG_ERROR, {FATAL,   "Attempting to send an STSM message of unknown error type"} },
+    { ERR_STSM_UNKNOWN_STSMMSG_ERROR, {FATAL,   "Attempting to send an STSM error message of unknown type"} },
 
     // Unknown
     { ERR_UNKNOWN, {CRITICAL,"Unknown Error"} }

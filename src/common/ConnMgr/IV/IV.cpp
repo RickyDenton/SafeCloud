@@ -9,26 +9,28 @@
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
 /**
- * @brief IV object default constructor, generating a random IV value
+ * @brief IV object default constructor, generating a random IV on 16 bytes
  * @throws ERR_OSSL_RAND_POLL_FAILED  RAND_poll() seed generation failed
  * @throws ERR_OSSL_RAND_BYTES_FAILED RAND_bytes() bytes generation failed
  */
-IV::IV() : iv_high(), iv_low(), iv_low_start()
+IV::IV() : iv_AES_CBC(), iv_AES_GCM(), iv_var(), iv_var_start()
  {
   // Seed the OpenSSL PRNG
   if(!RAND_poll())
    THROW_SCODE(ERR_OSSL_RAND_POLL_FAILED,OSSL_ERR_DESC);
 
-  // Generate at random the IV's most significant fixed part
-  if(RAND_bytes(&(iv_high)[0],4) != 1)
+  // Randomly generate the IV's components
+  if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_CBC), sizeof(iv_AES_CBC)) != 1)
    THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
 
-  // Generate at random the IV's least significant variable part
-  if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_low), sizeof(iv_low)) != 1)
+  if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_GCM), sizeof(iv_AES_GCM)) != 1)
    THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
 
-  // Set the IV least significant starting value
-  iv_low_start = iv_low;
+  if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_var), sizeof(iv_var)) != 1)
+   THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
+
+  // Set starting value of the IV's variable part
+  iv_var_start = iv_var;
  }
 
 
@@ -40,10 +42,10 @@ IV::IV() : iv_high(), iv_low(), iv_low_start()
  * @throws ERR_OSSL_RAND_BYTES_FAILED RAND_bytes() bytes generation failed
  *//*
 
-IV::IV(unsigned char* iv) : iv_high(), iv_low(), iv_low_start()
+IV::IV(unsigned char* iv) : iv_high(), iv_var(), iv_var_start()
  {
   memcpy(iv_high, &iv[0], 4);
-  memcpy((void*)iv_low, &iv[4], sizeof(uint64_t));
+  memcpy((void*)iv_var, &iv[4], sizeof(uint64_t));
  }
 */
 
@@ -53,9 +55,10 @@ IV::IV(unsigned char* iv) : iv_high(), iv_low(), iv_low_start()
  */
 IV::~IV()
  {
-  OPENSSL_cleanse(&iv_high[0], 4);
-  OPENSSL_cleanse(&iv_low, sizeof(uint64_t));
-  OPENSSL_cleanse(&iv_low_start, sizeof(uint64_t));
+  OPENSSL_cleanse(&iv_AES_CBC, sizeof(uint32_t));
+  OPENSSL_cleanse(&iv_AES_GCM, sizeof(uint32_t));
+  OPENSSL_cleanse(&iv_var, sizeof(uint64_t));
+  OPENSSL_cleanse(&iv_var_start, sizeof(uint64_t));
  }
 
 
@@ -63,8 +66,8 @@ IV::~IV()
 
 
 /**
- * @brief  Increments the least significant lower part of the IV
- * @return A boolean indicating whether the minimum (iv_low_start - iv_low)
+ * @brief  Increments the IV's variable part
+ * @return A boolean indicating whether the minimum (iv_var_start - iv_var)
  *         distance after which a new symmetric key must be exchanged between
  *         parties to prevent IV reuse has been reached
  */
@@ -74,11 +77,11 @@ bool IV::incIV()
   //
   // NOTE: Such value eventually overflowing is an intended
   //       behaviour not causing IV reuse (see later)
-  iv_low++;
+  iv_var++;
 
-  // If the minimum (iv_low_start - iv_low) distance has been reached, notify that
+  // If the minimum (iv_var_start - iv_var) distance has been reached, notify that
   // a new symmetric key must be exchanged between parties to prevent IV reuse
-  if(iv_low_start - iv_low < IV_LOW_REKEYING_LIMIT)
+  if(iv_var_start - iv_var < IV_VAR_REKEYING_LIMIT)
    return true;
   else
    return false;

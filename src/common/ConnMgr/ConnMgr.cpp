@@ -54,52 +54,8 @@ void ConnMgr::cleanTmpDir()
     if(closedir(tmpDir) == -1)
      LOG_SCODE(ERR_FILE_CLOSE_FAILED,*_tmpDir, ERRNO_DESC);
    }
-
-  // Free the temporary directory's path as a C string
-  delete _tmpDirC;
  }
 
-
-/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
-
-/**
- * @brief        ConnMgr object constructor
- * @param csk    The connection socket associated with this manager
- * @param name   The client name associated with this connection
- * @param tmpDir The connection's temporary directory
- */
-ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0),
-                                                                    _secBuf(), _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _skey(), _iv(nullptr)
- {}
-
-
-/**
- * @brief Connection Manager object destructor, which:\n
- *          1) Closes its associated connection socket\n
- *          2) Delete the contents of the connection's temporary directory\n
- *          3) Safely deletes all the connection's sensitive information
- */
-ConnMgr::~ConnMgr()
- {
-  // Delete the connection's symmetric key and IV
-  OPENSSL_cleanse(&_skey[0], SKEY_SIZE);
-  delete _iv;
-
-  // Safely delete the connection's buffers
-  OPENSSL_cleanse(&_priBuf[0], _bufSize);
-  OPENSSL_cleanse(&_secBuf[0], _bufSize);
-
-  // Close the connection socket
-  if(close(_csk) != 0)
-   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
-
-  // If set, delete the contents of the connection's temporary directory
-  if(_tmpDir != nullptr)
-   cleanTmpDir();
- }
-
-
-/* ============================ OTHER PUBLIC METHODS ============================ */
 
 /* ---------------------------------- Data I/O ---------------------------------- */
 
@@ -163,10 +119,10 @@ bool ConnMgr::recvData()
 
      std::cout << "_recvBlockSize = " << _recvBlockSize << " _priBufInd = " << _priBufInd << std::endl;
 
-     // If the expected size of the data block to be received is NOT known (_recvBlockSize == 0),
-     // set it to the first 16 bytes of the received data ("msgSize" field of a sMsgHeader)
-     if(_recvBlockSize == 0)
-      _recvBlockSize = ((STSMMsg&&)_priBuf).header.len;
+    // If the expected size of the data block to be received is NOT known (_recvBlockSize == 0),
+    // set it to the first 16 bytes of the received data ("msgSize" field of a sMsgHeader)
+    if(_recvBlockSize == 0)
+     _recvBlockSize = ((STSMMsg&&)_priBuf).header.len;
 
     // Update the number of significant bytes in the primary buffer
     _priBufInd += recvRet;
@@ -198,14 +154,58 @@ void ConnMgr::sendMsg()
   LOG_DEBUG("Sent " + std::to_string(blockLen) + " bytes")
 
   // TODO
-  // Increment the IV, and, if close to overflow, prepare and send a rekeying message (SESSION ONLY)
-  if(_iv->incIV())
+  // If the IV has been initialized, increment it, and if it notifies that IV
+  // reuse is about to occur, prepare and send a rekeying message (SESSION ONLY)
+  if(_iv != nullptr && _iv->incIV())
    {
 
 
    }
 
  }
+
+
+/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+
+/**
+ * @brief        ConnMgr object constructor
+ * @param csk    The connection socket associated with this manager
+ * @param name   The client name associated with this connection
+ * @param tmpDir The connection's temporary directory
+ */
+ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(KEYXCHANGE), _csk(csk), _name(name), _tmpDir(tmpDir), _priBuf(), _priBufInd(0),
+                                                                    _secBuf(), _secBufInd(0), _bufSize(CONN_BUF_SIZE), _recvBlockSize(0), _skey(), _iv(nullptr)
+ {}
+
+
+/**
+ * @brief Connection Manager object destructor, which:\n
+ *          1) Closes its associated connection socket\n
+ *          2) Delete the contents of the connection's temporary directory\n
+ *          3) Safely deletes all the connection's sensitive information
+ */
+ConnMgr::~ConnMgr()
+ {
+  // Delete the connection's symmetric key and IV
+  OPENSSL_cleanse(&_skey[0], SKEY_SIZE);
+  delete _iv;
+
+  // Safely delete the connection's buffers
+  OPENSSL_cleanse(&_priBuf[0], _bufSize);
+  OPENSSL_cleanse(&_secBuf[0], _bufSize);
+
+  // Close the connection socket
+  if(close(_csk) != 0)
+   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
+
+  // If set, delete the contents of the connection's temporary directory
+  if(_tmpDir != nullptr)
+   cleanTmpDir();
+ }
+
+
+/* ============================ OTHER PUBLIC METHODS ============================ */
+
 
 
 // sendOk()

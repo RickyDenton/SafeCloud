@@ -47,6 +47,32 @@ class ConnMgr
     */
    void cleanTmpDir();
 
+   /* ---------------------------------- Data I/O ---------------------------------- */
+
+   /**
+     * @brief Marks the contents of the primary connection buffer as
+     *        consumed, resetting the index of its first significant byte
+     */
+   void clearPriBuf();
+
+   /**
+    * @brief Marks the contents of the secondary connection buffer as
+    *        consumed, resetting the index of its first significant byte
+    */
+   void clearSecBuf();
+
+   /**
+    * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
+    *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
+    * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+    * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+    */
+   bool recvData();
+
+
+   void sendMsg();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -68,33 +94,6 @@ class ConnMgr
    ~ConnMgr();
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
-
-  /* ---------------------------------- Data I/O ---------------------------------- */
-
-  /**
-    * @brief Marks the contents of the primary connection buffer as
-    *        consumed, resetting the index of its first significant byte
-    */
-  void clearPriBuf();
-
-  /**
-   * @brief Marks the contents of the secondary connection buffer as
-   *        consumed, resetting the index of its first significant byte
-   */
-  void clearSecBuf();
-
-  /**
-   * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
-   *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
-   * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
-   * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
-   * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
-   */
-  bool recvData();
-
-
-  void sendMsg();
-
 
   // TODO
    // sendOk()

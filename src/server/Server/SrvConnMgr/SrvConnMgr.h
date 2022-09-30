@@ -48,14 +48,15 @@ class SrvConnMgr : public ConnMgr
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
-  // TODO: Fix description depending on the _srvSessMgr.bufferFull() implementation
+  // TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
   /**
-   * @brief Reads data from the client's connection socket and, if a full data block has been received.
-   *        passes it to the appropriate handler depending on the connection state, propagating its
-   *        indication on whether to maintain the client's connection to the Server object
+   * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
+   *         the handler associated with the connection's current state (KEYXCHANGE or SESSION), returning
+   *         an indication to the Server object whether this client connection should be maintained
    * @return 'true' if the client connection must be maintained or 'false' otherwise
    * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
    * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
+   * @throws TODO (probably all connection exceptions)
    */
   bool recvHandleData();
 

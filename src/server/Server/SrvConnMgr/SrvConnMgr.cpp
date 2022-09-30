@@ -6,14 +6,15 @@
 
 /* =============================== PRIVATE METHODS =============================== */
 
-// TODO: Fix description depending on the _srvSessMgr.bufferFull() implementation
+// TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
 /**
- * @brief Reads data from the client's connection socket and, if a full data block has been received.
- *        passes it to the appropriate handler depending on the connection state, propagating its
- *        indication on whether to maintain the client's connection to the Server object
+ * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
+ *         the handler associated with the connection's current state (KEYXCHANGE or SESSION), returning
+ *         an indication to the Server object whether this client connection should be maintained
  * @return 'true' if the client connection must be maintained or 'false' otherwise
  * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
  * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
+ * @throws TODO (probably all connection exceptions)
  */
 bool SrvConnMgr::recvHandleData()
  {
@@ -31,18 +32,36 @@ bool SrvConnMgr::recvHandleData()
        _srvSessMgr.bufferFull();
       */
 
-      // Return that the client connection should be maintained
+      // Inform the Server object that the client connection must be maintained
       return true;
      }
 
-    // Otherwise, if a full data block was received from the connection socket, call
-    // the appropriate handle depending on the connection's state, propagating its
-    // indication on whether to persist the client's connection to the Server object
+    // Otherwise, if a complete data block was received, depending on
+    // the connection's current state (key establishment or session)
     else
+
+     // Key establishment phase (STSM protocol)
      if(_connState == KEYXCHANGE)
-      return _srvSTSMMgr->STSMMsgHandler();
+      {
+       // Call the STSM message handler and, if it notifies that key establishment has
+       // completed successfully, deallocate it and switch the connection to the session phase
+       if(_srvSTSMMgr->STSMMsgHandler())
+        {
+         delete(_srvSTSMMgr);
+         _connState = SESSION;
+        }
+
+       // Inform the Server object that the client connection must be maintained
+       return true;
+      }
+
+     // Session Phase
      else
-      return _srvSessMgr->SessBlockHandler();
+      {
+       // Call the session's message handler, propagating its indication on whether
+       // the client's connection should be maintained to the Server's object
+       return _srvSessMgr->SessBlockHandler();
+      }
    }
   catch(sCodeException& recvExcp)
    {

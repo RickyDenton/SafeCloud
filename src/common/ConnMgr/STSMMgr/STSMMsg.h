@@ -7,13 +7,14 @@
 #include <cstdint>
 #include "defaults.h"
 #include "ConnMgr/IV/IV.h"
+#include <unordered_map>
 
 #define DH2048_PUBKEY_PEM_SIZE 1194   // The size in bits of an ephemeral DH 2048-bit public key
 
 
-/* ============================== TYPE DEFINITIONS ============================== */
+/* ======================= STSM MESSAGE TYPES DEFINITIONS ======================= */
 
-/* --------------------------------- STSMsgType --------------------------------- */
+// STSM Message Types
 enum STSMMsgType : uint8_t
  {
   /*
@@ -62,9 +63,9 @@ enum STSMMsgType : uint8_t
  };
 
 
-/* ------------------------- STSM Messages Definitions ------------------------- */
+/* ========================= STSM MESSAGES DEFINITIONS ========================= */
 
-/* ---------------- Base STSM message (header only) ---------------- */
+/* ---------------------- Base STSM message (header only) ---------------------- */
 
 // STSM Message header
 struct STSMMsgHeader
@@ -80,7 +81,7 @@ struct STSMMsg
    STSMMsgHeader header; // STSM header
  };
 
-/* ------------------ 'CLIENT_HELLO' Message (1/4) ------------------ */
+/* ----------------------- 'CLIENT_HELLO' Message (1/4) ----------------------- */
 
 // Implicit header STMMsgType: 'CLIENT_HELLO'
 

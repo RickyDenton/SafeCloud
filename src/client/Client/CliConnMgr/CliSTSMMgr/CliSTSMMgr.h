@@ -32,26 +32,30 @@ class CliSTSMMgr : public STSMMgr
 
    /* =============================== PRIVATE METHODS =============================== */
 
+   /* ------------------------- Error Checking and Handling ------------------------- */
+
    /**
     * @brief  Sends a STSM error message to the server and throws the
     *         associated exception on the client, aborting the connection
     * @param  errMsgType The STSM error message type to be sent to the server
+    * @param  errDesc    An optional description of the error that has occurred
     * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
     * @throws ERR_STSM_CLI_SRV_CHALLENGE_FAILED Server STSM authentication challenge failed
     * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
     * @throws ERR_STSM_UNEXPECTED_MESSAGE       Received an out-of-order STSM message
     * @throws ERR_STSM_MALFORMED_MESSAGE        Received a malformed STSM message
     * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
-    * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send a STSM error message of unknown type
+    * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown type
     */
-   void sendCliSTSMErrMsg(STSMMsgType errMsgType);
+   void sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc);
 
    /**
-    * @brief  1) Blocks the execution until a STSM message has been received in the associated connection manager's primary buffer\n
-    *         2) Verifies the received message not to consist of a STSM error message, throwing the associated exception otherwise\n
-    *         3) Verifies the received message to be of the appropriate type and length depending on the client's current STSM state
+    * @brief  1) Blocks the execution until a STSM message has been received
+    *            in the associated connection manager's primary buffer\n
+    *         2) Verifies the received message to consist of the STSM handshake message
+    *            appropriate for the current client's STSM state, throwing an error otherwise
     * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
-    * @throws ERR_STSM_MALFORMED_MESSAGE        Mismatch between the STSM message type and size
+    * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message type and size mismatch
     * @throws ERR_STSM_CLI_CLI_INVALID_PUBKEY   The server reported that the client's ephemeral public key is invalid
     * @throws ERR_STSM_CLI_CLI_CHALLENGE_FAILED The server reported the client failing the STSM authentication challenge
     * @throws ERR_STSM_CLI_CLIENT_LOGIN_FAILED  The server did not recognize the client's username
@@ -60,6 +64,9 @@ class CliSTSMMgr : public STSMMgr
     * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The server reported to have received an STSM message of unknown type
     */
    void recvCheckCliSTSMMsg();
+
+
+
 
    /**
     * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4)

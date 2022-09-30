@@ -54,6 +54,33 @@ EVP_PKEY* STSMMgr::DHE_2048_Keygen()
  }
 
 
+/**
+ * @brief Prints an actor's ephemeral DH public key on stdout
+ * @param EDHPubKey the actor's ephemeral DH public key to be printed
+ */
+void STSMMgr::logEDHPubKey(EVP_PKEY* EDHPubKey)
+ {
+  // The file BIO used for logging the specified ephemeral DH public key to stdout
+  BIO* EDHPubKeyBIO;
+
+  // Initialize the file BIO
+  EDHPubKeyBIO = BIO_new_fp(stdout, BIO_NOCLOSE);
+  if(!EDHPubKeyBIO)
+   LOG_SCODE(ERR_OSSL_BIO_NEW_FP_FAILED,OSSL_ERR_DESC);
+
+  // Write the specified public key into the file BIO
+  if(EVP_PKEY_print_public(EDHPubKeyBIO, EDHPubKey, 1, NULL) != 1)
+   LOG_SCODE(ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,OSSL_ERR_DESC);
+
+  // Print to stdout all the available information on the ephemeral public key
+  std::cout << EDHPubKeyBIO << std::endl;
+
+  // Free the file BIO
+  if(BIO_free(EDHPubKeyBIO) != 1)
+   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -82,27 +109,26 @@ STSMMgr::~STSMMgr()
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief Prints the owner's or the peer's ephemeral DH public key
- * @param EDHPubKey the actor's ephemeral DH public key to be printed
+ * @brief Prints the local actor's ephemeral DH public key on stdout
  */
-void logEDHPubKey(EVP_PKEY* EDHPubKey)
+void STSMMgr::logMyEDHPubKey()
  {
-  // The file BIO used for logging the specified ephemeral DH public key to stdout
-  BIO* EDHPubKeyBIO;
+  // Ensure the local actor's ephemeral DH public key to (still) be present
+  if(!_myDHEKey)
+   LOG_ERROR("Attempting to print the deallocated local actor ephemeral DH public key")
+  else
+   logEDHPubKey(_myDHEKey);
+ }
 
-  // Initialize the file BIO
-  EDHPubKeyBIO = BIO_new_fp(stdout, BIO_NOCLOSE);
-  if(!EDHPubKeyBIO)
-   LOG_SCODE(ERR_OSSL_BIO_NEW_FP_FAILED,OSSL_ERR_DESC);
 
-  // Write the specified public key into the file BIO
-  if(EVP_PKEY_print_public(EDHPubKeyBIO, EDHPubKey, 1, NULL) != 1)
-   LOG_SCODE(ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,OSSL_ERR_DESC);
-
-  // Print to stdout all the available information on the ephemeral public key
-  std::cout << EDHPubKeyBIO << std::endl;
-
-  // Free the file BIO
-  if(BIO_free(EDHPubKeyBIO) != 1)
-   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
+/**
+ * @brief Prints the remote actor's ephemeral DH public key on stdout
+ */
+void STSMMgr::logOtherEDHPubKey()
+ {
+  // Ensure the remote actor's ephemeral DH public key to be present
+  if(!_otherDHEPubKey)
+   LOG_ERROR("Attempting to print the missing remote actor ephemeral DH public key")
+  else
+   logEDHPubKey(_otherDHEPubKey);
  }

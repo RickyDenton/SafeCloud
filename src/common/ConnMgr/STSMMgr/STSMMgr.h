@@ -43,6 +43,12 @@ class STSMMgr
     */
    static EVP_PKEY* DHE_2048_Keygen();
 
+   /**
+    * @brief Prints an actor's ephemeral DH public key on stdout
+    * @param EDHPubKey the actor's ephemeral DH public key to be printed
+    */
+  static void logEDHPubKey(EVP_PKEY* EDHPubKey);
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -62,10 +68,16 @@ class STSMMgr
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
    /**
-    * @brief Prints the owner's or the peer's ephemeral DH public key
-    * @param EDHPubKey the actor's ephemeral DH public key to be printed
+    * @brief Prints the local actor's ephemeral DH public key on stdout
     */
-   void logEDHPubKey(EVP_PKEY* EDHPubKey);
+   void logMyEDHPubKey();
+
+
+  /**
+   * @brief Prints the remote actor's ephemeral DH public key on stdout
+   */
+   void logOtherEDHPubKey();
+
  };
 
 

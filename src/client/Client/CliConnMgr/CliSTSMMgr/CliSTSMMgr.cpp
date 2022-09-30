@@ -15,15 +15,16 @@
  * @brief  Sends a STSM error message to the server and throws the
  *         associated exception on the client, aborting the connection
  * @param  errMsgType The STSM error message type to be sent to the server
+ * @param  errDesc    An optional description of the error that has occurred
  * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
  * @throws ERR_STSM_CLI_SRV_CHALLENGE_FAILED Server STSM authentication challenge failed
  * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
  * @throws ERR_STSM_UNEXPECTED_MESSAGE       Received an out-of-order STSM message
  * @throws ERR_STSM_MALFORMED_MESSAGE        Received a malformed STSM message
  * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
- * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send a STSM error message of unknown type
+ * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown type
  */
-void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType)
+void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = "")
  {
   // Interpret the associated connection manager's primary connection buffer as a STSMsg
   STSMMsg* errMsg = reinterpret_cast<STSMMsg*>(_cliConnMgr._priBuf);
@@ -32,51 +33,53 @@ void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType)
   errMsg->header.len = sizeof(STSMMsg);
   errMsg->header.type = errMsgType;
 
-  // Send the error message
+  // Send the STSM error message
   _cliConnMgr.sendMsg();
 
-  // Throw the exception associated with the error message type
+  // Throw the exception associated with the error message's type
   switch(errMsgType)
    {
     /* ------------------------ Error STSM Messages  ------------------------ */
 
     // The server has provided an invalid ephemeral public key
     case ERR_INVALID_PUBKEY:
-     THROW_SCODE(ERR_STSM_CLI_SRV_INVALID_PUBKEY);
+     THROW_SCODE(ERR_STSM_CLI_SRV_INVALID_PUBKEY,errDesc);
 
     // The server has failed the STSM authentication challenge
     case ERR_SRV_CHALLENGE_FAILED:
-     THROW_SCODE(ERR_STSM_CLI_SRV_CHALLENGE_FAILED);
+     THROW_SCODE(ERR_STSM_CLI_SRV_CHALLENGE_FAILED,errDesc);
 
     // The server provided an invalid X.509 certificate
     case ERR_SRV_CERT_REJECTED:
-     THROW_SCODE(ERR_STSM_CLI_SRV_CERT_REJECTED);
+     THROW_SCODE(ERR_STSM_CLI_SRV_CERT_REJECTED,errDesc);
 
     // An out-of-order STSM message has been received
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE);
+     THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE,errDesc);
 
     // A malformed STSM message has been received
     case ERR_MALFORMED_MESSAGE:
-     THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE);
+     THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE,errDesc);
 
     // A STSM message of unknown type has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_TYPE);
+     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_TYPE,errDesc);
 
-    // Unknown Message
+    // Unknown error type
     default:
      THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_ERROR,"(" + std::to_string(errMsgType) + ")");
    }
  }
 
+//
 
 /**
- * @brief  1) Blocks the execution until a STSM message has been received in the associated connection manager's primary buffer\n
- *         2) Verifies the received message not to consist of a STSM error message, throwing the associated exception otherwise\n
- *         3) Verifies the received message to be of the appropriate type and length depending on the client's current STSM state
+ * @brief  1) Blocks the execution until a STSM message has been received
+ *            in the associated connection manager's primary buffer\n
+ *         2) Verifies the received message to consist of the STSM handshake message
+ *            appropriate for the current client's STSM state, throwing an error otherwise
  * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
- * @throws ERR_STSM_MALFORMED_MESSAGE        Mismatch between the STSM message type and size
+ * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message type and size mismatch
  * @throws ERR_STSM_CLI_CLI_INVALID_PUBKEY   The server reported that the client's ephemeral public key is invalid
  * @throws ERR_STSM_CLI_CLI_CHALLENGE_FAILED The server reported the client failing the STSM authentication challenge
  * @throws ERR_STSM_CLI_CLIENT_LOGIN_FAILED  The server did not recognize the client's username
@@ -90,7 +93,7 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
   _cliConnMgr.recvMsg();
 
   // Interpret the associated connection manager's primary buffer as a STSM message
-  STSMMsg*stsmMsg = reinterpret_cast<STSMMsg*>(_cliConnMgr._priBuf);
+  STSMMsg* stsmMsg = reinterpret_cast<STSMMsg*>(_cliConnMgr._priBuf);
 
   // Depending on the received STSM message's type
   switch(stsmMsg->header.type)
@@ -102,13 +105,14 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 
      // This message can be received only in the 'WAITING_SRV_AUTH' STSM client state
      if(_stsmCliState != WAITING_SRV_AUTH)
-      sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE);
+      sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'SRV_AUTH'");
 
      // Ensure the message length to be equal to the size of a 'SRV_AUTH' message
+     // TODO check if applicable
      if(stsmMsg->header.len != sizeof(STSM_SRV_AUTH))
-      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE);
+      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'SRV_AUTH' message of unexpected length");
 
-     // A valid SRV_AUTH message was received
+     // A valid 'SRV_AUTH' message has been received
      return;
 
     // 'SRV_OK' message
@@ -116,13 +120,14 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 
      // This message can be received only in the 'WAITING_SRV_OK' STSM client state
      if(_stsmCliState != WAITING_SRV_OK)
-      sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE);
+      sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'SRV_OK'");
 
      // Ensure the message length to be equal to the size of a 'SRV_OK' message
+     // TODO check if applicable
      if(stsmMsg->header.len != sizeof(SRV_OK))
-      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE);
+      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'SRV_OK' message of unexpected length");
 
-     // A valid SRV_OK message was received
+     // A valid 'SRV_OK' message has been received
      return;
 
     /* ------------------------ Error STSM Messages  ------------------------ */
@@ -171,13 +176,13 @@ void CliSTSMMgr::send_client_hello()
   // Interpret the associated connection manager's primary connection buffer as a 'CLIENT_HELLO' STSM message
   STSM_Client_Hello* cliHelloMsg = reinterpret_cast<STSM_Client_Hello*>(_cliConnMgr._priBuf);
 
-  /* --------------------- STSM Message Header ---------------------------- */
+  /* ------------------------ STSM Message Header ------------------------ */
 
   // Initialize the STSM message length and type
   cliHelloMsg->header.len = sizeof(STSM_Client_Hello);
   cliHelloMsg->header.type = CLIENT_HELLO;
 
-  /* -------------- Client's ephemeral DH public key --------------------- */
+  /* ------------------ Client's ephemeral DH public key ------------------ */
 
   // Initialize a memory BIO for storing the client's ephemeral DH public key
   BIO* myEDHPubKeyBIO = BIO_new(BIO_s_mem());
@@ -217,13 +222,14 @@ void CliSTSMMgr::send_client_hello()
   LOG_DEBUG("STSM 1/4: Sent 'CLIENT_HELLO' message, awaiting server 'SRV_AUTH' message")
 
   // TODO Debug, remove
-  std::cout << "cliHelloMsg.header.len = " << cliHelloMsg->header.len << std::endl;
-  std::cout << "cliHelloMsg.header.type = " << cliHelloMsg->header.type << std::endl;
-  std::cout << "cliHelloMsg.iv.iv_high = " << cliHelloMsg->iv.iv_high << std::endl;
-  std::cout << "cliHelloMsg.iv.iv_low = " << cliHelloMsg->iv.iv_low << std::endl;
+  std::cout << "cliHelloMsg->header.len = " << cliHelloMsg->header.len << std::endl;
+  std::cout << "cliHelloMsg->header.type = " << cliHelloMsg->header.type << std::endl;
+  std::cout << "cliHelloMsg->iv.iv_AES_CBC = " << cliHelloMsg->iv.iv_AES_CBC << std::endl;
+  std::cout << "cliHelloMsg->iv.iv_AES_GCM = " << cliHelloMsg->iv.iv_AES_GCM << std::endl;
+  std::cout << "cliHelloMsg->iv.iv_var = " << cliHelloMsg->iv.iv_var << std::endl;
 
   // Log the client's public key
-  logEDHPubKey(_myDHEKey);
+  logMyEDHPubKey();
  }
 
 
@@ -262,5 +268,5 @@ void CliSTSMMgr::startCliSTSM()
 
   // TODO: From here
   // Block until the expected 'SRV_AUTH' message has been received
-  //recvCheckCliSTSMMsg();
+  recvCheckCliSTSMMsg();
  }
