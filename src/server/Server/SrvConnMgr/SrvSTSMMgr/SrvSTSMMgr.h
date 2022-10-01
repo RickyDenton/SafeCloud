@@ -60,7 +60,13 @@ class SrvSTSMMgr : public STSMMgr
      */
     void checkSrvSTSMMsg();
 
-
+    /**
+     * @brief  Parses the client's 'CLIENT_HELLO' message, setting their
+     *         ephemeral DH public key and the IV to be used in the communication
+     * @throws ERR_OSSL_BIO_NEW_FAILED O       OpenSSL BIO initialization failed
+     * @throws ERR_OSSL_EVP_PKEY_NEW           EVP_PKEY struct creation failed
+     * @throws ERR_STSM_SRV_CLI_INVALID_PUBKEY The client provided an invalid ephemeral DH public key
+     */
     void recv_client_hello();
 
 

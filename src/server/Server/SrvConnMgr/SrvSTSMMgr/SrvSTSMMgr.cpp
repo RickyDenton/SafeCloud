@@ -157,8 +157,13 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
  }
 
 
-
-// TODO
+/**
+ * @brief  Parses the client's 'CLIENT_HELLO' message, setting their
+ *         ephemeral DH public key and the IV to be used in the communication
+ * @throws ERR_OSSL_BIO_NEW_FAILED O       OpenSSL BIO initialization failed
+ * @throws ERR_OSSL_EVP_PKEY_NEW           EVP_PKEY struct creation failed
+ * @throws ERR_STSM_SRV_CLI_INVALID_PUBKEY The client provided an invalid ephemeral DH public key
+ */
 void SrvSTSMMgr::recv_client_hello()
  {
   // Interpret the connection manager's primary buffer as a 'CLIENT_HELLO' STSM message
@@ -191,16 +196,15 @@ void SrvSTSMMgr::recv_client_hello()
   // Initialize the associated connection manager's IV to the client-provided value
   _srvConnMgr._iv = new IV(cliHelloMsg->iv);
 
-
+  /* ------------------------------ Cleanup ------------------------------ */
 
   // Free the message in the connection manager's primary buffer
   _srvConnMgr.clearPriBuf();
 
-  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 1/4: Received 'CLIENT_HELLO' message, sending 'SRV_AUTH' message")
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 1/4: Received 'CLIENT_HELLO' message")
 
-
-  // TODO Debug
-  // Print the message's contents
+  /*
+  // LOG: Message contents and set IV
   std::cout << "cliHelloMsg->header.len = " << cliHelloMsg->header.len << std::endl;
   std::cout << "cliHelloMsg->header.type = " << cliHelloMsg->header.type << std::endl;
   std::cout << "cliHelloMsg->iv.iv_AES_CBC = " << cliHelloMsg->iv.iv_AES_CBC << std::endl;
@@ -209,9 +213,12 @@ void SrvSTSMMgr::recv_client_hello()
   std::cout << "_srvConnMgr._iv->iv_AES_CBC = " << _srvConnMgr._iv->iv_AES_CBC << std::endl;
   std::cout << "_srvConnMgr._iv->iv_AES_CBC = " << _srvConnMgr._iv->iv_AES_GCM << std::endl;
   std::cout << "_srvConnMgr._iv->iv_var = " << _srvConnMgr._iv->iv_var << std::endl;
+  */
 
-  // Log the client's public key
+  /*
+  // LOG: Client's public key
   logOtherEDHPubKey();
+  */
  }
 
 
@@ -243,16 +250,23 @@ SrvSTSMMgr::SrvSTSMMgr(EVP_PKEY* myRSALongPrivKey, SrvConnMgr& srvConnMgr, X509*
  */
 bool SrvSTSMMgr::STSMMsgHandler()
  {
-  std::cout << "In STSMMsgHandler" << std::endl;
-
   // Verifies the received message to consist of the STSM handshake message
   // appropriate for the current server's STSM state, throwing an error otherwise
   checkSrvSTSMMsg();
 
-  // Call the server STSM message handler appropriate the current server STSM state
+  // Depending on the server's current state (and implicitly from
+  // the previous check, the STSM message type that was received)
   if(_stsmSrvState == WAITING_CLI_HELLO)
    {
+    // Parse the client's 'CLIENT_HELLO' message
     recv_client_hello();
+
+    // Derive an AES_128 symmetric key from the server's
+    // private and the client's public ephemeral DH keys
+    deriveAES128Skey(_srvConnMgr._skey);
+
+    // TODO: Send the 'SRV_AUTH' message
+
 
     // Inform the connection manager that the connection
     // is still in the key establishment phase

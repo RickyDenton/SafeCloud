@@ -130,12 +130,26 @@ enum scode : unsigned char
   ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,
   ERR_OSSL_BIO_READ_FAILED,
   ERR_OSSL_BIO_FREE_FAILED,
+  ERR_OSSL_EVP_PKEY_DERIVE_INIT,
+  ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER,
+  ERR_OSSL_EVP_PKEY_DERIVE,
+  ERR_OSSL_EVP_MD_CTX_NEW,
+  ERR_OSSL_EVP_DIGEST_INIT,
+  ERR_OSSL_EVP_DIGEST_UPDATE,
+  ERR_OSSL_EVP_DIGEST_FINAL,
+
 
   // STSM Generic Errors
   ERR_STSM_UNEXPECTED_MESSAGE,
   ERR_STSM_MALFORMED_MESSAGE,
   ERR_STSM_UNKNOWN_STSMMSG_TYPE,
   ERR_STSM_UNKNOWN_STSMMSG_ERROR,
+  ERR_STSM_MY_PUBKEY_MISSING,
+  ERR_STSM_OTHER_PUBKEY_MISSING,
+
+  // Other errors
+  ERR_MALLOC_FAILED,
+
 
   // Unknown error
   ERR_UNKNOWN
@@ -277,28 +291,41 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,"Wrong username or password"} },
 
     // OpenSSL Errors
-    { ERR_OSSL_EVP_PKEY_NEW,                 {FATAL,"EVP_PKEY structure allocation failed"} },
-    { ERR_OSSL_EVP_PKEY_ASSIGN,              {FATAL,"Error in assigning a value to the EVP_PKEY structure"} },
-    { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"Error in creating an EVP_PKEY context"} },
-    { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"Error in creating a EVP_PKEY key generation context"} },
-    { ERR_OSSL_EVP_PKEY_KEYGEN,              {FATAL,"EVP_PKEY Key generation error"} },
-    { ERR_OSSL_RAND_POLL_FAILED,             {FATAL,"Couldn't generate a seed via the RAND_poll() function"} },
-    { ERR_OSSL_RAND_BYTES_FAILED,            {FATAL,"Couldn't generate random bytes via the RAND_bytes() function"} },
+    { ERR_OSSL_EVP_PKEY_NEW,                 {FATAL,"EVP_PKEY struct creation failed"} },
+    { ERR_OSSL_EVP_PKEY_ASSIGN,              {FATAL,"EVP_PKEY struct assignment failure"} },
+    { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"EVP_PKEY context creation failed"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"EVP_PKEY key generation initialization failed"} },
+    { ERR_OSSL_EVP_PKEY_KEYGEN,              {FATAL,"EVP_PKEY Key generation failed"} },
+    { ERR_OSSL_RAND_POLL_FAILED,             {FATAL,"Could not generate a seed via the RAND_poll() function"} },
+    { ERR_OSSL_RAND_BYTES_FAILED,            {FATAL,"Could not generate random bytes via the RAND_bytes() function"} },
     { ERR_OSSL_BIO_NEW_FAILED,               {FATAL,"OpenSSL Memory BIO Initialization Failed"} },
     { ERR_OSSL_BIO_NEW_FP_FAILED,            {CRITICAL,"OpenSSL File BIO Initialization Failed"} },
-    { ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,  {FATAL,"Couldn't write the ephemeral DH public key to the designated memory BIO"} },
-    { ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED, {CRITICAL,"Couldn't write the ephemeral DH public key to the designated file BIO"} },
-    { ERR_OSSL_BIO_READ_FAILED,              {FATAL,"Couldn't read the OpenSSL BIO"} },
-    { ERR_OSSL_BIO_FREE_FAILED,              {CRITICAL,"Couldn't free the OpenSSL BIO"} },
+    { ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,  {FATAL,    "Could not write the ephemeral DH public key to the designated memory BIO"} },
+    { ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED, {CRITICAL, "Could not write the ephemeral DH public key to the designated file BIO"} },
+    { ERR_OSSL_BIO_READ_FAILED,              {FATAL,    "Could not read the OpenSSL BIO"} },
+    { ERR_OSSL_BIO_FREE_FAILED,              {CRITICAL, "Could not free the OpenSSL BIO"} },
+    { ERR_OSSL_EVP_PKEY_DERIVE_INIT,         {FATAL, "Key derivation context initialization failed"} },
+    { ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER,     {FATAL, "Failed to set the remote actor's public key in the key derivation context"} },
+    { ERR_OSSL_EVP_PKEY_DERIVE,              {FATAL, "Shared secret derivation failed"} },
+    { ERR_OSSL_EVP_MD_CTX_NEW,               {FATAL, "EVP_MD context creation failed"} },
+    { ERR_OSSL_EVP_DIGEST_INIT,              {FATAL, "EVP_MD digest initialization failed"} },
+    { ERR_OSSL_EVP_DIGEST_UPDATE,            {FATAL, "EVP_MD digest update failed"} },
+    { ERR_OSSL_EVP_DIGEST_FINAL,             {FATAL, "EVP_MD digest final failed"} },
 
     // STSM Generic Errors
-    { ERR_STSM_UNEXPECTED_MESSAGE,    {CRITICAL,"An out-of-order STSM message has been received"} },
-    { ERR_STSM_MALFORMED_MESSAGE,     {CRITICAL,"A malformed STSM message has been received"} },
-    { ERR_STSM_UNKNOWN_STSMMSG_TYPE,  {CRITICAL,"A STSM message of unknown type has been received"} },
-    { ERR_STSM_UNKNOWN_STSMMSG_ERROR, {FATAL,   "Attempting to send an STSM error message of unknown type"} },
+    {ERR_STSM_UNEXPECTED_MESSAGE,   {CRITICAL, "An out-of-order STSM message has been received"} },
+    {ERR_STSM_MALFORMED_MESSAGE,    {CRITICAL, "A malformed STSM message has been received"} },
+    {ERR_STSM_UNKNOWN_STSMMSG_TYPE, {CRITICAL, "A STSM message of unknown type has been received"} },
+    {ERR_STSM_UNKNOWN_STSMMSG_ERROR,{FATAL,    "Attempting to send an STSM error message of unknown type"} },
+    {ERR_STSM_MY_PUBKEY_MISSING,    {FATAL,    "The local actor's ephemeral DH public key is missing"} },
+    {ERR_STSM_OTHER_PUBKEY_MISSING, {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
+
+
+    // Other errors
+    {ERR_MALLOC_FAILED,                    {FATAL,    "malloc() failed"} },
 
     // Unknown
-    { ERR_UNKNOWN, {CRITICAL,"Unknown Error"} }
+    {ERR_UNKNOWN,                          {CRITICAL, "Unknown Error"} }
   };
 
 
