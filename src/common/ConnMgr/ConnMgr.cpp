@@ -62,9 +62,13 @@ void ConnMgr::cleanTmpDir()
 /**
  * @brief Marks the contents of the primary connection buffer as
  *        consumed, resetting the index of its first significant byte
+ *        and the expected size of a data block being received
  */
 void ConnMgr::clearPriBuf()
- { _priBufInd = 0; }
+ {
+  _priBufInd = 0;
+  _recvBlockSize = 0;
+ }
 
 
 /**
@@ -150,6 +154,10 @@ void ConnMgr::sendMsg()
 
   // Inform the user that the login was successful
   send(_csk, (const void*)&_priBuf, blockLen, 0);
+
+  // Reset the index of the most significant byte in the primary connection
+  // buffer as well as the expected size of a data block being received
+  clearPriBuf();
 
   LOG_DEBUG("Sent " + std::to_string(blockLen) + " bytes")
 

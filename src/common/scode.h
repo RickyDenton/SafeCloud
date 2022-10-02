@@ -122,21 +122,35 @@ enum scode : unsigned char
   ERR_OSSL_EVP_PKEY_CTX_NEW,
   ERR_OSSL_EVP_PKEY_KEYGEN_INIT,
   ERR_OSSL_EVP_PKEY_KEYGEN,
+
   ERR_OSSL_RAND_POLL_FAILED,
   ERR_OSSL_RAND_BYTES_FAILED,
+
   ERR_OSSL_BIO_NEW_FAILED,
   ERR_OSSL_BIO_NEW_FP_FAILED,
   ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,
   ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED,
   ERR_OSSL_BIO_READ_FAILED,
   ERR_OSSL_BIO_FREE_FAILED,
+
   ERR_OSSL_EVP_PKEY_DERIVE_INIT,
   ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER,
   ERR_OSSL_EVP_PKEY_DERIVE,
+
   ERR_OSSL_EVP_MD_CTX_NEW,
   ERR_OSSL_EVP_DIGEST_INIT,
   ERR_OSSL_EVP_DIGEST_UPDATE,
   ERR_OSSL_EVP_DIGEST_FINAL,
+
+  ERR_OSSL_EVP_SIGN_INIT,
+  ERR_OSSL_EVP_SIGN_UPDATE,
+  ERR_OSSL_EVP_SIGN_FINAL,
+
+  ERR_OSSL_AES_128_CBC_PT_TOO_LARGE,
+  ERR_OSSL_EVP_CIPHER_CTX_NEW,
+  ERR_OSSL_EVP_ENCRYPT_INIT,
+  ERR_OSSL_EVP_ENCRYPT_UPDATE,
+  ERR_OSSL_EVP_ENCRYPT_FINAL,
 
 
   // STSM Generic Errors
@@ -296,21 +310,37 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"EVP_PKEY context creation failed"} },
     { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"EVP_PKEY key generation initialization failed"} },
     { ERR_OSSL_EVP_PKEY_KEYGEN,              {FATAL,"EVP_PKEY Key generation failed"} },
+
     { ERR_OSSL_RAND_POLL_FAILED,             {FATAL,"Could not generate a seed via the RAND_poll() function"} },
     { ERR_OSSL_RAND_BYTES_FAILED,            {FATAL,"Could not generate random bytes via the RAND_bytes() function"} },
+
     { ERR_OSSL_BIO_NEW_FAILED,               {FATAL,"OpenSSL Memory BIO Initialization Failed"} },
     { ERR_OSSL_BIO_NEW_FP_FAILED,            {CRITICAL,"OpenSSL File BIO Initialization Failed"} },
     { ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,  {FATAL,    "Could not write the ephemeral DH public key to the designated memory BIO"} },
     { ERR_OSSL_EVP_PKEY_PRINT_PUBLIC_FAILED, {CRITICAL, "Could not write the ephemeral DH public key to the designated file BIO"} },
     { ERR_OSSL_BIO_READ_FAILED,              {FATAL,    "Could not read the OpenSSL BIO"} },
     { ERR_OSSL_BIO_FREE_FAILED,              {CRITICAL, "Could not free the OpenSSL BIO"} },
+
     { ERR_OSSL_EVP_PKEY_DERIVE_INIT,         {FATAL, "Key derivation context initialization failed"} },
     { ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER,     {FATAL, "Failed to set the remote actor's public key in the key derivation context"} },
     { ERR_OSSL_EVP_PKEY_DERIVE,              {FATAL, "Shared secret derivation failed"} },
+
     { ERR_OSSL_EVP_MD_CTX_NEW,               {FATAL, "EVP_MD context creation failed"} },
     { ERR_OSSL_EVP_DIGEST_INIT,              {FATAL, "EVP_MD digest initialization failed"} },
     { ERR_OSSL_EVP_DIGEST_UPDATE,            {FATAL, "EVP_MD digest update failed"} },
     { ERR_OSSL_EVP_DIGEST_FINAL,             {FATAL, "EVP_MD digest final failed"} },
+
+    { ERR_OSSL_EVP_SIGN_INIT,                {FATAL, "EVP_MD signing initialization failed"} },
+    { ERR_OSSL_EVP_SIGN_UPDATE,              {FATAL, "EVP_MD signing update failed"} },
+    { ERR_OSSL_EVP_SIGN_UPDATE,              {FATAL, "EVP_MD signing final failed"} },
+
+    { ERR_OSSL_AES_128_CBC_PT_TOO_LARGE,     {FATAL, "The plaintext to encrypt using AES_128_CBC is too large"} },
+    { ERR_OSSL_EVP_CIPHER_CTX_NEW,           {FATAL, "EVP_CIPHER context creation failed"} },
+    { ERR_OSSL_EVP_ENCRYPT_INIT,             {FATAL, "EVP_CIPHER encrypt initialization failed"} },
+    { ERR_OSSL_EVP_ENCRYPT_UPDATE,           {FATAL, "EVP_CIPHER encrypt update failed"} },
+    { ERR_OSSL_EVP_ENCRYPT_FINAL,            {FATAL, "EVP_CIPHER encrypt final failed"} },
+
+
 
     // STSM Generic Errors
     {ERR_STSM_UNEXPECTED_MESSAGE,   {CRITICAL, "An out-of-order STSM message has been received"} },

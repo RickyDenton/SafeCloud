@@ -103,6 +103,9 @@ SrvConnMgr::~SrvConnMgr()
   // Delete the connection manager's child objects
   delete _srvSTSMMgr;
   delete _srvSessMgr;
+
+  //Log the client's disconnection
+  LOG_INFO("\"" + *_name + "\" has disconnected")
  }
 
 /* ============================ OTHER PUBLIC METHODS ============================ */

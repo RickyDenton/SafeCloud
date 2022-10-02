@@ -187,24 +187,6 @@ void CliSTSMMgr::send_client_hello()
   // Write the client's ephemeral DH public key into the 'CLIENT_HELLO' message
   writeMyEDHPubKey(cliHelloMsg->cliEDHPubKey);
 
-//  // Initialize a memory BIO for storing the client's ephemeral DH public key
-//  BIO* myEDHPubKeyBIO = BIO_new(BIO_s_mem());
-//  if(myEDHPubKeyBIO == NULL)
-//   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
-//
-//  // Write the client's ephemeral DH public key to the BIO
-//  if(PEM_write_bio_PUBKEY(myEDHPubKeyBIO, _myDHEKey) != 1)
-//   THROW_SCODE(ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,OSSL_ERR_DESC);
-//
-//  // Write the client's ephemeral DH public key from the BIO into
-//  // the "cliEDHPubKey" field of the 'CLIENT_HELLO' message
-//  if(BIO_read(myEDHPubKeyBIO, cliHelloMsg->cliEDHPubKey, DH2048_PUBKEY_PEM_SIZE) <= 0)
-//   THROW_SCODE(ERR_OSSL_BIO_READ_FAILED,OSSL_ERR_DESC);
-//
-//  // Free the memory BIO
-//  if(BIO_free(myEDHPubKeyBIO) != 1)
-//   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
-
   /* ----------------------------- Random IV ----------------------------- */
 
   // Generate a random AES_GCM_128 IV for the connection

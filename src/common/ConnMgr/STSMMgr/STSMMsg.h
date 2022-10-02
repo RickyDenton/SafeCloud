@@ -9,8 +9,6 @@
 #include "ConnMgr/IV/IV.h"
 #include <unordered_map>
 
-#define DH2048_PUBKEY_PEM_SIZE 1194   // The size in bits of an ephemeral DH 2048-bit public key
-
 
 /* ======================= STSM MESSAGE TYPES DEFINITIONS ======================= */
 
@@ -63,6 +61,28 @@ enum STSMMsgType : uint8_t
  };
 
 
+/* ========================= STSM MESSAGES FIELDS SIZES ========================= */
+
+// The size in bits of a PEM-encoded DH 2048-bit public key
+#define DH2048_PUBKEY_PEM_SIZE 1194
+
+// The size in bits of an RSA digital signature
+// generated using the SHA-256 hash-and-sign paradigm
+#define RSA_SHA256_SIG_SIZE 256
+
+// TODO: Add in the description somewhere
+// An STSM authentication fragment consists of the AES_128_CBC encrypted
+// digital signature of an actor's STSM authentication value ({<Ys||Yc>s}k
+// for the server and {<name||Ys||Yc>c}k for the client),
+
+// TODO: Possibly rewrite better
+// The size in bits of an STSM authentication fragment, which is constant due to
+// the fact that, being the size of an RSA digital signature on 256 bits an integer
+// multiple of the AES block size of 128 bit, encrypting it always adds a full
+// padding block of 128 bit, for a resulting ciphertext size of 256 + 128 = 384 bits
+#define STSM_AUTH_SIZE 384
+
+
 /* ========================= STSM MESSAGES DEFINITIONS ========================= */
 
 /* ---------------------- Base STSM message (header only) ---------------------- */
@@ -84,7 +104,6 @@ struct STSMMsg
 /* ----------------------- 'CLIENT_HELLO' Message (1/4) ----------------------- */
 
 // Implicit header STMMsgType: 'CLIENT_HELLO'
-
 struct STSM_Client_Hello : public STSMMsg
  {
   public:
@@ -97,10 +116,30 @@ struct STSM_Client_Hello : public STSMMsg
  };
 
 
-// TODO
+/* ------------------------- 'SRV_AUTH' Message (2/4) ------------------------- */
 
 struct STSM_SRV_AUTH : public STSMMsg
- {};
+ {
+  // The server's ephemeral DH 2048-bit public key in PEM format
+  unsigned char srvEDHPubKey[DH2048_PUBKEY_PEM_SIZE];
+
+  // The server's STSM authentication
+  unsigned char srvSTSMAuth[DH2048_PUBKEY_PEM_SIZE];
+
+
+  // The server's encrypted challenge response size
+  uint16_t srvEncChaResSize;
+
+  // The server's encrypted challenge response
+  unsigned char* srvEncChaRes;
+
+  //The server's certificate
+  unsigned char* srvCert;
+ };
+
+
+
+// TODO
 
 struct STSM_SRV_OK : public STSMMsg
  {};

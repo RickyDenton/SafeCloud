@@ -5,6 +5,8 @@
 #include "ConnMgr/STSMMgr/STSMMsg.h"
 #include "../SrvConnMgr.h"
 #include "errlog.h"
+#include "ossl_crypto/RSA.h"
+#include "ossl_crypto/AES_128_CBC.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -198,9 +200,6 @@ void SrvSTSMMgr::recv_client_hello()
 
   /* ------------------------------ Cleanup ------------------------------ */
 
-  // Free the message in the connection manager's primary buffer
-  _srvConnMgr.clearPriBuf();
-
   LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 1/4: Received 'CLIENT_HELLO' message")
 
   /*
@@ -265,8 +264,32 @@ bool SrvSTSMMgr::STSMMsgHandler()
     // private and the client's public ephemeral DH keys
     deriveAES128Skey(_srvConnMgr._skey);
 
-    // TODO: Send the 'SRV_AUTH' message
+    // TRY
+    // Seed the OpenSSL PRNG
+    if(!RAND_poll())
+     THROW_SCODE(ERR_OSSL_RAND_POLL_FAILED,OSSL_ERR_DESC);
 
+
+    for(unsigned int i = 0; i<100000000; i++)
+     {
+
+      // Randomly 1000 bytes in the secondary buffer
+      if(RAND_bytes(reinterpret_cast<unsigned char*>(&_srvConnMgr._secBuf), 32) != 1)
+       THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
+
+      // Sign the random bytes
+      int ctSize = AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)), &_srvConnMgr._secBuf[0], 32, &_srvConnMgr._secBuf[2001]);
+
+      if(ctSize != 48)
+       std::cout << "WARNING! ctSize = " << ctSize * 8 << " bits " << std::endl;
+
+      if(i % 100000 == 0)
+       std::cout << "i = " << i << std::endl;
+     }
+
+
+
+    // TODO: Send the 'SRV_AUTH' message
 
     // Inform the connection manager that the connection
     // is still in the key establishment phase

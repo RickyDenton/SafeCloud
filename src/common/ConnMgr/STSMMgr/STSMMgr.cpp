@@ -244,7 +244,7 @@ void STSMMgr::deriveAES128Skey(unsigned char* skey)
   delMyDHEPrivKey();
 
   /*
-  // LOG: Shared secret to stdout
+  // LOG: Shared secret
   printf("Shared Secret: \n");
   BIO_dump_fp(stdout, (const char *)sSecret, (int)sSecretSize);
   */
@@ -278,7 +278,7 @@ void STSMMgr::deriveAES128Skey(unsigned char* skey)
   EVP_MD_CTX_free(sSecretHashCTX);
 
   /*
-  // LOG: Digest to stdout in hexadecimal
+  // LOG: Digest in hexadecimal
   printf("Shared secret digest:\n");
   for(int n=0; sSecretDigest[n] != '\0'; n++)
    printf("%02x", (unsigned char) sSecretDigest[n]);
@@ -302,7 +302,7 @@ void STSMMgr::deriveAES128Skey(unsigned char* skey)
   free(sSecret);
   free(sSecretDigest);
 
-  // LOG: Symmetric key to stdout in hexadecimal
+  // LOG: Symmetric key in hexadecimal
   printf("AES_128 Symmetric Key: ");
   for(int i=0; i < AES_128_CBC_keySize ; i++)
    printf("%02x", (unsigned char) skey[i]);

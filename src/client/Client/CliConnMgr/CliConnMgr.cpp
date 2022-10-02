@@ -33,9 +33,14 @@ void CliConnMgr::recvMsg()
    }
   catch(sCodeException& recvExcp)
    {
-    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error code
+    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error
+    // code and clear its additional information (representing the name of the client
+    // associated with the connection manager, which on the client side is implicit)
     if(recvExcp.scode == ERR_PEER_DISCONNECTED)
-     recvExcp.scode = ERR_SRV_DISCONNECTED;
+     {
+      recvExcp.scode = ERR_SRV_DISCONNECTED;
+      recvExcp.addDscr = "";
+     }
 
     // Rethrow the exception
     throw;
