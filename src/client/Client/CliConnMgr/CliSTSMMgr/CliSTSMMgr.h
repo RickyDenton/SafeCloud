@@ -67,6 +67,10 @@ class CliSTSMMgr : public STSMMgr
 
 
 
+
+
+  void validateSrvCert(X509* srvCert);
+
   void recv_srv_auth();
 
 

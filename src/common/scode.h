@@ -153,6 +153,17 @@ enum scode : unsigned char
   ERR_OSSL_EVP_ENCRYPT_FINAL,
 
   ERR_OSSL_PEM_WRITE_BIO_X509,
+  ERR_OSSL_X509_STORE_CTX_NEW,
+  ERR_OSSL_X509_STORE_CTX_INIT,
+
+  ERR_OSSL_EVP_VERIFY_INIT,
+  ERR_OSSL_EVP_VERIFY_UPDATE,
+  ERR_OSSL_EVP_VERIFY_FINAL,
+  ERR_OSSL_SIG_VERIFY_FAILED,
+
+  ERR_OSSL_EVP_DECRYPT_INIT,
+  ERR_OSSL_EVP_DECRYPT_UPDATE,
+  ERR_OSSL_EVP_DECRYPT_FINAL,
 
 
 
@@ -166,6 +177,8 @@ enum scode : unsigned char
 
   // Other errors
   ERR_MALLOC_FAILED,
+  ERR_NON_POSITIVE_BUFFER_SIZE,
+
 
 
   // Unknown error
@@ -335,7 +348,7 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     { ERR_OSSL_EVP_SIGN_INIT,                {FATAL, "EVP_MD signing initialization failed"} },
     { ERR_OSSL_EVP_SIGN_UPDATE,              {FATAL, "EVP_MD signing update failed"} },
-    { ERR_OSSL_EVP_SIGN_UPDATE,              {FATAL, "EVP_MD signing final failed"} },
+    { ERR_OSSL_EVP_SIGN_FINAL,               {FATAL, "EVP_MD signing final failed"} },
 
     { ERR_OSSL_AES_128_CBC_PT_TOO_LARGE,     {FATAL, "The plaintext to encrypt using AES_128_CBC is too large"} },
     { ERR_OSSL_EVP_CIPHER_CTX_NEW,           {FATAL, "EVP_CIPHER context creation failed"} },
@@ -343,8 +356,18 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_OSSL_EVP_ENCRYPT_UPDATE,           {FATAL, "EVP_CIPHER encrypt update failed"} },
     { ERR_OSSL_EVP_ENCRYPT_FINAL,            {FATAL, "EVP_CIPHER encrypt final failed"} },
 
-    { ERR_OSSL_PEM_WRITE_BIO_X509,            {FATAL, "Could not write the server's X.509 certificate to the memory BIO"} },
+    { ERR_OSSL_PEM_WRITE_BIO_X509,           {FATAL, "Could not write the server's X.509 certificate to the memory BIO"} },
+    { ERR_OSSL_X509_STORE_CTX_NEW,           {FATAL, "X509_STORE context creation failed"} },
+    { ERR_OSSL_X509_STORE_CTX_INIT,          {FATAL, "X509_STORE context initialization failed"} },
 
+    { ERR_OSSL_EVP_VERIFY_INIT,                {FATAL, "EVP_MD verification initialization failed"} },
+    { ERR_OSSL_EVP_VERIFY_UPDATE,              {FATAL, "EVP_MD verification update failed"} },
+    { ERR_OSSL_EVP_VERIFY_FINAL,               {FATAL, "EVP_MD verification final failed"} },
+    { ERR_OSSL_SIG_VERIFY_FAILED,              {CRITICAL,"Signature Verification Failed"} },
+
+    { ERR_OSSL_EVP_DECRYPT_INIT,             {FATAL, "EVP_CIPHER decrypt initialization failed"} },
+    { ERR_OSSL_EVP_DECRYPT_UPDATE,           {FATAL, "EVP_CIPHER decrypt update failed"} },
+    { ERR_OSSL_EVP_DECRYPT_FINAL,            {FATAL, "EVP_CIPHER decrypt final failed"} },
 
 
 
@@ -358,7 +381,8 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
 
     // Other errors
-    {ERR_MALLOC_FAILED,                    {FATAL,    "malloc() failed"} },
+    {ERR_MALLOC_FAILED,                    {FATAL,"malloc() failed"} },
+    {ERR_NON_POSITIVE_BUFFER_SIZE,         {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
 
     // Unknown
     {ERR_UNKNOWN,                          {CRITICAL, "Unknown Error"} }

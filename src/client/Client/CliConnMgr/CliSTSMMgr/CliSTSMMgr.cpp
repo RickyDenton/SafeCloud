@@ -7,6 +7,8 @@
 #include "scode.h"
 #include "errlog.h"
 #include "ConnMgr/STSMMgr/STSMMsg.h"
+#include "ossl_crypto/AES_128_CBC.h"
+#include "ossl_crypto/RSA.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -160,9 +162,78 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
    }
  }
 
+ //
 
+/**
+ * @brief Validates the server's X.509 certificate by asserting it to have been released
+ *        to the SafeCloud organization  via the certificate's Common Name (CN) and
+ *        verifies it not to have been revoked via the client's X.509 certificates store
+ * @param srvCert The server's certificate to be validated
+ * @throws ERR_STSM_CLI_SRV_CERT_REJECTED The server's certificate is invalid
+ * @throws ERR_OSSL_X509_STORE_CTX_NEW    X509_STORE context creation failed
+ * @throws ERR_OSSL_X509_STORE_CTX_INIT   X509_STORE context initialization failed
+ */
+void CliSTSMMgr::validateSrvCert(X509* srvCert)
+ {
+  // Ensure the server's certificate format to be valid
+  if(!srvCert)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
 
+  /* ----- Verify the certificate's Common Name (CN) to belong to the SafeCloud server ----- */
 
+  // Extract the certificate subject's full name
+  X509_NAME* certSubjectName = X509_get_subject_name(srvCert);
+  if(certSubjectName == NULL)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  // Retrieve the index of the CN entry in the X509_NAME struct via its numerical index (nid)
+  int nid = OBJ_txt2nid("CN");
+  int index = X509_NAME_get_index_by_NID(certSubjectName, nid, -1);
+  if(index == -1)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  // Retrieve the CN entry from the X509_NAME struct via its index
+  X509_NAME_ENTRY* certSubjectCN = X509_NAME_get_entry(certSubjectName, index);
+  if(!certSubjectCN)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  // Retrieve the CN entry value as an ASN1 string
+  ASN1_STRING* subjectCN_ASN1 = X509_NAME_ENTRY_get_data(certSubjectCN);
+  if(!subjectCN_ASN1)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  // Convert the CN value from an ASN1 to a conventional C string
+  const unsigned char* subjectCN = ASN1_STRING_get0_data(subjectCN_ASN1);
+
+  // Verify the CN to be equal to "SafeCloud"
+  if(memcmp(subjectCN,"SafeCloud",9) != 0)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  /* -------- Verify the certificate against the client's X.509 certificates store -------- */
+
+  // Create a X509 store verification context
+  X509_STORE_CTX* srvCertVerCTX = X509_STORE_CTX_new();
+  if(!srvCertVerCTX)
+   THROW_SCODE(ERR_OSSL_X509_STORE_CTX_NEW,OSSL_ERR_DESC);
+
+  // Initialize the store verification context passing
+  // the client's X.509 store and the server's certificate
+  if(X509_STORE_CTX_init(srvCertVerCTX, _cliStore, srvCert, NULL) != 1)
+   THROW_SCODE(ERR_OSSL_X509_STORE_CTX_INIT,OSSL_ERR_DESC);
+
+  // Verify the server's certificate against the client's store
+  if(X509_verify_cert(srvCertVerCTX) != 1)
+   sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
+
+  // Free the store verification context
+  free(srvCertVerCTX);
+
+  // At this point the server's certificate is valid and, In DEBUG_MODE, log its issuer
+#ifdef DEBUG_MODE
+  char* certIssuer = X509_NAME_oneline(X509_get_issuer_name(srvCert), NULL, 0);
+  LOG_DEBUG("SafeCloud server certificate successfully verified (released by " + std::string(certIssuer) + ")")
+#endif
+ }
 
 
 
@@ -199,15 +270,81 @@ void CliSTSMMgr::recv_srv_auth()
   // private and the server's public ephemeral DH keys
   deriveAES128Skey(_cliConnMgr._skey);
 
+  /* ------------------ Server Certificate Verification ------------------ */
+
+  // Initialize a memory BIO to the server's certificate
+  // TODO: Check if len = -1 is correct as argument, otherwise pass the explicit size
+  BIO* srvCertBIO = BIO_new_mem_buf(stsmSrvAuth->srvCert, -1);
+  if(srvCertBIO == NULL)
+   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+
+  // Read the server's certificate into a X509 struct
+  X509* srvCert = PEM_read_bio_X509(srvCertBIO, NULL, NULL, NULL);
+
+  // Free the memory BIO
+  BIO_free(srvCertBIO);
+
+  // Validate the server's certificate
+  validateSrvCert(srvCert);
+
   /* --------------- Server STSM Auth Fragment Verification --------------- */
 
-/*  // Build the server's STSM authentication value into
+
+
+  // Build the server's STSM authentication value into
   // the associated connection manager's secondary buffer
-  writeMyEDHPubKey(&_cliConnMgr._priBuf[DH2048_PUBKEY_PEM_SIZE]);
-  writeOtherEDHPubKey(&_cliConnMgr._priBuf[0]);*/
+  writeMyEDHPubKey(&_cliConnMgr._secBuf[0]);
+  writeOtherEDHPubKey(&_cliConnMgr._secBuf[DH2048_PUBKEY_PEM_SIZE]);
+
+  std::cout << "_cliConnMgr._iv->iv_AES_CBC = " << _cliConnMgr._iv->iv_AES_CBC << std::endl;
+  std::cout << "_cliConnMgr._iv->iv_AES_GCM = " << _cliConnMgr._iv->iv_AES_GCM << std::endl;
+  std::cout << "_cliConnMgr._iv->iv_var = " << _cliConnMgr._iv->iv_var << std::endl;
 
   logOtherEDHPubKey();
 
+/*
+  // Server's AUTH fragment in hexadecimal
+  printf("Server's AUTH fragment (encrypted):\n");
+  for(int i=0; i<STSM_AUTH_SIZE/8 ; i++)
+   printf("%02x", stsmSrvAuth->srvSTSMAuth[i]);
+  printf("\n");
+*/
+
+
+  // Decrypt the server's STSM authentication fragment
+  int decBytes = AES_128_CBC_Decrypt(_cliConnMgr._skey, reinterpret_cast<unsigned char*>(&(_cliConnMgr._iv->iv_AES_CBC)),
+                                     stsmSrvAuth->srvSTSMAuth, 272, &_cliConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE]);
+
+  // The decrypted plaintext size is not 256 bits = 32 bytes, the server's STSM auth is surely invalid
+  if(decBytes != 256)
+   sendCliSTSMErrMsg(ERR_SRV_CHALLENGE_FAILED);
+
+
+/*  // Server's AUTH fragment in hexadecimal
+  printf("Server's signed AUTH quantity (plaintext):\n");
+  for(int i=0; i<256 ; i++)
+   printf("%02x", _cliConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE + i]);
+  printf("\n");*/
+
+  // TODO: Throw here if the signature verification failed (SRV STSM AUTH FAILED)
+  // Verify the server's authentication quantity's signature
+  rsaDigVerify(srvCert, &_cliConnMgr._secBuf[0], 2 * DH2048_PUBKEY_PEM_SIZE,
+               &_cliConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE], 256);
+
+  /* ------------------------------ Cleanup ------------------------------ */
+
+  // Free the server's certificate
+  X509_free(srvCert);
+
+  LOG_DEBUG("STSM 2/4: Received valid 'SRV_AUTH' message")
+
+
+
+  // Server's AUTH fragment in hexadecimal
+  printf("Server's AUTH fragment:\n");
+  for(int i=0; i<STSM_AUTH_SIZE/8 ; i++)
+   printf("%02x", stsmSrvAuth->srvSTSMAuth[i]);
+  printf("\n");
  }
 
 
@@ -311,5 +448,9 @@ void CliSTSMMgr::startCliSTSM()
   // Parse the server's 'SRV_AUTH' message
   recv_srv_auth();
 
+  // TODO: From here, send the client's 'CLI_AUTH' message
+
+  // Update the STSM client state
+  //_stsmCliState = WAITING_SRV_OK;
 
  }

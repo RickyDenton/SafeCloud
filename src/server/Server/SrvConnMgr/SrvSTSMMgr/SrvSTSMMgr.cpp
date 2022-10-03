@@ -168,18 +168,10 @@ void SrvSTSMMgr::send_srv_auth()
   // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
   STSM_SRV_AUTH* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH*>(_srvConnMgr._priBuf);
 
-//
-//  stsmSrvAuth->header.len = sizeof(STSMMsgHeader) + DH2048_PUBKEY_PEM_SIZE + STSM_AUTH_SIZE;
-//  stsmSrvAuth->header.type = SRV_AUTH;
-
   /* ------------------ Server's ephemeral DH public key ------------------ */
 
   // Write the server's ephemeral DH public key into the 'SRV_AUTH' message
   writeMyEDHPubKey(&stsmSrvAuth->srvEDHPubKey[0]);
-
-
-//  _srvConnMgr.sendMsg();
-
 
   /* ---------------- Server's STSM Authentication Fragment ---------------- */
 
@@ -195,12 +187,23 @@ void SrvSTSMMgr::send_srv_auth()
   writeMyEDHPubKey(&_srvConnMgr._secBuf[DH2048_PUBKEY_PEM_SIZE]);
 
   // Sign the STSM authentication value into the associated connection manager's secondary buffer
-  rsaDigSign(_myRSALongPrivKey, &_srvConnMgr._secBuf[0],
+  unsigned int sigSize = rsaDigSign(_myRSALongPrivKey, &_srvConnMgr._secBuf[0],
              2 * DH2048_PUBKEY_PEM_SIZE,&_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE]);
 
+   std::cout << "sigSize = " << sigSize << std::endl;
+
+//  printf("Server's signed AUTH quantity (plaintext):\n");
+//  for(int i=0; i<256 ; i++)
+//   printf("%02x", _srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE + i]);
+//  printf("\n");
+
+
   // Encrypt the signed STSM authentication value into the 'SRV_AUTH' message
-  AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)),
-                      &_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE], 32, stsmSrvAuth->srvSTSMAuth);
+  int encBytes = AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)),
+                      &_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE], sigSize, stsmSrvAuth->srvSTSMAuth);
+
+  std::cout << "encBytes = " << encBytes << std::endl;
+
 
   /* --------------------- Server's X.509 Certificate --------------------- */
 
@@ -241,19 +244,16 @@ void SrvSTSMMgr::send_srv_auth()
   std::cout << "stsmSrvAuth->header.len = " << stsmSrvAuth->header.len << std::endl;
   std::cout << "stsmSrvAuth->header.type = " << stsmSrvAuth->header.type << std::endl;
 
+
   // Server's public key
   logMyEDHPubKey();
 
   // Server's AUTH fragment in hexadecimal
-  printf("Server's AUTH fragment:\n");
+  printf("Server's AUTH fragment (encrypted):\n");
   for(int i=0; i<STSM_AUTH_SIZE ; i++)
    printf("%02x", stsmSrvAuth->srvSTSMAuth[i]);
   printf("\n");
 
-  // Server's certificate
-  char* tmp = X509_NAME_oneline(X509_get_subject_name(_srvCert), NULL, 0);
-  char* tmp2 = X509_NAME_oneline(X509_get_issuer_name(_srvCert), NULL, 0);
-  std::cout << "Certificate of \"" << tmp << "\" (released by \"" << tmp2 << "\")" << std::endl;
  }
 
 
@@ -307,7 +307,7 @@ void SrvSTSMMgr::recv_client_hello()
 
   /* ------------------------------ Cleanup ------------------------------ */
 
-  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 1/4: Received 'CLIENT_HELLO' message")
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 1/4: Received valid 'CLIENT_HELLO' message")
 
   /*
   // LOG: Message contents and set IV

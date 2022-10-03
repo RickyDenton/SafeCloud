@@ -9,8 +9,8 @@
 
 
 /**
- * @brief        Encrypts a plaintext of arbitrary size using the AES_128 cipher
- *               in CBC mode, safely deleting the plaintext afterwards
+ * @brief        Encrypts a plaintext using the AES_128 cipher in
+ *               CBC mode, safely deleting the plaintext afterwards
  * @param key    The AES_128 encryption key (128 bit, 16 bytes)
  * @param iv     The encryption's IV
  * @param ptAddr The plaintext initial address
@@ -18,6 +18,8 @@
  * @param ctDest The address where to write the resulting ciphertext
  * @return       The resulting ciphertext's size in BYTES
  * @note         The plaintext to be encrypted must be of a size <= INT_MAX - AES_BLOCK_SIZE = 2^16 - 1 - 128
+ * @note         It is implicitly assumed the ciphertext buffer to be large enough to contain the resulting ciphertext
+ * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The plaintext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_AES_128_CBC_PT_TOO_LARGE The plaintext to encrypt is too large
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
  * @throws       ERR_OSSL_EVP_ENCRYPT_INIT         EVP_CIPHER encrypt initialization failed
@@ -28,7 +30,11 @@ int AES_128_CBC_Encrypt(unsigned char* key, unsigned char* iv, unsigned char* pt
  {
   EVP_CIPHER_CTX* aesEncCTX;  // Cipher encryption context
   int encBytes;               // The number of encrypted bytes at an encryption's step (EVP_EncryptUpdate or EVP_EncryptFinal)
-  int encBytesTot;            // The total number of encrypted bytes, eventually representing the resulting ciphertext's size
+  int encBytesTot;            // The total number of encrypted bytes, representing at the end the resulting ciphertext size
+
+  // Assert the plaintext size to be positive
+  if(ptSize <= 0)
+   THROW_SCODE(ERR_NON_POSITIVE_BUFFER_SIZE,"ptSize = " + std::to_string(ptSize));
 
   // Assert the maximum size of the resulting ciphertext (ptSize + padding) not to overflow on
   // an "int" type (case in which  an erroneous negative ciphertext length would be returned)
@@ -58,7 +64,7 @@ int AES_128_CBC_Encrypt(unsigned char* key, unsigned char* iv, unsigned char* pt
   // Update the total number of encrypted bytes
   encBytesTot += encBytes;
 
-  // Free the encryption context
+  // Free the cipher encryption context
   EVP_CIPHER_CTX_free(aesEncCTX);
 
   // Safely delete the plaintext from its buffer
@@ -69,4 +75,57 @@ int AES_128_CBC_Encrypt(unsigned char* key, unsigned char* iv, unsigned char* pt
  }
 
 
+/**
+ * @brief        Decrypts a ciphertext using the AES_128 cipher in CBC mode
+ * @param key    The AES_128 encryption key (128 bit, 16 bytes)
+ * @param iv     The encryption's IV
+ * @param ctAddr The ciphertext's initial address
+ * @param ctSize The ciphertext's size
+ * @param ptDest The address where to write the resulting plaintext
+ * @return       The resulting plaintext size in BYTES
+ * @note         It is implicitly assumed the plaintext buffer to be large enough to contain the resulting plaintext
+ * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The ciphertext size is non-positive (probable overflow)
+ * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
+ * @throws       ERR_OSSL_EVP_DECRYPT_INIT         EVP_CIPHER decrypt initialization failed
+ * @throws       ERR_OSSL_EVP_DECRYPT_UPDATE       EVP_CIPHER decrypt update failed
+ * @throws       ERR_OSSL_EVP_DECRYPT_FINAL        EVP_CIPHER decrypt final failed
+ */
+int AES_128_CBC_Decrypt(unsigned char* key, unsigned char* iv, unsigned char* ctAddr, int ctSize, unsigned char* ptDest)
+ {
+  EVP_CIPHER_CTX* aesDecCTX;  // Cipher decryption context
+  int decBytes;               // The number of decrypted bytes at a decryption step (EVP_DecryptUpdate or EVP_DecryptFinal)
+  int decBytesTot;            // The total number of decrypted bytes, representing at the end the resulting plaintext size
 
+  // Assert the ciphertext size to be positive
+  if(ctSize <= 0)
+   THROW_SCODE(ERR_NON_POSITIVE_BUFFER_SIZE,"ctSize = " + std::to_string(ctSize));
+
+  // Create the cipher decryption context
+  aesDecCTX = EVP_CIPHER_CTX_new();
+  if(!aesDecCTX)
+   THROW_SCODE(ERR_OSSL_EVP_CIPHER_CTX_NEW,OSSL_ERR_DESC);
+
+  // Initialize the cipher decryption context specifying the cipher, key and IV
+  if(EVP_DecryptInit(aesDecCTX, EVP_aes_128_cbc(), key, iv) != 1)
+   THROW_SCODE(ERR_OSSL_EVP_DECRYPT_INIT,OSSL_ERR_DESC);
+
+  // Decrypt the ciphertext to the plaintext buffer
+  if(EVP_DecryptUpdate(aesDecCTX, ptDest, &decBytes, ctAddr, ctSize) != 1)
+   THROW_SCODE(ERR_OSSL_EVP_DECRYPT_UPDATE,OSSL_ERR_DESC);
+
+  // Update the total number of decrypted bytes
+  decBytesTot = decBytes;
+
+  // Finalize the decryption by removing padding
+  if(EVP_DecryptFinal(aesDecCTX, ptDest + decBytesTot, &decBytes) != 1)
+   THROW_SCODE(ERR_OSSL_EVP_DECRYPT_FINAL,OSSL_ERR_DESC);
+
+  // Update the total number of decrypted bytes
+  decBytesTot += decBytes;
+
+  // Free the cipher decryption context
+  EVP_CIPHER_CTX_free(aesDecCTX);
+
+  // Return the resulting plaintext size
+  return decBytesTot;
+ }

@@ -63,7 +63,7 @@ enum STSMMsgType : uint8_t
 
 /* ========================= STSM MESSAGES FIELDS SIZES ========================= */
 
-// The size in bits of a PEM-encoded DH 2048-bit public key
+// The size in bytes of a PEM-encoded DH 2048-bit public key
 #define DH2048_PUBKEY_PEM_SIZE 1194
 
 // The size in bits of an RSA digital signature
@@ -80,7 +80,7 @@ enum STSMMsgType : uint8_t
 // the fact that, being the size of an RSA digital signature on 256 bits an integer
 // multiple of the AES block size of 128 bit, encrypting it always adds a full
 // padding block of 128 bit, for a resulting ciphertext size of 256 + 128 = 384 bits
-#define STSM_AUTH_SIZE 384
+#define STSM_AUTH_SIZE 272
 
 
 /* ========================= STSM MESSAGES DEFINITIONS ========================= */
