@@ -107,10 +107,8 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
      if(_stsmCliState != WAITING_SRV_AUTH)
       sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'SRV_AUTH'");
 
-     // Ensure the message length to be equal to the size of a 'SRV_AUTH' message
-     // TODO check if applicable
-     if(stsmMsg->header.len != sizeof(STSM_SRV_AUTH))
-      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'SRV_AUTH' message of unexpected length");
+     // 'SRV_AUTH' messages are of variable size (the server's
+     // certificate), no size validation can be performed
 
      // A valid 'SRV_AUTH' message has been received
      return;
@@ -163,6 +161,58 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
  }
 
 
+
+
+
+
+
+void CliSTSMMgr::recv_srv_auth()
+ {
+  // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
+  STSM_SRV_AUTH* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH*>(_cliConnMgr._priBuf);
+
+  /* ------------------ Server's ephemeral DH public key ------------------ */
+
+  // Initialize a memory BIO to the server's ephemeral DH public key
+  BIO* srvPubDHBIO = BIO_new_mem_buf(stsmSrvAuth->srvEDHPubKey, -1);
+  if(srvPubDHBIO == NULL)
+   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+
+  // Initialize the server's ephemeral DH public key structure
+  _otherDHEPubKey = EVP_PKEY_new();
+  if(_otherDHEPubKey == nullptr)
+   THROW_SCODE(ERR_OSSL_EVP_PKEY_NEW,OSSL_ERR_DESC);
+
+  // Write the server's ephemeral DH public key from the memory BIO into the EVP_PKEY structure
+  _otherDHEPubKey = PEM_read_bio_PUBKEY(srvPubDHBIO, NULL, NULL, NULL);
+
+  // Free the memory BIO
+  BIO_free(srvPubDHBIO);
+
+  // Ensure the server's ephemeral DH public key to be valid
+  if(_otherDHEPubKey == nullptr)
+   sendCliSTSMErrMsg(ERR_INVALID_PUBKEY,OSSL_ERR_DESC);
+
+  /* ------------------ Shared symmetric key derivation ------------------ */
+
+  // Derive the shared AES_128 symmetric key from the client's
+  // private and the server's public ephemeral DH keys
+  deriveAES128Skey(_cliConnMgr._skey);
+
+  /* --------------- Server STSM Auth Fragment Verification --------------- */
+
+/*  // Build the server's STSM authentication value into
+  // the associated connection manager's secondary buffer
+  writeMyEDHPubKey(&_cliConnMgr._priBuf[DH2048_PUBKEY_PEM_SIZE]);
+  writeOtherEDHPubKey(&_cliConnMgr._priBuf[0]);*/
+
+  logOtherEDHPubKey();
+
+ }
+
+
+
+
 /**
  * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4)
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
@@ -174,12 +224,12 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 void CliSTSMMgr::send_client_hello()
  {
   // Interpret the associated connection manager's primary connection buffer as a 'CLIENT_HELLO' STSM message
-  STSM_Client_Hello* cliHelloMsg = reinterpret_cast<STSM_Client_Hello*>(_cliConnMgr._priBuf);
+  STSM_CLIENT_HELLO* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO*>(_cliConnMgr._priBuf);
 
   /* ------------------------ STSM Message Header ------------------------ */
 
   // Initialize the STSM message length and type
-  cliHelloMsg->header.len = sizeof(STSM_Client_Hello);
+  cliHelloMsg->header.len = sizeof(STSM_CLIENT_HELLO);
   cliHelloMsg->header.type = CLIENT_HELLO;
 
   /* ------------------ Client's ephemeral DH public key ------------------ */
@@ -255,7 +305,11 @@ void CliSTSMMgr::startCliSTSM()
   // Update the STSM client state
   _stsmCliState = WAITING_SRV_AUTH;
 
-  // TODO: From here
   // Block until the expected 'SRV_AUTH' message has been received
   recvCheckCliSTSMMsg();
+
+  // Parse the server's 'SRV_AUTH' message
+  recv_srv_auth();
+
+
  }

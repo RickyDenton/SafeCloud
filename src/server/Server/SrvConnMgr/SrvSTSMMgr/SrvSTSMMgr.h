@@ -70,6 +70,9 @@ class SrvSTSMMgr : public STSMMgr
     void recv_client_hello();
 
 
+    void send_srv_auth();
+
+
     void recv_client_auth();
 
 

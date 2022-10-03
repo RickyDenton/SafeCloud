@@ -152,6 +152,9 @@ enum scode : unsigned char
   ERR_OSSL_EVP_ENCRYPT_UPDATE,
   ERR_OSSL_EVP_ENCRYPT_FINAL,
 
+  ERR_OSSL_PEM_WRITE_BIO_X509,
+
+
 
   // STSM Generic Errors
   ERR_STSM_UNEXPECTED_MESSAGE,
@@ -339,6 +342,9 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_OSSL_EVP_ENCRYPT_INIT,             {FATAL, "EVP_CIPHER encrypt initialization failed"} },
     { ERR_OSSL_EVP_ENCRYPT_UPDATE,           {FATAL, "EVP_CIPHER encrypt update failed"} },
     { ERR_OSSL_EVP_ENCRYPT_FINAL,            {FATAL, "EVP_CIPHER encrypt final failed"} },
+
+    { ERR_OSSL_PEM_WRITE_BIO_X509,            {FATAL, "Could not write the server's X.509 certificate to the memory BIO"} },
+
 
 
 

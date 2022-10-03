@@ -67,6 +67,8 @@ class CliSTSMMgr : public STSMMgr
 
 
 
+  void recv_srv_auth();
+
 
    /**
     * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4)

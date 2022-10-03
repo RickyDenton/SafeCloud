@@ -104,7 +104,7 @@ struct STSMMsg
 /* ----------------------- 'CLIENT_HELLO' Message (1/4) ----------------------- */
 
 // Implicit header STMMsgType: 'CLIENT_HELLO'
-struct STSM_Client_Hello : public STSMMsg
+struct STSM_CLIENT_HELLO : public STSMMsg
  {
   public:
 
@@ -124,17 +124,10 @@ struct STSM_SRV_AUTH : public STSMMsg
   unsigned char srvEDHPubKey[DH2048_PUBKEY_PEM_SIZE];
 
   // The server's STSM authentication
-  unsigned char srvSTSMAuth[DH2048_PUBKEY_PEM_SIZE];
+  unsigned char srvSTSMAuth[STSM_AUTH_SIZE];
 
-
-  // The server's encrypted challenge response size
-  uint16_t srvEncChaResSize;
-
-  // The server's encrypted challenge response
-  unsigned char* srvEncChaRes;
-
-  //The server's certificate
-  unsigned char* srvCert;
+  // The server's X.509 certificate of variable size
+  unsigned char srvCert[];
  };
 
 

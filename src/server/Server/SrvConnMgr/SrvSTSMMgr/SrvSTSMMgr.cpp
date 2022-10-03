@@ -73,8 +73,6 @@ void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
  }
 
 
-
-
 /**
  * @brief  Verifies a received message to consists of the STSM handshake message
  *         appropriate for the current server's STSM state, throwing an error otherwise
@@ -105,7 +103,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
       sendSrvSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'CLIENT_HELLO' in the 'WAITING_CLI_AUTH' state");
 
      // Ensure the message length to be equal to the size of a 'CLIENT_HELLO' message
-     if(stsmMsg->header.len != sizeof(STSM_Client_Hello))
+     if(stsmMsg->header.len != sizeof(STSM_CLIENT_HELLO))
       sendSrvSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'CLIENT_HELLO' message of unexpected length");
 
      // A valid 'CLIENT_HELLO' message has been received
@@ -159,6 +157,115 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
  }
 
 
+
+
+
+
+
+
+void SrvSTSMMgr::send_srv_auth()
+ {
+  // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
+  STSM_SRV_AUTH* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH*>(_srvConnMgr._priBuf);
+
+//
+//  stsmSrvAuth->header.len = sizeof(STSMMsgHeader) + DH2048_PUBKEY_PEM_SIZE + STSM_AUTH_SIZE;
+//  stsmSrvAuth->header.type = SRV_AUTH;
+
+  /* ------------------ Server's ephemeral DH public key ------------------ */
+
+  // Write the server's ephemeral DH public key into the 'SRV_AUTH' message
+  writeMyEDHPubKey(&stsmSrvAuth->srvEDHPubKey[0]);
+
+
+//  _srvConnMgr.sendMsg();
+
+
+  /* ---------------- Server's STSM Authentication Fragment ---------------- */
+
+  /**
+   * The server's STSM authentication fragment consists of the server's STSM authentication value,
+   * represented by the concatenation of the client and server's ephemeral public DH keys Yc || Ys:
+   *    1) Signed by means of the server's long-term private RSA key <Yc || Ys>s
+   *    2) Encrypted by means of the derived shared symmetric key {<Yc || Ys>s}k
+   */
+
+  // Build the server's STSM authentication value into the associated connection manager's secondary buffer
+  writeOtherEDHPubKey(&_srvConnMgr._secBuf[0]);
+  writeMyEDHPubKey(&_srvConnMgr._secBuf[DH2048_PUBKEY_PEM_SIZE]);
+
+  // Sign the STSM authentication value into the associated connection manager's secondary buffer
+  rsaDigSign(_myRSALongPrivKey, &_srvConnMgr._secBuf[0],
+             2 * DH2048_PUBKEY_PEM_SIZE,&_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE]);
+
+  // Encrypt the signed STSM authentication value into the 'SRV_AUTH' message
+  AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)),
+                      &_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE], 32, stsmSrvAuth->srvSTSMAuth);
+
+  /* --------------------- Server's X.509 Certificate --------------------- */
+
+  // Initialize a memory BIO for storing the server's X.509 certificate
+  BIO* srvCertBIO = BIO_new(BIO_s_mem());
+  if(srvCertBIO == NULL)
+   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+
+  // Write the server's X.509 certificate to the BIO
+  if(PEM_write_bio_X509(srvCertBIO, _srvCert) != 1)
+   THROW_SCODE(ERR_OSSL_PEM_WRITE_BIO_X509,OSSL_ERR_DESC);
+
+  // Retrieve the certificate size
+  int srvCertSize = BIO_pending(srvCertBIO);
+
+  // Write the server's X.509 certificate from the BIO to the 'SRV_AUTH' message
+  if(BIO_read(srvCertBIO, stsmSrvAuth->srvCert, srvCertSize) <= 0)
+   THROW_SCODE(ERR_OSSL_BIO_READ_FAILED,OSSL_ERR_DESC);
+
+  // Free the memory BIO
+  if(BIO_free(srvCertBIO) != 1)
+   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
+
+  /* ------------------ Message Finalization and Sending ------------------ */
+
+  // Initialize the 'SRV_AUTH' message length and type
+  stsmSrvAuth->header.len = sizeof(STSMMsgHeader) + DH2048_PUBKEY_PEM_SIZE + STSM_AUTH_SIZE + srvCertSize;
+  stsmSrvAuth->header.type = SRV_AUTH;
+
+  // Send the 'SRV_AUTH' message to the client
+  _srvConnMgr.sendMsg();
+
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 2/4: Sent 'SRV_AUTH' message, awaiting 'CLIENT_AUTH' message")
+
+
+
+  // LOG: Message contents
+  std::cout << "stsmSrvAuth->header.len = " << stsmSrvAuth->header.len << std::endl;
+  std::cout << "stsmSrvAuth->header.type = " << stsmSrvAuth->header.type << std::endl;
+
+  // Server's public key
+  logMyEDHPubKey();
+
+  // Server's AUTH fragment in hexadecimal
+  printf("Server's AUTH fragment:\n");
+  for(int i=0; i<STSM_AUTH_SIZE ; i++)
+   printf("%02x", stsmSrvAuth->srvSTSMAuth[i]);
+  printf("\n");
+
+  // Server's certificate
+  char* tmp = X509_NAME_oneline(X509_get_subject_name(_srvCert), NULL, 0);
+  char* tmp2 = X509_NAME_oneline(X509_get_issuer_name(_srvCert), NULL, 0);
+  std::cout << "Certificate of \"" << tmp << "\" (released by \"" << tmp2 << "\")" << std::endl;
+ }
+
+
+
+
+
+
+
+
+
+
+
 /**
  * @brief  Parses the client's 'CLIENT_HELLO' message, setting their
  *         ephemeral DH public key and the IV to be used in the communication
@@ -169,7 +276,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
 void SrvSTSMMgr::recv_client_hello()
  {
   // Interpret the connection manager's primary buffer as a 'CLIENT_HELLO' STSM message
-  STSM_Client_Hello* cliHelloMsg = reinterpret_cast<STSM_Client_Hello*>(_srvConnMgr._priBuf);
+  STSM_CLIENT_HELLO* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO*>(_srvConnMgr._priBuf);
 
   /* ------------------ Client's ephemeral DH public key ------------------ */
 
@@ -264,32 +371,8 @@ bool SrvSTSMMgr::STSMMsgHandler()
     // private and the client's public ephemeral DH keys
     deriveAES128Skey(_srvConnMgr._skey);
 
-    // TRY
-    // Seed the OpenSSL PRNG
-    if(!RAND_poll())
-     THROW_SCODE(ERR_OSSL_RAND_POLL_FAILED,OSSL_ERR_DESC);
-
-
-    for(unsigned int i = 0; i<100000000; i++)
-     {
-
-      // Randomly 1000 bytes in the secondary buffer
-      if(RAND_bytes(reinterpret_cast<unsigned char*>(&_srvConnMgr._secBuf), 32) != 1)
-       THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
-
-      // Sign the random bytes
-      int ctSize = AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)), &_srvConnMgr._secBuf[0], 32, &_srvConnMgr._secBuf[2001]);
-
-      if(ctSize != 48)
-       std::cout << "WARNING! ctSize = " << ctSize * 8 << " bits " << std::endl;
-
-      if(i % 100000 == 0)
-       std::cout << "i = " << i << std::endl;
-     }
-
-
-
-    // TODO: Send the 'SRV_AUTH' message
+    // Send the server's 'SRV_AUTH' message
+    send_srv_auth();
 
     // Inform the connection manager that the connection
     // is still in the key establishment phase
