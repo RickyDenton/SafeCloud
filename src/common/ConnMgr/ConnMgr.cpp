@@ -195,7 +195,7 @@ ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir) : _connState(K
 ConnMgr::~ConnMgr()
  {
   // Delete the connection's symmetric key and IV
-  OPENSSL_cleanse(&_skey[0], SKEY_SIZE);
+  OPENSSL_cleanse(&_skey[0], AES_128_KEY_SIZE);
   delete _iv;
 
   // Safely delete the connection's buffers

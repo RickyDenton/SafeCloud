@@ -158,14 +158,17 @@ void STSMMgr::delMyDHEPrivKey()
   _myDHEKey = PEM_read_bio_PUBKEY(myEDHPubKeyBIO, NULL,NULL, NULL);
 
   // Free the memory BIO
-  BIO_free(myEDHPubKeyBIO);
+  if(BIO_free(myEDHPubKeyBIO) != 1)
+   LOG_SCODE(ERR_OSSL_BIO_FREE_FAILED,OSSL_ERR_DESC);
  }
 
 
 /**
- * @brief  Derives an AES_128 symmetric key from the local actor's
+ * @brief  Derives the shared AES_128 session key from the local actor's
  *         private and the remote actor's public ephemeral DH keys
- * @param  skey The buffer where to write the resulting AES_128 symmetric key
+ * @param  skey The buffer where to write the resulting AES_128 session key
+ * @note   This function assumes the "skey" destination buffer to be large enough to
+ *         contain the resulting AES_128 session key (at least AES_128_KEY_SIZE = 16 bytes)
  * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The remote actor's public ephemeral DH key is missing
  * @throws ERR_OSSL_EVP_PKEY_CTX_NEW            EVP_PKEY context creation failed
  * @throws ERR_OSSL_EVP_PKEY_DERIVE_INIT        Key derivation context initialization failed
@@ -180,7 +183,7 @@ void STSMMgr::delMyDHEPrivKey()
  * @throws ERR_OSSL_EVP_DIGEST_FINAL            EVP_MD digest final failed
  * @throws ERR_MALLOC_FAILED                    malloc() failed
  */
-void STSMMgr::deriveAES128Skey(unsigned char* skey)
+void STSMMgr::deriveAES128SKey(unsigned char* skey)
  {
   // Shared secret buffer and size
   unsigned char* sSecret;
@@ -247,6 +250,7 @@ void STSMMgr::deriveAES128Skey(unsigned char* skey)
   // LOG: Shared secret
   printf("Shared Secret: \n");
   BIO_dump_fp(stdout, (const char *)sSecret, (int)sSecretSize);
+  printf("\n");
   */
 
   /* ---------------------- Symmetric Key Derivation ---------------------- */
@@ -278,35 +282,29 @@ void STSMMgr::deriveAES128Skey(unsigned char* skey)
   EVP_MD_CTX_free(sSecretHashCTX);
 
   /*
-  // LOG: Digest in hexadecimal
-  printf("Shared secret digest:\n");
+  // LOG: Shared secret digest in hexadecimal
+  printf("Shared secret digest in hexadecimal: \n");
   for(int n=0; sSecretDigest[n] != '\0'; n++)
    printf("%02x", (unsigned char) sSecretDigest[n]);
   printf("\n");
   */
 
-  /* ---------------- Symmetric Key Derivation and Cleanup ---------------- */
+  /* ------------------- AES_128 Session Key Derivation ------------------- */
 
-  // Determine the key size of the AES_128_CBC cipher (128 bit)
-  int AES_128_CBC_keySize = EVP_CIPHER_key_length(EVP_aes_128_cbc());
-
-  // Allocate the buffer for storing the resulting AES_128_CBC symmetric key
-  skey = (unsigned char*)malloc(AES_128_CBC_keySize);
-  if(!skey)
-   THROW_SCODE(ERR_MALLOC_FAILED,"requested size = " + std::to_string(AES_128_CBC_keySize), ERRNO_DESC);
-
-  // Derive the shared symmetric key as the first 128 bits of the shared secret's digest
-  memcpy(skey, sSecretDigest, AES_128_CBC_keySize);
+  // Set the shared session key as the first AES_128_KEY_SIZE = 16 bytes of the shared secret's digest
+  memcpy(skey, sSecretDigest, AES_128_KEY_SIZE);
 
   // Free the shared secret and its digest's buffers
   free(sSecret);
   free(sSecretDigest);
 
-  // LOG: Symmetric key in hexadecimal
-  printf("AES_128 Symmetric Key: ");
-  for(int i=0; i < AES_128_CBC_keySize ; i++)
+  /*
+  // LOG: AES_128 session key in hexadecimal
+  printf("AES_128 session key in hexadecimal: ");
+  for(int i=0; i < AES_128_KEY_SIZE ; i++)
    printf("%02x", (unsigned char) skey[i]);
   printf("\n");
+  */
  }
 
 

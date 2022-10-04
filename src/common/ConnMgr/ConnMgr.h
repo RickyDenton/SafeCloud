@@ -3,6 +3,7 @@
 
 #include "defaults.h"
 #include "ConnMgr/IV/IV.h"
+#include "ossl_crypto/AES_128_CBC.h"
 #include <string>
 
 /* SafeCloud Connection Manager */
@@ -37,8 +38,8 @@ class ConnMgr
    uint16_t           _recvBlockSize;          // Expected size of a data block being received
 
    // Cryptographic quantities
-   unsigned char _skey[SKEY_SIZE];  // The connection's AES_GCM symmetric key
-   IV* _iv;                         // The connection's AES_GCM initialization vector
+   unsigned char _skey[AES_128_KEY_SIZE];  // The connection's AES_GCM symmetric key
+   IV* _iv;                                // The connection's AES_GCM initialization vector
 
    /* ============================== PROTECTED METHODS ============================== */
 

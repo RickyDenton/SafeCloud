@@ -41,9 +41,9 @@ enum scode : unsigned char
   // STSM Server Errors
   ERR_STSM_SRV_CLI_INVALID_PUBKEY,
   ERR_STSM_SRV_SRV_INVALID_PUBKEY,
-  ERR_STSM_SRV_SRV_CHALLENGE_FAILED,
+  ERR_STSM_SRV_SRV_AUTH_FAILED,
   ERR_STSM_SRV_SRV_CERT_REJECTED,
-  ERR_STSM_SRV_CLI_CHALLENGE_FAILED,
+  ERR_STSM_SRV_CLI_AUTH_FAILED,
   ERR_STSM_SRV_CLIENT_LOGIN_FAILED,
   ERR_STSM_SRV_UNEXPECTED_MESSAGE,
   ERR_STSM_SRV_MALFORMED_MESSAGE,
@@ -84,9 +84,9 @@ enum scode : unsigned char
   ERR_STSM_CLI_ALREADY_STARTED,
   ERR_STSM_CLI_CLI_INVALID_PUBKEY,
   ERR_STSM_CLI_SRV_INVALID_PUBKEY,
-  ERR_STSM_CLI_SRV_CHALLENGE_FAILED,
+  ERR_STSM_CLI_SRV_AUTH_FAILED,
   ERR_STSM_CLI_SRV_CERT_REJECTED,
-  ERR_STSM_CLI_CLI_CHALLENGE_FAILED,
+  ERR_STSM_CLI_CLI_AUTH_FAILED,
   ERR_STSM_CLI_CLIENT_LOGIN_FAILED,
   ERR_STSM_CLI_UNEXPECTED_MESSAGE,
   ERR_STSM_CLI_MALFORMED_MESSAGE,
@@ -245,10 +245,10 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     // STSM Server Errors
     { ERR_STSM_SRV_CLI_INVALID_PUBKEY,   {CRITICAL,"The client has provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_SRV_SRV_INVALID_PUBKEY,   {CRITICAL,"The client reported that the server provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_SRV_SRV_CHALLENGE_FAILED, {ERROR,"The client reported the server failing the STSM authentication challenge"} },
+    { ERR_STSM_SRV_SRV_AUTH_FAILED,      {ERROR, "The client reported the server failing the STSM authentication"} },
     { ERR_STSM_SRV_SRV_CERT_REJECTED,    {ERROR,"The client rejected the server's X.509 certificate"} },
-    { ERR_STSM_SRV_CLI_CHALLENGE_FAILED, {CRITICAL,"The client has failed the STSM authentication challenge"} },
     { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {CRITICAL,"Unrecognized username in the STSM protocol"} },
+    { ERR_STSM_SRV_CLI_AUTH_FAILED,      {ERROR, "The client has failed the STSM authentication"} },
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
     { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
     { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
@@ -285,15 +285,15 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
 
     // STSM Client Errors
     { ERR_STSM_CLI_ALREADY_STARTED,      {CRITICAL,"The client has already started the STSM key exchange protocol"} },
-    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {FATAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_CLI_SRV_INVALID_PUBKEY,   {CRITICAL,"The server has provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_CLI_SRV_CHALLENGE_FAILED, {CRITICAL,"The server has failed the STSM authentication challenge"} },
+    { ERR_STSM_CLI_SRV_AUTH_FAILED,      {CRITICAL,"The server has failed the STSM authentication"} },
     { ERR_STSM_CLI_SRV_CERT_REJECTED,    {ERROR,   "The server provided an invalid X.509 certificate"} },
-    { ERR_STSM_CLI_CLI_CHALLENGE_FAILED, {FATAL,"The server reported the client failing the STSM authentication challenge"} },
     { ERR_STSM_CLI_CLIENT_LOGIN_FAILED,  {ERROR,   "The server did not recognize the username in the STSM protocol"} },
-    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,"The server reported to have received an out-of-order STSM message"} },
-    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,"The server reported to have received a malformed STSM message"} },
-    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,"The server reported to have received an STSM message of unknown type"} },
+    { ERR_STSM_CLI_CLI_AUTH_FAILED,      {CRITICAL,"The server reported the client failing the STSM authentication"} },
+    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,   "The server reported to have received an out-of-order STSM message"} },
+    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,   "The server reported to have received a malformed STSM message"} },
+    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown type"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 

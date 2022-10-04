@@ -83,10 +83,12 @@ class STSMMgr
    void delMyDHEPrivKey();
 
    /**
-    * @brief  Derives an AES_128 symmetric key from the local actor's
+    * @brief  Derives the shared AES_128 session key from the local actor's
     *         private and the remote actor's public ephemeral DH keys
-    * @param  skey The buffer where to write the resulting AES_128 symmetric key
-    * @throws ERR_STSM_DERIVE_OTHER_PUBKEY_MISSING The remote actor's public ephemeral DH key is not available
+    * @param  skey The buffer where to write the resulting AES_128 session key
+    * @note   This function assumes the "skey" destination buffer to be large enough to
+    *         contain the resulting AES_128 session key (at least AES_128_KEY_SIZE = 16 bytes)
+    * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The remote actor's public ephemeral DH key is missing
     * @throws ERR_OSSL_EVP_PKEY_CTX_NEW            EVP_PKEY context creation failed
     * @throws ERR_OSSL_EVP_PKEY_DERIVE_INIT        Key derivation context initialization failed
     * @throws ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER    Failed to set the remote actor's public key in the key derivation context
@@ -100,7 +102,7 @@ class STSMMgr
     * @throws ERR_OSSL_EVP_DIGEST_FINAL            EVP_MD digest final failed
     * @throws ERR_MALLOC_FAILED                    malloc() failed
     */
-   void deriveAES128Skey(unsigned char* skey);
+   void deriveAES128SKey(unsigned char* skey);
 
   public:
 

@@ -17,10 +17,6 @@
 #define SRV_DEFAULT_PORT    51234         // The server's default listening port
 #define SRV_PORT_MIN        49152         // The minimum value for the server's listening port (IANA standard for dynamic/private applications)
 
-// Cryptographic Parameters (AES128_GCM)
-#define SKEY_SIZE 16                      // Session Key size (16 bytes, 128 bit)
-
-
 
 /* ============================= SERVER PARAMETERS ============================= */
 
