@@ -124,7 +124,7 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 
      // Ensure the message length to be equal to the size of a 'SRV_OK' message
      // TODO check if applicable
-     if(stsmMsg->header.len != sizeof(SRV_OK))
+     if(stsmMsg->header.len != sizeof(STSM_SRV_OK))
       sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'SRV_OK' message of unexpected length");
 
      // A valid 'SRV_OK' message has been received
@@ -380,7 +380,7 @@ void CliSTSMMgr::recv_srv_auth()
    sprintf(skeyHex + 2 * i, "%.2x", _cliConnMgr._skey[i]);
   skeyHex[32] = '\0';
 
-  LOG_DEBUG("Shared session key: " + std::string(skeyHex));
+  LOG_DEBUG("Shared session key: " + std::string(skeyHex))
 #endif
 
   /* ------------------ Server Certificate Verification ------------------ */
@@ -459,8 +459,96 @@ void CliSTSMMgr::recv_srv_auth()
 
 /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
-void CliSTSMMgr::send_client_auth()
- {}
+/**
+ * @brief Sends the 'CLI_AUTH' STSM message to the server (3/4), consisting of:\n
+ *            1) The client's name \n
+ *            2) The client's STSM authentication proof, consisting of the concatenation
+ *               of its name and both actors' ephemeral public DH keys (STSM authentication
+ *               value) signed with the client's long-term private RSA key and encrypted
+ *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
+ * @throws ERR_STSM_MY_PUBKEY_MISSING           The client's ephemeral DH public key is missing
+ * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The server's ephemeral DH public key is missing
+ * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
+ * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write an actor's ephemeral DH public key into a BIO
+ * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read an actor's ephemeral DH public key from a BIO
+ * @throws ERR_OSSL_EVP_MD_CTX_NEW              EVP_MD context creation failed
+ * @throws ERR_OSSL_EVP_SIGN_INIT               EVP_MD signing initialization failed
+ * @throws ERR_OSSL_EVP_SIGN_UPDATE             EVP_MD signing update failed
+ * @throws ERR_OSSL_EVP_SIGN_FINAL              EVP_MD signing final failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE         The signed client's STSM authentication value size is non-positive
+ * @throws ERR_OSSL_AES_128_CBC_PT_TOO_LARGE    The signed client's STSM authentication value size is too large
+ * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW          EVP_CIPHER context creation failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT            EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE          EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL           EVP_CIPHER encrypt final failed
+ */
+void CliSTSMMgr::send_cli_auth()
+ {
+  // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
+  STSM_CLI_AUTH* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH*>(_cliConnMgr._priBuf);
+
+  // Convert the client's name to a C string and get its length
+  const char* cliName = _cliConnMgr._name->c_str();
+  const size_t cliNameLen = strlen(cliName);
+
+  /* ---------------------------- Client's Name ---------------------------- */
+
+  // Copy the client's name to the 'CLI_AUTH' message
+  strcpy(reinterpret_cast<char*>(&(stsmCliAuth->cliName)),cliName);
+
+  /* ----------------- Client's STSM Authentication Proof ----------------- */
+
+  // Build the client's STSM authentication value, consisting of the concatenation of the client's name and both
+  // actors' ephemeral public DH keys "name||Yc||Ys", in the associated connection manager's secondary buffer
+  strcpy(reinterpret_cast<char*>(&_cliConnMgr._secBuf), cliName);
+  writeMyEDHPubKey(&_cliConnMgr._secBuf[cliNameLen + 1]);
+  writeOtherEDHPubKey(&_cliConnMgr._secBuf[cliNameLen + 1 + DH2048_PUBKEY_PEM_SIZE]);
+
+  // Sign the client's STSM authentication value using the client's long-term private RSA key
+  //
+  // NOTE: As the client's private RSA key is on 2048 bit, the resulting signature has an
+  //       implicit size of 2048 bits = 256 bytes
+  //
+  digSigSign(_myRSALongPrivKey, &_cliConnMgr._secBuf[0],cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE),
+             &_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)]);
+
+  // LOG: Client's signed STSM authentication value
+  printf("Client signed STSM authentication value: \n");
+  for(int i=0; i < RSA2048_SIG_SIZE; i++)
+   printf("%02x", _cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE) + i]);
+  printf("\n");
+
+  // Encrypt the signed STSM authentication value as the server STSM authentication proof in the 'SRV_AUTH' message
+  //
+  // NOTE: Being the size of the signed STSM authentication value of 256 bytes an integer multiple of the
+  //       AES block size, its encryption will always add a full padding block of 128 bits = 16 bytes,
+  //       for an implicit size of the resulting STSM authentication proof of 256 + 16 = 272 bytes
+  AES_128_CBC_Encrypt(_cliConnMgr._skey, _cliConnMgr._iv,&_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)],
+                      RSA2048_SIG_SIZE, stsmCliAuth->cliSTSMAuthProof);
+
+  /* ------------------ Message Finalization and Sending ------------------ */
+
+  // Initialize the 'CLI_AUTH' message length and type
+  stsmCliAuth->header.len = sizeof(STSM_CLI_AUTH);
+  stsmCliAuth->header.type = CLI_AUTH;
+
+  // Send the 'CLI_AUTH' message to the server
+  _cliConnMgr.sendMsg();
+
+  LOG_DEBUG("STSM 3/4: Sent 'CLI_AUTH' message, awaiting 'SRV_OK' message")
+
+  // LOG: 'CLI_AUTH' message contents
+  printf("'CLI_AUTH' message contents: \n");
+  std::cout << "stsmCliAuth->header.len = " << stsmCliAuth->header.len << std::endl;
+  std::cout << "stsmCliAuth->header.type = " << stsmCliAuth->header.type << std::endl;
+  std::cout << "stsmCliAuth->cliName = " << stsmCliAuth->cliName << std::endl;
+  printf("\n");
+
+  printf("Client's STSM authentication proof:\n");
+  for(int i=0; i < STSM_AUTH_PROOF_SIZE ; i++)
+   printf("%02x", stsmCliAuth->cliSTSMAuthProof[i]);
+  printf("\n");
+ }
 
 
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
@@ -502,15 +590,22 @@ void CliSTSMMgr::startCliSTSM()
   // Update the STSM client state
   _stsmCliState = WAITING_SRV_AUTH;
 
-  // Block until the expected 'SRV_AUTH' message has been received
+  // Block until the expected 'SRV_AUTH' STSM message has been received
   recvCheckCliSTSMMsg();
 
-  // Parse the server's 'SRV_AUTH' message
+  // Parse the server's 'SRV_AUTH' STSM message (2/4)
   recv_srv_auth();
 
-  // TODO: From here, send the client's 'CLI_AUTH' message
+  // Send the 'CLI_AUTH' STSM message to the SafeCloud server (3/4)
+  send_cli_auth();
 
   // Update the STSM client state
-  //_stsmCliState = WAITING_SRV_OK;
+  _stsmCliState = WAITING_SRV_OK;
+
+  // Block until the expected 'SRV_OK' STSM message has been received
+  recvCheckCliSTSMMsg();
+
+  // TODO: From here
+
 
  }

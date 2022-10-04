@@ -129,7 +129,7 @@ class CliSTSMMgr : public STSMMgr
 
    /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
-   void send_client_auth();
+   void send_cli_auth();
 
 
    /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */

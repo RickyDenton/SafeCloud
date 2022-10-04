@@ -117,8 +117,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
       sendSrvSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'CLI_AUTH' message in the 'WAITING_CLI_HELLO' state");
 
      // Ensure the message length to be equal to the size of a 'CLI_AUTH' message
-     // TODO check if applicable
-     if(stsmMsg->header.len != sizeof(CLI_AUTH))
+     if(stsmMsg->header.len != sizeof(STSM_CLI_AUTH))
       sendSrvSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'CLI_AUTH' message of unexpected length");
 
      // A valid 'CLI_AUTH' message has been received
@@ -232,19 +231,19 @@ void SrvSTSMMgr::recv_client_hello()
  *            2) The server's STSM authentication proof, consisting of the concatenation
  *               of both actors' ephemeral public DH keys (STSM authentication value)
  *               signed with the server's long-term private RSA key and encrypted with
- *               the resulting shared symmetric session key "{<Yc,Ys>s}k"\n
+ *               the resulting shared  session key "{<Yc||Ys>s}k"\n
  *            3) The server's certificate "srvCert"
  * @throws ERR_STSM_MY_PUBKEY_MISSING           The server's ephemeral DH public key is missing
  * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The client's ephemeral DH public key is missing
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
- * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write an ephemeral DH public key into the BIO
+ * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write an ephemeral DH public key into a BIO
  * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read a cryptographic quantity from a BIO
  * @throws ERR_OSSL_EVP_MD_CTX_NEW              EVP_MD context creation failed
  * @throws ERR_OSSL_EVP_SIGN_INIT               EVP_MD signing initialization failed
  * @throws ERR_OSSL_EVP_SIGN_UPDATE             EVP_MD signing update failed
  * @throws ERR_OSSL_EVP_SIGN_FINAL              EVP_MD signing final failed
- * @throws ERR_NON_POSITIVE_BUFFER_SIZE         The plaintext size is non-positive (probable overflow)
- * @throws ERR_OSSL_AES_128_CBC_PT_TOO_LARGE    The plaintext to encrypt is too large
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE         The signed server's STSM authentication value size is non-positive
+ * @throws ERR_OSSL_AES_128_CBC_PT_TOO_LARGE    The signed server's STSM authentication value size is too large
  * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW          EVP_CIPHER context creation failed
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT            EVP_CIPHER encrypt initialization failed
  * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE          EVP_CIPHER encrypt update failed
@@ -347,7 +346,7 @@ void SrvSTSMMgr::send_srv_auth()
 
 /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
-void SrvSTSMMgr::recv_client_auth()
+void SrvSTSMMgr::recv_cli_auth()
  {}
 
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
@@ -407,13 +406,19 @@ bool SrvSTSMMgr::STSMMsgHandler()
     // Send the server's 'SRV_AUTH' message
     send_srv_auth();
 
+    // Update the STSM server state
+    _stsmSrvState = WAITING_CLI_AUTH;
+
     // Inform the connection manager that the connection
     // is still in the key establishment phase
     return false;
    }
   else  // _stsmSrvState == WAITING_CLI_AUTH
    {
-    recv_client_auth();
+    // Parse the client's 'CLI_AUTH' message
+    recv_cli_auth();
+
+
 
     // Inform the connection manager that key establishment has completed
     // successfully and so that the connection can now switch to the session phase

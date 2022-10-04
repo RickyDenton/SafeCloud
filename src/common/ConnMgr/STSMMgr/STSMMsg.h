@@ -119,10 +119,20 @@ struct STSM_SRV_AUTH : public STSMMsg
  };
 
 
-// TODO
+/* ------------------------- 'CLI_AUTH' Message (3/4) ------------------------- */
 
+// Implicit header.type ='CLI_AUTH'
 struct STSM_CLI_AUTH : public STSMMsg
- {};
+ {
+  // The client's name
+  unsigned char cliName[CLI_NAME_MAX_LENGTH + 1];
+
+  // The client's STSM authentication proof
+  unsigned char cliSTSMAuthProof[STSM_AUTH_PROOF_SIZE];
+ };
+
+
+// TODO
 
 struct STSM_SRV_OK : public STSMMsg
  {};
