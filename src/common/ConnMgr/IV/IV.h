@@ -53,9 +53,6 @@ class IV
     */
    IV();
 
-   // TODO: Check if it can be removed, reimplement otherwise
-   // IV(unsigned char* iv);
-
    /**
     * @brief IV object destructor, safely deleting the IV value
     */

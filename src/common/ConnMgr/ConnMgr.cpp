@@ -145,30 +145,29 @@ bool ConnMgr::recvData()
 // TODO: Write better
 void ConnMgr::sendMsg()
  {
-  // Retrieve the length of the data block to be sent from the first 16 bits in the primary connection buffer
-  // uint16_t blockLen = (uint16_t)_priBuf[0];
+  // TODO: Try to write so to not cast to a STSMMsg
+  // Retrieve the length of the message to be sent from
+  // the first two bytes of the primary connection buffer
+  size_t msgLen = ((STSMMsg&&)_priBuf).header.len;
 
-
-  size_t blockLen = ((STSMMsg&&)_priBuf).header.len;
-
-
-  // Inform the user that the login was successful
-  send(_csk, (const void*)&_priBuf, blockLen, 0);
+  // Send the message via the connection socket
+  send(_csk, (const void*)&_priBuf, msgLen, 0);
 
   // Reset the index of the most significant byte in the primary connection
   // buffer as well as the expected size of a data block being received
   clearPriBuf();
 
-  LOG_DEBUG("Sent " + std::to_string(blockLen) + " bytes")
+  LOG_DEBUG("Sent " + std::to_string(msgLen) + " bytes")
 
-  // TODO
+  // MOVED
+/*  // TODO
   // If the IV has been initialized, increment it, and if it notifies that IV
   // reuse is about to occur, prepare and send a rekeying message (SESSION ONLY)
   if(_iv != nullptr && _iv->incIV())
    {
 
 
-   }
+   }*/
 
  }
 

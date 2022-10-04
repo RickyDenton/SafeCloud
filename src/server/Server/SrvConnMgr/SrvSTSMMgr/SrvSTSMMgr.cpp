@@ -290,8 +290,8 @@ void SrvSTSMMgr::send_srv_auth()
   // NOTE: Being the size of the signed STSM authentication value of 256 bytes an integer multiple of the
   //       AES block size, its encryption will always add a full padding block of 128 bits = 16 bytes,
   //       for an implicit size of the resulting STSM authentication proof of 256 + 16 = 272 bytes
-  AES_128_CBC_Encrypt(_srvConnMgr._skey, reinterpret_cast<unsigned char*>(&(_srvConnMgr._iv->iv_AES_CBC)),
-                      &_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE], RSA2048_SIG_SIZE, stsmSrvAuth->srvSTSMAuthProof);
+  AES_128_CBC_Encrypt(_srvConnMgr._skey, _srvConnMgr._iv,&_srvConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE],
+                      RSA2048_SIG_SIZE, stsmSrvAuth->srvSTSMAuthProof);
 
   /* --------------------- Server's X.509 Certificate --------------------- */
 
@@ -401,7 +401,7 @@ bool SrvSTSMMgr::STSMMsgHandler()
    sprintf(skeyHex + 2 * i, "%.2x", _srvConnMgr._skey[i]);
   skeyHex[32] = '\0';
 
-  LOG_DEBUG("[" + *_srvConnMgr._name + "] Shared session key: " + std::string(skeyHex));
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] Shared session key: " + std::string(skeyHex))
 #endif
 
     // Send the server's 'SRV_AUTH' message

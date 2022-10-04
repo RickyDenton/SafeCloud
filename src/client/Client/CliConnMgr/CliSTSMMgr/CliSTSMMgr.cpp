@@ -199,10 +199,6 @@ void CliSTSMMgr::send_client_hello()
   // Copy the generated IV into the 'CLIENT_HELLO' message
   cliHelloMsg->iv = *_cliConnMgr._iv;
 
-  // Increment the IV least significant variable part in the 'CLIENT_HELLO' message
-  // (as the client's connection manager will increment its IV upon sending the message)
-  cliHelloMsg->iv.incIV();
-
   /* -------------------------- Message Sending -------------------------- */
 
   // Send the 'CLIENT_HELLO' message to the server
@@ -421,9 +417,8 @@ void CliSTSMMgr::recv_srv_auth()
   writeOtherEDHPubKey(&_cliConnMgr._secBuf[DH2048_PUBKEY_PEM_SIZE]);
 
   // Decrypt the server's STSM authentication proof in the associated connection manager's secondary buffer
-  int decProofSize = AES_128_CBC_Decrypt(_cliConnMgr._skey, reinterpret_cast<unsigned char*>(&(_cliConnMgr._iv->iv_AES_CBC)),
-                                         stsmSrvAuth->srvSTSMAuthProof, STSM_AUTH_PROOF_SIZE,
-                                        &_cliConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE]);
+  int decProofSize = AES_128_CBC_Decrypt(_cliConnMgr._skey, _cliConnMgr._iv, stsmSrvAuth->srvSTSMAuthProof,
+                                         STSM_AUTH_PROOF_SIZE, &_cliConnMgr._secBuf[2 * DH2048_PUBKEY_PEM_SIZE]);
 
   // Assert the decrypted STSM authentication proof to be on RSA2048_SIG_SIZE = 256 bytes
   if(decProofSize != 256)
