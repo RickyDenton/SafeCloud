@@ -347,6 +347,16 @@ void SrvSTSMMgr::send_srv_auth()
 
 /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
+/**
+ * @brief         Attempts to retrieve a client's long-term RSA public key from its ".pem" file
+ * @param cliName The client's (candidate) name
+ * @return        The client's long-term RSA public key
+ * @throws ERR_LOGIN_PUBKEYFILE_NOT_FOUND   No public key file associated with such client name was found
+ * @throws ERR_LOGIN_PUBKEYFILE_OPEN_FAILED Failed to open the client's public key file
+ * @throws ERR_FILE_CLOSE_FAILED            Failed to close the client's public key file
+ * @throws ERR_LOGIN_PUBKEY_INVALID         The contents of the client's public key file could not
+ *                                          be interpreted as a valid RSA public key
+ */
 EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
  {
   EVP_PKEY* cliRSAPubKey;      // The client's long term RSA public key
@@ -355,9 +365,8 @@ EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
 
   // Derive the expected absolute, or canonicalized, path of the server's private key file
   cliRSAPubKeyFilePath = realpath(std::string(SRV_USER_PUBK_PATH(cliName)).c_str(), NULL);
-
   if(!cliRSAPubKeyFilePath)
-   sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED,"The client's public key file could not be found");
+   THROW_SCODE(ERR_LOGIN_PUBKEYFILE_NOT_FOUND,"client name = \"" + cliName + "\"");
 
   // Try-catch block to allow the cliRSAPubKeyFilePath both to be freed and reported in case of errors
   try
@@ -389,24 +398,10 @@ EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
     // Free the client's RSA public key file path
     free(cliRSAPubKeyFilePath);
 
-    /*
-     * Errors in reading che client's public key from its file (which are of
-     * CRITICAL severity) are logged separately and concealed from the client
-     * by reporting them that their provided username was not recognized
-     */
-
-    // Separately the error that has occurred
-    LOG_SCODE(cliPubKeyFileExcp.scode,cliPubKeyFileExcp.addDscr,cliPubKeyFileExcp.reason);
-
-    // Reply that the username was not recognized and abort the connection
-    sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED);
-
-    // Unnecessary since an exception will be
-    // thrown in any case (warning suppression)
-    return nullptr;
+    // Rethrow the error
+    throw;
    }
  }
-
 
 
 /**
@@ -417,24 +412,24 @@ EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
  *               value) signed with the client's long-term private RSA key and encrypted
  *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
  * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized client's username
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
- * @throws AAA AAA
+ * @throws ERR_STSM_MY_PUBKEY_MISSING       The server's ephemeral DH public key is missing
+ * @throws ERR_STSM_OTHER_PUBKEY_MISSING    The client's ephemeral DH public key is missing
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE     The ciphertext size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW      EVP_CIPHER context creation failed
+ * @throws ERR_OSSL_EVP_DECRYPT_INIT        EVP_CIPHER decrypt initialization failed
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE      EVP_CIPHER decrypt update failed
+ * @throws ERR_OSSL_EVP_DECRYPT_FINAL       EVP_CIPHER decrypt final failed
+ * @throws ERR_STSM_MALFORMED_MESSAGE       Erroneous size of the client's signed STSM authentication value
+ * @throws ERR_OSSL_EVP_MD_CTX_NEW          EVP_MD context creation failed
+ * @throws ERR_OSSL_EVP_VERIFY_INIT         EVP_MD verification initialization failed
+ * @throws ERR_OSSL_EVP_VERIFY_UPDATE       EVP_MD verification update failed
+ * @throws ERR_OSSL_EVP_VERIFY_FINAL        EVP_MD verification final failed
+ * @throws ERR_STSM_SRV_CLI_AUTH_FAILED     Client STSM authentication failed
  */
 void SrvSTSMMgr::recv_cli_auth()
  {
+  EVP_PKEY* cliRSAPubKey;   // The client's long term RSA public key
+
   // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
   STSM_CLI_AUTH* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH*>(_srvConnMgr._priBuf);
 
@@ -448,26 +443,30 @@ void SrvSTSMMgr::recv_cli_auth()
   std::cout << "Guest Name: " << cliName << std::endl;
   */
 
-  // Validate the client's name by sanitizing it
   try
-   { sanitizeUsername(cliName); }
-  catch(sCodeException& cliNameExcp)
    {
-    /* Errors in sanitizing the client's name, which on the server-side should NEVER
-     * happen due to the client-side sanitization in place, are logged separately and
-     * concealed from the client by replying them that their username was not recognized
+    // Validate the client's name by sanitizing it
+    sanitizeUsername(cliName);
+
+    // Assert a client with such name to be registered within the
+    // SafeCloud server by retrieving its long-term RSA public key
+    cliRSAPubKey = getCliRSAPubKey(cliName);
+   }
+  catch(sCodeException& cliLoginExcp)
+   {
+    /*
+     * All errors apart from failing to find the client's public key file (implying that a client with such name
+     * is not registered within the SafeCloud Server) are CRITICAL errors that should be logged separately, as:
+     *   - Errors in sanitizing the client's name should never happen due to the client-side sanitization in place
+     *   - Errors in opening or interpreting the contents of a client's public key file should never happen
      */
+    if(cliLoginExcp.scode != ERR_LOGIN_PUBKEYFILE_NOT_FOUND)
+     LOG_SCODE(cliLoginExcp.scode, cliLoginExcp.addDscr, cliLoginExcp.reason);
 
-    // Log the error
-    LOG_SCODE(cliNameExcp.scode,cliNameExcp.addDscr,cliNameExcp.reason);
-
-    // Reply that the username is unrecognized and abort the connection
+    // In any case conceal the error from the client by replying them
+    // that their name was not recognized, aborting the connection
     sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED);
    }
-
-  // Assert a client with such name to be registered within the
-  // SafeCloud server by retrieving its long-term RSA public key
-  EVP_PKEY* cliRSAPubKey = getCliRSAPubKey(cliName);
 
   /* ------------ Client STSM Authentication Proof Verification ------------ */
 
@@ -511,7 +510,7 @@ void SrvSTSMMgr::recv_cli_auth()
     // If the signature verification failed, inform the client that they
     // have failed the STSM authentication and abort the connection
     if(digVerExcp.scode == ERR_OSSL_SIG_VERIFY_FAILED)
-     sendSrvSTSMErrMsg(ERR_SRV_AUTH_FAILED);
+     sendSrvSTSMErrMsg(ERR_CLI_AUTH_FAILED);
 
      // Otherwise, rethrow the exception (which also aborts the connection)
     else

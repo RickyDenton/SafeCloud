@@ -108,8 +108,40 @@ class SrvSTSMMgr : public STSMMgr
 
     /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
-    EVP_PKEY* getCliRSAPubKey(std::string& cliName);
+    /**
+     * @brief         Attempts to retrieve a client's long-term RSA public key from its ".pem" file
+     * @param cliName The client's (candidate) name
+     * @return        The client's long-term RSA public key
+     * @throws ERR_LOGIN_PUBKEYFILE_NOT_FOUND   No public key file associated with such client name was found
+     * @throws ERR_LOGIN_PUBKEYFILE_OPEN_FAILED Failed to open the client's public key file
+     * @throws ERR_FILE_CLOSE_FAILED            Failed to close the client's public key file
+     * @throws ERR_LOGIN_PUBKEY_INVALID         The contents of the client's public key file could not
+     *                                          be interpreted as a valid RSA public key
+     */
+    static EVP_PKEY* getCliRSAPubKey(std::string& cliName);
 
+    /**
+     * @brief  Parses the client's 'CLI_AUTH' STSM message (3/4), consisting of:\n
+     *            1) The client's name \n
+     *            2) The client's STSM authentication proof, consisting of the concatenation
+     *               of its name and both actors' ephemeral public DH keys (STSM authentication
+     *               value) signed with the client's long-term private RSA key and encrypted
+     *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
+     * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized client's username
+     * @throws ERR_STSM_MY_PUBKEY_MISSING       The server's ephemeral DH public key is missing
+     * @throws ERR_STSM_OTHER_PUBKEY_MISSING    The client's ephemeral DH public key is missing
+     * @throws ERR_NON_POSITIVE_BUFFER_SIZE     The ciphertext size is non-positive (probable overflow)
+     * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW      EVP_CIPHER context creation failed
+     * @throws ERR_OSSL_EVP_DECRYPT_INIT        EVP_CIPHER decrypt initialization failed
+     * @throws ERR_OSSL_EVP_DECRYPT_UPDATE      EVP_CIPHER decrypt update failed
+     * @throws ERR_OSSL_EVP_DECRYPT_FINAL       EVP_CIPHER decrypt final failed
+     * @throws ERR_STSM_MALFORMED_MESSAGE       Erroneous size of the client's signed STSM authentication value
+     * @throws ERR_OSSL_EVP_MD_CTX_NEW          EVP_MD context creation failed
+     * @throws ERR_OSSL_EVP_VERIFY_INIT         EVP_MD verification initialization failed
+     * @throws ERR_OSSL_EVP_VERIFY_UPDATE       EVP_MD verification update failed
+     * @throws ERR_OSSL_EVP_VERIFY_FINAL        EVP_MD verification final failed
+     * @throws ERR_STSM_SRV_CLI_AUTH_FAILED     Client STSM authentication failed
+     */
     void recv_cli_auth();
 
 

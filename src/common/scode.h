@@ -43,13 +43,14 @@ enum scode : unsigned char
   ERR_STSM_SRV_SRV_INVALID_PUBKEY,
   ERR_STSM_SRV_SRV_AUTH_FAILED,
   ERR_STSM_SRV_SRV_CERT_REJECTED,
-  ERR_STSM_SRV_CLI_AUTH_FAILED,
   ERR_STSM_SRV_CLIENT_LOGIN_FAILED,
+  ERR_STSM_SRV_CLI_AUTH_FAILED,
   ERR_STSM_SRV_UNEXPECTED_MESSAGE,
   ERR_STSM_SRV_MALFORMED_MESSAGE,
   ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE,
 
   // Client Login
+  ERR_LOGIN_PUBKEYFILE_NOT_FOUND,
   ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,
   ERR_LOGIN_PUBKEY_INVALID,
 
@@ -253,15 +254,16 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STSM_SRV_SRV_INVALID_PUBKEY,   {CRITICAL,"The client reported that the server provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_SRV_SRV_AUTH_FAILED,      {ERROR, "The client reported the server failing the STSM authentication"} },
     { ERR_STSM_SRV_SRV_CERT_REJECTED,    {ERROR,"The client rejected the server's X.509 certificate"} },
-    { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {CRITICAL,"Unrecognized username in the STSM protocol"} },
+    { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {ERROR,"Unrecognized username in the STSM protocol"} },
     { ERR_STSM_SRV_CLI_AUTH_FAILED,      {ERROR, "The client has failed the STSM authentication"} },
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
     { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
     { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
 
     // Client Login
-    { ERR_LOGIN_PUBKEYFILE_OPEN_FAILED, {CRITICAL,"Error in opening the client's RSA public key file"} },
-    { ERR_LOGIN_PUBKEY_INVALID,         {CRITICAL,"The contents of the client's RSA public key file do not represent a valid RSA public key"} },
+    { ERR_LOGIN_PUBKEYFILE_NOT_FOUND,    {ERROR,   "The user RSA private key file was not found"} },
+    { ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,  {CRITICAL,"Error in opening the client's RSA public key file"} },
+    { ERR_LOGIN_PUBKEY_INVALID,          {CRITICAL,"The contents of the client's RSA public key file do not represent a valid RSA public key"} },
 
 
 
