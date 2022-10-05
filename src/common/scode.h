@@ -49,6 +49,10 @@ enum scode : unsigned char
   ERR_STSM_SRV_MALFORMED_MESSAGE,
   ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE,
 
+  // Client Login
+  ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,
+  ERR_LOGIN_PUBKEY_INVALID,
+
   // Other
   ERR_SRV_PSELECT_FAILED,
 
@@ -91,6 +95,8 @@ enum scode : unsigned char
   ERR_STSM_CLI_UNEXPECTED_MESSAGE,
   ERR_STSM_CLI_MALFORMED_MESSAGE,
   ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,
+
+
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -252,6 +258,12 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
     { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
     { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
+
+    // Client Login
+    { ERR_LOGIN_PUBKEYFILE_OPEN_FAILED, {CRITICAL,"Error in opening the client's RSA public key file"} },
+    { ERR_LOGIN_PUBKEY_INVALID,         {CRITICAL,"The contents of the client's RSA public key file do not represent a valid RSA public key"} },
+
+
 
     // Other
     { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },

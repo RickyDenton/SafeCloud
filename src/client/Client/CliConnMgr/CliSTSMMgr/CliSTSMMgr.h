@@ -129,8 +129,30 @@ class CliSTSMMgr : public STSMMgr
 
    /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
+   /**
+    * @brief Sends the 'CLI_AUTH' STSM message to the server (3/4), consisting of:\n
+    *            1) The client's name \n
+    *            2) The client's STSM authentication proof, consisting of the concatenation
+    *               of its name and both actors' ephemeral public DH keys (STSM authentication
+    *               value) signed with the client's long-term private RSA key and encrypted
+    *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
+    * @throws ERR_STSM_MY_PUBKEY_MISSING           The client's ephemeral DH public key is missing
+    * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The server's ephemeral DH public key is missing
+    * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
+    * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write an actor's ephemeral DH public key into a BIO
+    * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read an actor's ephemeral DH public key from a BIO
+    * @throws ERR_OSSL_EVP_MD_CTX_NEW              EVP_MD context creation failed
+    * @throws ERR_OSSL_EVP_SIGN_INIT               EVP_MD signing initialization failed
+    * @throws ERR_OSSL_EVP_SIGN_UPDATE             EVP_MD signing update failed
+    * @throws ERR_OSSL_EVP_SIGN_FINAL              EVP_MD signing final failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE         The signed client's STSM authentication value size is non-positive
+    * @throws ERR_OSSL_AES_128_CBC_PT_TOO_LARGE    The signed client's STSM authentication value size is too large
+    * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW          EVP_CIPHER context creation failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT            EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE          EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL           EVP_CIPHER encrypt final failed
+    */
    void send_cli_auth();
-
 
    /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 

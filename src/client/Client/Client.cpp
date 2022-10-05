@@ -321,7 +321,7 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
   if(!RSAKeyFilePath)
    THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,CLI_USER_PRIVK_PATH(username),ERRNO_DESC);
 
-  // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in an exception
+  // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in case of errors
   try
    {
     // Attempt to open the user's RSA private key file

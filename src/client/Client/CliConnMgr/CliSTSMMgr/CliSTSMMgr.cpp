@@ -512,11 +512,13 @@ void CliSTSMMgr::send_cli_auth()
   digSigSign(_myRSALongPrivKey, &_cliConnMgr._secBuf[0],cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE),
              &_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)]);
 
+  /*
   // LOG: Client's signed STSM authentication value
   printf("Client signed STSM authentication value: \n");
   for(int i=0; i < RSA2048_SIG_SIZE; i++)
    printf("%02x", _cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE) + i]);
   printf("\n");
+  */
 
   // Encrypt the signed STSM authentication value as the server STSM authentication proof in the 'SRV_AUTH' message
   //
@@ -537,6 +539,7 @@ void CliSTSMMgr::send_cli_auth()
 
   LOG_DEBUG("STSM 3/4: Sent 'CLI_AUTH' message, awaiting 'SRV_OK' message")
 
+  /*
   // LOG: 'CLI_AUTH' message contents
   printf("'CLI_AUTH' message contents: \n");
   std::cout << "stsmCliAuth->header.len = " << stsmCliAuth->header.len << std::endl;
@@ -548,6 +551,7 @@ void CliSTSMMgr::send_cli_auth()
   for(int i=0; i < STSM_AUTH_PROOF_SIZE ; i++)
    printf("%02x", stsmCliAuth->cliSTSMAuthProof[i]);
   printf("\n");
+  */
  }
 
 

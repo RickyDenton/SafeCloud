@@ -7,6 +7,7 @@
 #include "errlog.h"
 #include "ossl_crypto/DigSig.h"
 #include "ossl_crypto/AES_128_CBC.h"
+#include "utils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -346,8 +347,201 @@ void SrvSTSMMgr::send_srv_auth()
 
 /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
+EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
+ {
+  EVP_PKEY* cliRSAPubKey;      // The client's long term RSA public key
+  FILE* cliRSAPubKeyFile;      // The client's long-term RSA public key file (.pem)
+  char* cliRSAPubKeyFilePath;  // The client's long-term RSA public key file path
+
+  // Derive the expected absolute, or canonicalized, path of the server's private key file
+  cliRSAPubKeyFilePath = realpath(std::string(SRV_USER_PUBK_PATH(cliName)).c_str(), NULL);
+
+  if(!cliRSAPubKeyFilePath)
+   sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED,"The client's public key file could not be found");
+
+  // Try-catch block to allow the cliRSAPubKeyFilePath both to be freed and reported in case of errors
+  try
+   {
+    // Attempt to open the client's RSA public key file
+    cliRSAPubKeyFile = fopen(cliRSAPubKeyFilePath, "r");
+    if(!cliRSAPubKeyFile)
+     THROW_SCODE(ERR_LOGIN_PUBKEYFILE_OPEN_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
+
+    // Attempt to read the client's long-term RSA public key from its file
+    cliRSAPubKey = PEM_read_PUBKEY(cliRSAPubKeyFile, NULL, NULL, NULL);
+
+    // Close the client's RSA public key file
+    if(fclose(cliRSAPubKeyFile) != 0)
+     THROW_SCODE(ERR_FILE_CLOSE_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
+
+    // Ensure that a valid public key has been read
+    if(!cliRSAPubKey)
+     THROW_SCODE(ERR_LOGIN_PUBKEY_INVALID, cliRSAPubKeyFilePath, OSSL_ERR_DESC);
+
+    // Free the client's RSA public key file path
+    free(cliRSAPubKeyFilePath);
+
+    // Return the client's public key
+    return cliRSAPubKey;
+   }
+  catch(sCodeException& cliPubKeyFileExcp)
+   {
+    // Free the client's RSA public key file path
+    free(cliRSAPubKeyFilePath);
+
+    /*
+     * Errors in reading che client's public key from its file (which are of
+     * CRITICAL severity) are logged separately and concealed from the client
+     * by reporting them that their provided username was not recognized
+     */
+
+    // Separately the error that has occurred
+    LOG_SCODE(cliPubKeyFileExcp.scode,cliPubKeyFileExcp.addDscr,cliPubKeyFileExcp.reason);
+
+    // Reply that the username was not recognized and abort the connection
+    sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED);
+
+    // Unnecessary since an exception will be
+    // thrown in any case (warning suppression)
+    return nullptr;
+   }
+ }
+
+
+
+/**
+ * @brief  Parses the client's 'CLI_AUTH' STSM message (3/4), consisting of:\n
+ *            1) The client's name \n
+ *            2) The client's STSM authentication proof, consisting of the concatenation
+ *               of its name and both actors' ephemeral public DH keys (STSM authentication
+ *               value) signed with the client's long-term private RSA key and encrypted
+ *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
+ * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized client's username
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ * @throws AAA AAA
+ */
 void SrvSTSMMgr::recv_cli_auth()
- {}
+ {
+  // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
+  STSM_CLI_AUTH* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH*>(_srvConnMgr._priBuf);
+
+  /* ---------------------- Client's Name Validation ---------------------- */
+
+  // Extract the client's name as a string from the 'CLI_AUTH' message
+  std::string cliName((char*)stsmCliAuth->cliName);
+
+  /*
+  // LOG: Guest's name
+  std::cout << "Guest Name: " << cliName << std::endl;
+  */
+
+  // Validate the client's name by sanitizing it
+  try
+   { sanitizeUsername(cliName); }
+  catch(sCodeException& cliNameExcp)
+   {
+    /* Errors in sanitizing the client's name, which on the server-side should NEVER
+     * happen due to the client-side sanitization in place, are logged separately and
+     * concealed from the client by replying them that their username was not recognized
+     */
+
+    // Log the error
+    LOG_SCODE(cliNameExcp.scode,cliNameExcp.addDscr,cliNameExcp.reason);
+
+    // Reply that the username is unrecognized and abort the connection
+    sendSrvSTSMErrMsg(ERR_CLIENT_LOGIN_FAILED);
+   }
+
+  // Assert a client with such name to be registered within the
+  // SafeCloud server by retrieving its long-term RSA public key
+  EVP_PKEY* cliRSAPubKey = getCliRSAPubKey(cliName);
+
+  /* ------------ Client STSM Authentication Proof Verification ------------ */
+
+  /*
+  // LOG: Client's STSM authentication proof
+  printf("Client's STSM authentication proof:\n");
+  for(int i=0; i < STSM_AUTH_PROOF_SIZE ; i++)
+   printf("%02x", stsmCliAuth->cliSTSMAuthProof[i]);
+  printf("\n");
+  */
+
+  // Build the client's STSM authentication value, consisting of the concatenation
+  // of the client's name and both actors' ephemeral public DH keys "name||Yc||Ys",
+  // in the associated connection manager's secondary buffer
+  strcpy(reinterpret_cast<char*>(&_srvConnMgr._secBuf), cliName.c_str());
+  writeOtherEDHPubKey(&_srvConnMgr._secBuf[cliName.length() + 1]);
+  writeMyEDHPubKey(&_srvConnMgr._secBuf[cliName.length() + 1 + DH2048_PUBKEY_PEM_SIZE]);
+
+  // Decrypt the client's STSM authentication proof in the associated connection manager's secondary buffer
+  int decProofSize = AES_128_CBC_Decrypt(_srvConnMgr._skey, _srvConnMgr._iv, stsmCliAuth->cliSTSMAuthProof,STSM_AUTH_PROOF_SIZE,
+                                         &_srvConnMgr._secBuf[cliName.length() + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)]);
+
+  // Assert the decrypted STSM authentication proof to be on RSA2048_SIG_SIZE = 256 bytes
+  if(decProofSize != 256)
+   sendSrvSTSMErrMsg(ERR_MALFORMED_MESSAGE,"Decrypted client's STSM authentication proof of invalid size");
+
+  /*
+  // LOG: Client's signed STSM authentication value
+  printf("Client signed STSM authentication value: \n");
+  for(int i=0; i < RSA2048_SIG_SIZE; i++)
+   printf("%02x", _srvConnMgr._secBuf[cliName.length() + 1 + (2 * DH2048_PUBKEY_PEM_SIZE) + i]);
+  printf("\n");
+  */
+
+  // Attempt to verify the client's signature on its STSM authentication value <name||Yc||Ys>c
+  try
+   { digSigVerify(cliRSAPubKey, &_srvConnMgr._secBuf[0], cliName.length() + 1 + (2 * DH2048_PUBKEY_PEM_SIZE),
+                  &_srvConnMgr._secBuf[cliName.length() + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)], RSA2048_SIG_SIZE); }
+  catch(sCodeException& digVerExcp)
+   {
+    // If the signature verification failed, inform the client that they
+    // have failed the STSM authentication and abort the connection
+    if(digVerExcp.scode == ERR_OSSL_SIG_VERIFY_FAILED)
+     sendSrvSTSMErrMsg(ERR_SRV_AUTH_FAILED);
+
+     // Otherwise, rethrow the exception (which also aborts the connection)
+    else
+     throw;
+   }
+
+  /* ---------------- Client Information Update and Cleanup ---------------- */
+
+  // Free the client's public key
+  EVP_PKEY_free(cliRSAPubKey);
+
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 3/4: Received valid 'CLI_AUTH' message")
+
+  // Log the authenticated client
+  LOG_INFO("\"" + *_srvConnMgr._name + "\" has logged in as \"" + cliName + "\"")
+
+  // Update the client's name
+  delete _srvConnMgr._name;
+  _srvConnMgr._name = new std::string(cliName);
+
+  // TODO: Check from errors in setting the directories?
+
+  // Set the connection's temporary directory
+  _srvConnMgr._tmpDir = new std::string(SRV_USER_TEMP_DIR_PATH(cliName));
+
+  // Set the client's pool directory path
+  _srvConnMgr._poolDir = new std::string(SRV_USER_POOL_PATH(cliName));
+ }
+
+
 
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
@@ -409,8 +603,8 @@ bool SrvSTSMMgr::STSMMsgHandler()
     // Update the STSM server state
     _stsmSrvState = WAITING_CLI_AUTH;
 
-    // Inform the connection manager that the connection
-    // is still in the key establishment phase
+    // Inform the connection manager that the STSM
+    // key exchange protocol is still in progress
     return false;
    }
   else  // _stsmSrvState == WAITING_CLI_AUTH
@@ -418,9 +612,10 @@ bool SrvSTSMMgr::STSMMsgHandler()
     // Parse the client's 'CLI_AUTH' message
     recv_cli_auth();
 
+    // Send the server's 'SRV_OK' message
+    send_srv_ok();
 
-
-    // Inform the connection manager that key establishment has completed
+    // Inform the connection manager that the STSM key exchange protocol has completed
     // successfully and so that the connection can now switch to the session phase
     return true;
    }

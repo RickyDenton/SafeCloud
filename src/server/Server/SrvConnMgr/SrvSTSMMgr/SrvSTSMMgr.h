@@ -108,6 +108,8 @@ class SrvSTSMMgr : public STSMMgr
 
     /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
+    EVP_PKEY* getCliRSAPubKey(std::string& cliName);
+
     void recv_cli_auth();
 
 
