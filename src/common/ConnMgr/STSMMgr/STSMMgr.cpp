@@ -53,7 +53,6 @@ EVP_PKEY* STSMMgr::DHE_2048_Keygen()
 
   // Free the EVP_PKEY structure containing the default
   // DH parameters and the key generation context
-  // TODO: Check, it should be right
   EVP_PKEY_free(DHParams);
   EVP_PKEY_CTX_free(DHGenCtx);
 
@@ -61,8 +60,7 @@ EVP_PKEY* STSMMgr::DHE_2048_Keygen()
   return DHEKey;
  }
 
-
-/* --------------------------- Public Keys Utilities --------------------------- */
+/* ---------------------- Ephemeral Public Keys Utilities ---------------------- */
 
 /**
  * @brief Prints an actor's ephemeral DH public key on stdout
@@ -324,7 +322,7 @@ STSMMgr::STSMMgr(EVP_PKEY* myRSALongPrivKey) : _myRSALongPrivKey(myRSALongPrivKe
  */
 STSMMgr::~STSMMgr()
  {
-  // Deallocate both actors' ephemeral keys
+  // Deallocate both actors' ephemeral DH keys
   EVP_PKEY_free(_myDHEKey);
   EVP_PKEY_free(_otherDHEPubKey);
 
@@ -334,6 +332,8 @@ STSMMgr::~STSMMgr()
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
+
+/* ------------------- Ephemeral Public Keys Public Utilities ------------------- */
 
 /**
  * @brief Prints the local actor's ephemeral DH public key on stdout

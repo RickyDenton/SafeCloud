@@ -523,7 +523,7 @@ void Client::srvConnect()
   _cliConnMgr = new CliConnMgr(csk,&_name,&_tempDir,&_downDir,_rsaKey,_certStore);
 
   // Establish a shared session key with the server
-  _cliConnMgr->startSTSM();
+  _cliConnMgr->startCliSTSM();
 
   // At this point the client has successfully connected with the server
   _connected = true;

@@ -34,22 +34,6 @@ IV::IV() : iv_AES_CBC(), iv_AES_GCM(), iv_var(), iv_var_start()
  }
 
 
-
-// TODO: Check if it can be removed, reimplement otherwise
-/**
- * @brief IV object pointer copy constructor, interpreting an address
- * @throws ERR_OSSL_RAND_POLL_FAILED  RAND_poll() seed generation failed
- * @throws ERR_OSSL_RAND_BYTES_FAILED RAND_bytes() bytes generation failed
- *//*
-
-IV::IV(unsigned char* iv) : iv_high(), iv_var(), iv_var_start()
- {
-  memcpy(iv_high, &iv[0], 4);
-  memcpy((void*)iv_var, &iv[4], sizeof(uint64_t));
- }
-*/
-
-
 /**
  * @brief IV object destructor, safely deleting the IV value
  */
@@ -63,7 +47,6 @@ IV::~IV()
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
-
 
 /**
  * @brief  Increments the IV's variable part

@@ -104,7 +104,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
       sendSrvSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'CLIENT_HELLO' in the 'WAITING_CLI_AUTH' state");
 
      // Ensure the message length to be equal to the size of a 'CLIENT_HELLO' message
-     if(stsmMsg->header.len != sizeof(STSM_CLIENT_HELLO))
+     if(stsmMsg->header.len != sizeof(STSM_CLIENT_HELLO_MSG))
       sendSrvSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'CLIENT_HELLO' message of unexpected length");
 
      // A valid 'CLIENT_HELLO' message has been received
@@ -118,7 +118,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
       sendSrvSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'CLI_AUTH' message in the 'WAITING_CLI_HELLO' state");
 
      // Ensure the message length to be equal to the size of a 'CLI_AUTH' message
-     if(stsmMsg->header.len != sizeof(STSM_CLI_AUTH))
+     if(stsmMsg->header.len != sizeof(STSM_CLI_AUTH_MSG))
       sendSrvSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'CLI_AUTH' message of unexpected length");
 
      // A valid 'CLI_AUTH' message has been received
@@ -170,7 +170,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
 void SrvSTSMMgr::recv_client_hello()
  {
   // Interpret the connection manager's primary buffer as a 'CLIENT_HELLO' STSM message
-  STSM_CLIENT_HELLO* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO*>(_srvConnMgr._priBuf);
+  STSM_CLIENT_HELLO_MSG* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO_MSG*>(_srvConnMgr._priBuf);
 
   /* ------------------ Client's ephemeral DH public key ------------------ */
 
@@ -255,7 +255,7 @@ void SrvSTSMMgr::recv_client_hello()
 void SrvSTSMMgr::send_srv_auth()
  {
   // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
-  STSM_SRV_AUTH* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH*>(_srvConnMgr._priBuf);
+  STSM_SRV_AUTH_MSG* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH_MSG*>(_srvConnMgr._priBuf);
 
   /* ------------------ Server's ephemeral DH public key ------------------ */
 
@@ -431,7 +431,7 @@ void SrvSTSMMgr::recv_cli_auth()
   EVP_PKEY* cliRSAPubKey;   // The client's long term RSA public key
 
   // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
-  STSM_CLI_AUTH* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH*>(_srvConnMgr._priBuf);
+  STSM_CLI_AUTH_MSG* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH_MSG*>(_srvConnMgr._priBuf);
 
   /* ---------------------- Client's Name Validation ---------------------- */
 
@@ -541,11 +541,27 @@ void SrvSTSMMgr::recv_cli_auth()
  }
 
 
-
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
+/**
+ * @brief Sends the 'SRV_OK' message to the client (4/4), consisting of
+ *        just the notification that their authentication was successful
+ *        and so that the connection can now switch to the session phase
+ */
 void SrvSTSMMgr::send_srv_ok()
- {}
+ {
+  // Interpret the associated connection manager's primary connection buffer as a 'SRV_OK' message
+  STSM_SRV_OK_MSG* stsmSrvOK = reinterpret_cast<STSM_SRV_OK_MSG*>(_srvConnMgr._priBuf);
+
+  // Initialize the 'SRV_AUTH' message length and type
+  stsmSrvOK->header.len = sizeof(STSM_SRV_OK_MSG);
+  stsmSrvOK->header.type = SRV_OK;
+
+  // Send the 'SRV_OK' message to the client
+  _srvConnMgr.sendMsg();
+
+  LOG_DEBUG("[" + *_srvConnMgr._name + "] STSM 4/4: Sent 'SRV_OK' message, STSM protocol completed")
+ }
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -563,11 +579,13 @@ SrvSTSMMgr::SrvSTSMMgr(EVP_PKEY* myRSALongPrivKey, SrvConnMgr& srvConnMgr, X509*
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief  Server STSM Message handler, processing a client STSM message
- *         stored in the associated connection manager's primary buffer
- * @return A boolean indicating  whether the key establishment phase has terminated and
- *         so the connection can switch to the session phase ('true') or not ('false')
- * @throws TODO
+ * @brief  Server STSM message handler, parsing a STSM message received from the
+ *         client stored in the associated connection manager's primary buffer
+ * @return A boolean indicating the associated connection manager whether the STSM
+ *         key exchange protocol with the client has successfully completed and so
+ *         connection can switch to the session phase ('true') or not ('false')
+ * @throws All the STSM exceptions and most of the OpenSSL
+ *         exceptions (see "scode.h" for more details)
  */
 bool SrvSTSMMgr::STSMMsgHandler()
  {
@@ -619,4 +637,3 @@ bool SrvSTSMMgr::STSMMsgHandler()
     return true;
    }
  }
-

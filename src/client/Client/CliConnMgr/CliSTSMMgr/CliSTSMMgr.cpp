@@ -118,14 +118,18 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
     // 'SRV_OK' message
     case SRV_OK:
 
+     /*
+      * NOTE: in case of SRV_OK message errors no notification is returned to the server,
+      *       as most likely it (erroneously) determined the STSM key establishment protocol
+      *       as completed and so would not correctly receive further STSM messages
+      */
      // This message can be received only in the 'WAITING_SRV_OK' STSM client state
      if(_stsmCliState != WAITING_SRV_OK)
-      sendCliSTSMErrMsg(ERR_UNEXPECTED_MESSAGE,"'SRV_OK'");
+      THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE,"SRV_OK");
 
      // Ensure the message length to be equal to the size of a 'SRV_OK' message
-     // TODO check if applicable
-     if(stsmMsg->header.len != sizeof(STSM_SRV_OK))
-      sendCliSTSMErrMsg(ERR_MALFORMED_MESSAGE,"'SRV_OK' message of unexpected length");
+     if(stsmMsg->header.len != sizeof(STSM_SRV_OK_MSG))
+      THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE,"'SRV_OK' message of unexpected length");
 
      // A valid 'SRV_OK' message has been received
      return;
@@ -178,12 +182,12 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 void CliSTSMMgr::send_client_hello()
  {
   // Interpret the associated connection manager's primary connection buffer as a 'CLIENT_HELLO' STSM message
-  STSM_CLIENT_HELLO* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO*>(_cliConnMgr._priBuf);
+  STSM_CLIENT_HELLO_MSG* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO_MSG*>(_cliConnMgr._priBuf);
 
   /* ------------------------ STSM Message Header ------------------------ */
 
   // Initialize the STSM message length and type
-  cliHelloMsg->header.len = sizeof(STSM_CLIENT_HELLO);
+  cliHelloMsg->header.len = sizeof(STSM_CLIENT_HELLO_MSG);
   cliHelloMsg->header.type = CLIENT_HELLO;
 
   /* ------------------ Client's ephemeral DH public key ------------------ */
@@ -335,7 +339,7 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
 void CliSTSMMgr::recv_srv_auth()
  {
   // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
-  STSM_SRV_AUTH* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH*>(_cliConnMgr._priBuf);
+  STSM_SRV_AUTH_MSG* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH_MSG*>(_cliConnMgr._priBuf);
 
   /* ------------------ Server's ephemeral DH public key ------------------ */
 
@@ -386,7 +390,10 @@ void CliSTSMMgr::recv_srv_auth()
   /* ------------------ Server Certificate Verification ------------------ */
 
   // Initialize a memory BIO to the server's certificate
-  // TODO: Check if len = -1 is correct as argument, otherwise pass the explicit size
+  //
+  // NOTE: The function is capable of autonomously determining the
+  //       correct certificate's length by passing "-1" as "len" argument
+  //
   BIO* srvCertBIO = BIO_new_mem_buf(stsmSrvAuth->srvCert, -1);
   if(srvCertBIO == NULL)
    THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
@@ -485,7 +492,7 @@ void CliSTSMMgr::recv_srv_auth()
 void CliSTSMMgr::send_cli_auth()
  {
   // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
-  STSM_CLI_AUTH* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH*>(_cliConnMgr._priBuf);
+  STSM_CLI_AUTH_MSG* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH_MSG*>(_cliConnMgr._priBuf);
 
   // Convert the client's name to a C string and get its length
   const char* cliName = _cliConnMgr._name->c_str();
@@ -531,7 +538,7 @@ void CliSTSMMgr::send_cli_auth()
   /* ------------------ Message Finalization and Sending ------------------ */
 
   // Initialize the 'CLI_AUTH' message length and type
-  stsmCliAuth->header.len = sizeof(STSM_CLI_AUTH);
+  stsmCliAuth->header.len = sizeof(STSM_CLI_AUTH_MSG);
   stsmCliAuth->header.type = CLI_AUTH;
 
   // Send the 'CLI_AUTH' message to the server
@@ -557,8 +564,8 @@ void CliSTSMMgr::send_cli_auth()
 
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
-void CliSTSMMgr::recv_srv_ok()
- {}
+// Dedicated function not required (all checks are implicitly
+// performed within the recvCheckCliSTSMMsg() function)
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -577,9 +584,11 @@ CliSTSMMgr::CliSTSMMgr(EVP_PKEY* myRSALongPrivKey, CliConnMgr& cliConnMgr, X509_
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief  Starts and executes the STSM client protocol, returning once a symmetric key has
- *         been established and the client is authenticated within the SafeCloud server
- * @throws TODO
+ * @brief  Starts the STSM client protocol, exchanging STSM messages with
+ *         the SafeCloud server so to establish a shared AES_128 session key
+ *         and IV and to authenticate the client and server with one another
+ * @throws All the STSM exceptions and most of the OpenSSL
+ *         exceptions (see "scode.h" for more details)
  */
 void CliSTSMMgr::startCliSTSM()
  {
@@ -609,7 +618,14 @@ void CliSTSMMgr::startCliSTSM()
   // Block until the expected 'SRV_OK' STSM message has been received
   recvCheckCliSTSMMsg();
 
-  // TODO: From here
+  /*
+   * NOTE: Explicitly parsing the 'SRV_OK' message is not required,
+   *       as its contents are already validated within the
+   *       recvCheckCliSTSMMsg() function
+   */
 
+  LOG_DEBUG("STSM 4/4: Received 'SRV_OK' message, STSM protocol completed")
 
+  // Return control to the associated connection manager
+  // to switch the connection into the session phase
  }

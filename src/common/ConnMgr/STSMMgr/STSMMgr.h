@@ -3,25 +3,13 @@
 
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Base Manager */
 
+/* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include "STSMMsg.h"
 #include "ConnMgr/ConnMgr.h"
-
-
-// TODO: WRITE STSM DESCRIPTION
-
-/*v
- *  The server authentication message comprises:
- *
- *  1) The server's ephemeral DH public key "Ys"
- *  2) The server signature of the concatenation of both ephemeral public
- *     keys encrypted with the resulting session key "{<Yc||Ys>privk_srv}k"
- *  3) The server's certificate "srvCert"
- */
-
 
 /* Base STSM information used by client and server alike */
 class STSMMgr
@@ -51,7 +39,7 @@ class STSMMgr
     */
    static EVP_PKEY* DHE_2048_Keygen();
 
-   /* --------------------------- Public Keys Utilities --------------------------- */
+   /* ---------------------- Ephemeral Public Keys Utilities ---------------------- */
 
    /**
     * @brief Prints an actor's ephemeral DH public key on stdout
@@ -122,7 +110,7 @@ class STSMMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   /* --------------------------- Public Keys Utilities --------------------------- */
+   /* ------------------- Ephemeral Public Keys Public Utilities ------------------- */
 
    /**
     * @brief Prints the local actor's ephemeral DH public key on stdout

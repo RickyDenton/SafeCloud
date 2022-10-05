@@ -147,7 +147,11 @@ class SrvSTSMMgr : public STSMMgr
 
     /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
-
+    /**
+     * @brief Sends the 'SRV_OK' message to the client (4/4), consisting of
+     *        just the notification that their authentication was successful
+     *        and so that the connection can now switch to the session phase
+     */
     void send_srv_ok();
 
 
@@ -168,25 +172,16 @@ class SrvSTSMMgr : public STSMMgr
     /* ============================= OTHER PUBLIC METHODS ============================= */
 
     /**
-     * @brief  Server STSM Message handler, processing a client STSM message
-     *         stored in the associated connection manager's primary buffer
-     * @return A boolean indicating  whether the key establishment phase has terminated and
-     *         so the connection can switch to the session phase ('true') or not ('false')
-     * @throws TODO
+     * @brief  Server STSM message handler, parsing a STSM message received from the
+     *         client stored in the associated connection manager's primary buffer
+     * @return A boolean indicating the associated connection manager whether the STSM
+     *         key exchange protocol with the client has successfully completed and so
+     *         connection can switch to the session phase ('true') or not ('false')
+     * @throws All the STSM exceptions and most of the OpenSSL
+     *         exceptions (see "scode.h" for more details)
      */
     bool STSMMsgHandler();
-
-
-
-  // TODO:
-  //
-  // NOTE: 1) All return the success of the operation TODO: exceptions?
-  //       2) All check for the STSMError message before doing their thing
-  //
-  // bool rcvHello();
-  // bool sendSrvAuth();
-  // bool recvCliAuth();
-  // bool sendSrvOK();
  };
+
 
 #endif //SAFECLOUD_SRVSTSMMGR_H

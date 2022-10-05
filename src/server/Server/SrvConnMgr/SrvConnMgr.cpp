@@ -43,11 +43,15 @@ bool SrvConnMgr::recvHandleData()
      // Key establishment phase (STSM protocol)
      if(_connState == KEYXCHANGE)
       {
-       // Call the STSM message handler and, if it notifies that key establishment has
-       // completed successfully, deallocate it and switch the connection to the session phase
+       // Call the STSM message handler and, if it informs that the
+       // STSM key establishment protocol was completed successfully
        if(_srvSTSMMgr->STSMMsgHandler())
         {
-         delete(_srvSTSMMgr);
+         // Delete the SrvSTSMMgr child object
+         delete _srvSTSMMgr;
+         _srvSTSMMgr = nullptr;
+
+         // Switch the connection to the SESSION phase
          _connState = SESSION;
         }
 
@@ -58,6 +62,7 @@ bool SrvConnMgr::recvHandleData()
      // Session Phase
      else
       {
+       // TODO
        // Call the session's message handler, propagating its indication on whether
        // the client's connection should be maintained to the Server's object
        return _srvSessMgr->SessBlockHandler();

@@ -92,7 +92,7 @@ struct STSMMsg
 /* ----------------------- 'CLIENT_HELLO' Message (1/4) ----------------------- */
 
 // Implicit header.type ='CLIENT_HELLO'
-struct STSM_CLIENT_HELLO : public STSMMsg
+struct STSM_CLIENT_HELLO_MSG : public STSMMsg
  {
   public:
 
@@ -106,7 +106,7 @@ struct STSM_CLIENT_HELLO : public STSMMsg
 /* ------------------------- 'SRV_AUTH' Message (2/4) ------------------------- */
 
 // Implicit header.type ='SRV_AUTH'
-struct STSM_SRV_AUTH : public STSMMsg
+struct STSM_SRV_AUTH_MSG : public STSMMsg
  {
   // The server's ephemeral DH 2048-bit public key in PEM format
   unsigned char srvEDHPubKey[DH2048_PUBKEY_PEM_SIZE];
@@ -122,7 +122,7 @@ struct STSM_SRV_AUTH : public STSMMsg
 /* ------------------------- 'CLI_AUTH' Message (3/4) ------------------------- */
 
 // Implicit header.type ='CLI_AUTH'
-struct STSM_CLI_AUTH : public STSMMsg
+struct STSM_CLI_AUTH_MSG : public STSMMsg
  {
   // The client's name
   unsigned char cliName[CLI_NAME_MAX_LENGTH + 1];
@@ -131,12 +131,11 @@ struct STSM_CLI_AUTH : public STSMMsg
   unsigned char cliSTSMAuthProof[STSM_AUTH_PROOF_SIZE];
  };
 
+/* -------------------------- 'SRV_OK' Message (4/4) -------------------------- */
 
-// TODO
-
-struct STSM_SRV_OK : public STSMMsg
+// Implicit header.type ='SRV_OK'
+struct STSM_SRV_OK_MSG : public STSMMsg
  {};
-
 
 
 #endif //SAFECLOUD_STSMMSG_H

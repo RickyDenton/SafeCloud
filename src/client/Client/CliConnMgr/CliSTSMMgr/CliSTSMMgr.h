@@ -156,7 +156,8 @@ class CliSTSMMgr : public STSMMgr
 
    /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
-   void recv_srv_ok();
+   // Dedicated function not required (all checks are implicitly
+   // performed within the recvCheckCliSTSMMsg() function)
 
 
   public:
@@ -176,9 +177,11 @@ class CliSTSMMgr : public STSMMgr
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
    /**
-    * @brief  Starts and executes the STSM client protocol, returning once a symmetric key has
-    *         been established and the client is authenticated within the SafeCloud server
-    * @throws TODO
+    * @brief  Starts the STSM client protocol, exchanging STSM messages with
+    *         the SafeCloud server so to establish a shared AES_128 session key
+    *         and IV and to authenticate the client and server with one another
+    * @throws All the STSM exceptions and most of the OpenSSL
+    *         exceptions (see "scode.h" for more details)
     */
    void startCliSTSM();
  };
