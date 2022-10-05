@@ -9,11 +9,15 @@
  * For providing an IV value to both connection phases and to ensure cross-platform and cross-compiler
  * compatibility in handling large numbers, IVs consist of 16 bytes initialized at random where:
  *
- * - The lower half (8 bytes, 64 bit) is incremented for every encrypted message sent or received, and whose reuse before 2^64
- *   uses is avoided by the object notifying to its parent connection manager that a new symmetric key should be used (rekeying)
+ * - The lower half (8 bytes, 64 bit) is variable and incremented after every encryption or decryption
  *
- * - The upper half (8 bytes, 64 bit) is instead constant, with the AES_CBC_128 cipher using it in its entirety (for an IV
- *   size of 16 bytes), while the AES_GCM_128 cipher uses its least significant 4 bytes only (for an IV size of 12 bytes)
+ * - The upper half (8 bytes, 64 bit) is instead constant, with the AES_CBC_128 cipher using it in its
+ *   entirety (for an IV size of 16 bytes), while the AES_GCM_128 cipher uses its least significant 4
+ *   bytes only (for an IV size of 12 bytes)
+ *
+ * It should also be noted that, being its variable part on 64 bits, no failsafe mechanism for preventing
+ * the IV reuse were implemented, as even by encrypting or decrypting a message every 100ms would require
+ * over 50 years to exchange the 2^64 messages necessary for the same IV to be reused
  */
 
 /* ================================== INCLUDES ================================== */
@@ -22,10 +26,6 @@
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include <cstdint>
-
-// The minimum (iv_var_start - iv_var) distance after which a new
-// symmetric key must be exchanged between parties to prevent IV reuse
-#define IV_VAR_REKEYING_LIMIT 10
 
 
 class IV
@@ -61,14 +61,15 @@ class IV
    /* ============================ OTHER PUBLIC METHODS ============================ */
 
    /**
-    * @brief  Increments the IV's variable part
-    * @return A boolean indicating whether the minimum (iv_var_start - iv_var)
-    *         distance after which a new symmetric key must be exchanged between
-    *         parties to prevent IV reuse has been reached
+    * @brief Increments the IV's variable part
+    * @note  The IV variable part eventually overflowing is an intended behaviour
+    * @note  Being its variable part on 64 bits, no failsafe mechanism for
+    *        preventing the IV reuse were implemented, as even by encrypting or
+    *        decrypting a message every 100ms would require over 50 years to
+    *        exchange the 2^64 messages necessary for the same IV to be reused
     */
-   bool incIV();
+   void incIV();
  };
-
 
 
 #endif //SAFECLOUD_IV_H

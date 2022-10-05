@@ -62,19 +62,19 @@ void sanitizeUsername(std::string& username)
 
   // Ensure the username not to be empty
   if(username.empty())
-   THROW_SCODE(ERR_LOGIN_NAME_EMPTY);
+   THROW_SCODE_EXCP(ERR_LOGIN_NAME_EMPTY);
 
   // Ensure the username not to be too long
   if(username.length() > CLI_NAME_MAX_LENGTH)
-   THROW_SCODE(ERR_LOGIN_NAME_TOO_LONG);
+   THROW_SCODE_EXCP(ERR_LOGIN_NAME_TOO_LONG);
 
   // Ensure the first character to consist of a letter of the alphabet (a-z, A-Z)
   if(!isalpha(username.front()))
-   THROW_SCODE(ERR_LOGIN_NAME_WRONG_FORMAT);
+   THROW_SCODE_EXCP(ERR_LOGIN_NAME_WRONG_FORMAT);
 
   // Ensure the username to contain valid characters only (a-z, A-Z, 0-9, _)
   if(username.find_first_not_of(validNameChars) != std::string::npos)
-   THROW_SCODE(ERR_LOGIN_NAME_INVALID_CHARS);
+   THROW_SCODE_EXCP(ERR_LOGIN_NAME_INVALID_CHARS);
 
   // Convert the username to lowercase
   transform(username.begin(), username.end(), username.begin(), ::tolower);

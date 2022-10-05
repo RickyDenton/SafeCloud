@@ -18,17 +18,13 @@
 // Returns a human-readable description of the error stored in the 'errno' global variable
 #define ERRNO_DESC strerror(errno)
 
-/* ---------------------------- OpenSSL Error Logging ---------------------------- */
-// Returns the last OpenSSL error code
-#define OSSL_ERR_CODE ERR_get_error()
-
 // Returns a human-readable error description of the last OpenSSL error code
-#define OSSL_ERR_DESC ERR_error_string(OSSL_ERR_CODE,NULL) \
+#define OSSL_ERR_DESC ERR_error_string(ERR_get_error(),NULL) \
 
 /* ------------------------------- LOG_SCODE Macros ------------------------------- */
 
 /**
- * LOG_SCODE macros, calling the throwing scode exceptions containing, depending on the number of arguments passed to the THROW_SCODE macro:
+ * LOG_SCODE macros, calling the throwing scode exceptions containing, depending on the number of arguments passed to the THROW_SCODE_EXCP macro:
  *  - 1 argument   -> scode only
  *  - 2 arguments  -> scode + additional description
  *  - 3 arguments  -> scode + additional description + error reason
@@ -57,7 +53,7 @@
 /* -------------------- scodeExceptions Throwing and Catching -------------------- */
 
 /**
- * THROW_SCODE macros, passing their arguments to the appropriate sCodeException constructor
+ * THROW_SCODE_EXCP macros, passing their arguments to the appropriate sCodeException constructor
  *  - 1 argument   -> scode only
  *  - 2 arguments  -> scode + additional description
  *  - 3 arguments  -> scode + additional description + error reason
@@ -75,13 +71,13 @@
 
 
 /**
- * Substitutes the appropriate THROW_SCODE_MACRO depending on the number of arguments passed to the THROW_SCODE variadic macro:
+ * Substitutes the appropriate THROW_SCODE_MACRO depending on the number of arguments passed to the THROW_SCODE_EXCP variadic macro:
  *  - 1 argument  -> scode only
  *  - 2 arguments -> scode + additional description
  *  - 3 arguments -> scode + additional description + error reason
  */
 #define GET_THROW_SCODE_MACRO(_1,_2,_3,THROW_SCODE_MACRO,...) THROW_SCODE_MACRO
-#define THROW_SCODE(...) GET_THROW_SCODE_MACRO(__VA_ARGS__,THROW_SCODE_DSCR_REASON,THROW_SCODE_DSCR,THROW_SCODE_ONLY)(__VA_ARGS__)
+#define THROW_SCODE_EXCP(...) GET_THROW_SCODE_MACRO(__VA_ARGS__,THROW_SCODE_DSCR_REASON,THROW_SCODE_DSCR,THROW_SCODE_ONLY)(__VA_ARGS__)
 
 /*
  * Catches a scodeException and passes it to the default scode error handler

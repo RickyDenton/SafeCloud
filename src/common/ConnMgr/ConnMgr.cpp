@@ -112,11 +112,11 @@ bool ConnMgr::recvData()
    {
     // recv() FATAL error
     case -1:
-     THROW_SCODE(ERR_CSK_RECV_FAILED,ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
 
     // Abrupt server disconnection
     case 0:
-     THROW_SCODE(ERR_PEER_DISCONNECTED,*_name);
+     THROW_SCODE_EXCP(ERR_PEER_DISCONNECTED, *_name);
 
     // > 0 => recvRet = number of bytes read from socket (<= maxReadBytes)
     default:
@@ -158,17 +158,6 @@ void ConnMgr::sendMsg()
   clearPriBuf();
 
   LOG_DEBUG("Sent " + std::to_string(msgLen) + " bytes")
-
-  // MOVED
-/*  // TODO
-  // If the IV has been initialized, increment it, and if it notifies that IV
-  // reuse is about to occur, prepare and send a rekeying message (SESSION ONLY)
-  if(_iv != nullptr && _iv->incIV())
-   {
-
-
-   }*/
-
  }
 
 

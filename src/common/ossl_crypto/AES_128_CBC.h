@@ -25,8 +25,6 @@
  * @return       The resulting ciphertext's size in bytes
  * @note         The function assumes the "ctDest" destination buffer to be large enough to contain the resulting
  *               ciphertext (i.e. at least ptSize + AES_BLOCK_SIZE to account for the additional full padding block)
- * @note         As in the SafeCloud application the AES_128_CBC cipher is used in the STSM key establishment only
- *               (which consists of up to 2 encrypted messages), it is implicitly assumed that no IV reuse can occur
  * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The plaintext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_AES_128_CBC_PT_TOO_LARGE The plaintext to encrypt is too large
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
@@ -47,8 +45,6 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
  * @return       The resulting plaintext size in bytes
  * @note         The function assumes the "ptDest" destination buffer to be large
  *               enough to contain the resulting plaintext (i.e. at least ctSize)
- * @note         As in the SafeCloud application the AES_128_CBC cipher is used in the STSM key establishment only
- *               (which consists of up to 2 encrypted messages), it is implicitly assumed that no IV reuse can occur
  * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The ciphertext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
  * @throws       ERR_OSSL_EVP_DECRYPT_INIT         EVP_CIPHER decrypt initialization failed

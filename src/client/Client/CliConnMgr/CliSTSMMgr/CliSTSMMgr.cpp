@@ -46,31 +46,31 @@ void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
 
     // The server has provided an invalid ephemeral public key
     case ERR_INVALID_PUBKEY:
-     THROW_SCODE(ERR_STSM_CLI_SRV_INVALID_PUBKEY,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_SRV_INVALID_PUBKEY, errDesc);
 
     // The server provided an invalid X.509 certificate
     case ERR_SRV_CERT_REJECTED:
-     THROW_SCODE(ERR_STSM_CLI_SRV_CERT_REJECTED,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_SRV_CERT_REJECTED, errDesc);
 
     // The server has failed the STSM authentication
     case ERR_SRV_AUTH_FAILED:
-     THROW_SCODE(ERR_STSM_CLI_SRV_AUTH_FAILED, errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_SRV_AUTH_FAILED, errDesc);
 
     // An out-of-order STSM message has been received
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errDesc);
 
     // A malformed STSM message has been received
     case ERR_MALFORMED_MESSAGE:
-     THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_MALFORMED_MESSAGE, errDesc);
 
     // A STSM message of unknown type has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_TYPE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errDesc);
 
     // Unknown error type
     default:
-     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_ERROR,"(" + std::to_string(errMsgType) + ")");
+     THROW_SCODE_EXCP(ERR_STSM_UNKNOWN_STSMMSG_ERROR, "(" + std::to_string(errMsgType) + ")");
    }
  }
 
@@ -125,11 +125,11 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
       */
      // This message can be received only in the 'WAITING_SRV_OK' STSM client state
      if(_stsmCliState != WAITING_SRV_OK)
-      THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE,"SRV_OK");
+      THROW_SCODE_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, "SRV_OK");
 
      // Ensure the message length to be equal to the size of a 'SRV_OK' message
      if(stsmMsg->header.len != sizeof(STSM_SRV_OK_MSG))
-      THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE,"'SRV_OK' message of unexpected length");
+      THROW_SCODE_EXCP(ERR_STSM_MALFORMED_MESSAGE, "'SRV_OK' message of unexpected length");
 
      // A valid 'SRV_OK' message has been received
      return;
@@ -138,27 +138,27 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 
     // The server reported that the client's ephemeral public key is invalid
     case ERR_INVALID_PUBKEY:
-     THROW_SCODE(ERR_STSM_CLI_CLI_INVALID_PUBKEY);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_CLI_INVALID_PUBKEY);
 
     // The server did not recognize the username in the STSM protocol
     case ERR_CLIENT_LOGIN_FAILED:
-     THROW_SCODE(ERR_STSM_CLI_CLIENT_LOGIN_FAILED);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_CLIENT_LOGIN_FAILED);
 
     // The server reported the client failing the STSM authentication
     case ERR_CLI_AUTH_FAILED:
-     THROW_SCODE(ERR_STSM_CLI_CLI_AUTH_FAILED);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_CLI_AUTH_FAILED);
 
     // The server reported to have received an out-of-order STSM message
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_SCODE(ERR_STSM_CLI_UNEXPECTED_MESSAGE);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_UNEXPECTED_MESSAGE);
 
     // The server reported to have received a malformed STSM message
     case ERR_MALFORMED_MESSAGE:
-     THROW_SCODE(ERR_STSM_CLI_MALFORMED_MESSAGE);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_MALFORMED_MESSAGE);
 
     // The server reported to have received an STSM message of unknown type
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_SCODE(ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE);
+     THROW_SCODE_EXCP(ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE);
 
     // Unknown Message
     default:
@@ -285,12 +285,12 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
   // Create a X509 store verification context
   X509_STORE_CTX* srvCertVerCTX = X509_STORE_CTX_new();
   if(!srvCertVerCTX)
-   THROW_SCODE(ERR_OSSL_X509_STORE_CTX_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_X509_STORE_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the store verification context passing
   // the client's X.509 store and the server's certificate
   if(X509_STORE_CTX_init(srvCertVerCTX, _cliStore, srvCert, NULL) != 1)
-   THROW_SCODE(ERR_OSSL_X509_STORE_CTX_INIT,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_X509_STORE_CTX_INIT, OSSL_ERR_DESC);
 
   // Verify the server's certificate against the client's store
   if(X509_verify_cert(srvCertVerCTX) != 1)
@@ -346,12 +346,12 @@ void CliSTSMMgr::recv_srv_auth()
   // Initialize a memory BIO to the server's ephemeral DH public key
   BIO* srvPubDHBIO = BIO_new_mem_buf(stsmSrvAuth->srvEDHPubKey, -1);
   if(srvPubDHBIO == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Initialize the server's ephemeral DH public key structure
   _otherDHEPubKey = EVP_PKEY_new();
   if(_otherDHEPubKey == nullptr)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
   // Write the server's ephemeral DH public key from the memory BIO into the EVP_PKEY structure
   _otherDHEPubKey = PEM_read_bio_PUBKEY(srvPubDHBIO, NULL, NULL, NULL);
@@ -396,7 +396,7 @@ void CliSTSMMgr::recv_srv_auth()
   //
   BIO* srvCertBIO = BIO_new_mem_buf(stsmSrvAuth->srvCert, -1);
   if(srvCertBIO == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Read the server's certificate into a X509 struct
   X509* srvCert = PEM_read_bio_X509(srvCertBIO, NULL, NULL, NULL);
@@ -595,7 +595,7 @@ void CliSTSMMgr::startCliSTSM()
   // Ensure that the STSM client protocol has
   // not already been started by this manager
   if(_stsmCliState != INIT)
-   THROW_SCODE(ERR_STSM_CLI_ALREADY_STARTED);
+   THROW_SCODE_EXCP(ERR_STSM_CLI_ALREADY_STARTED);
 
   // Send the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4)
   send_client_hello();

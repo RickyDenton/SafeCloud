@@ -17,17 +17,17 @@ IV::IV() : iv_AES_CBC(), iv_AES_GCM(), iv_var(), iv_var_start()
  {
   // Seed the OpenSSL PRNG
   if(!RAND_poll())
-   THROW_SCODE(ERR_OSSL_RAND_POLL_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_RAND_POLL_FAILED, OSSL_ERR_DESC);
 
   // Randomly generate the IV's components
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_CBC), sizeof(iv_AES_CBC)) != 1)
-   THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_GCM), sizeof(iv_AES_GCM)) != 1)
-   THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_var), sizeof(iv_var)) != 1)
-   THROW_SCODE(ERR_OSSL_RAND_BYTES_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   // Set starting value of the IV's variable part
   iv_var_start = iv_var;
@@ -49,23 +49,12 @@ IV::~IV()
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief  Increments the IV's variable part
- * @return A boolean indicating whether the minimum (iv_var_start - iv_var)
- *         distance after which a new symmetric key must be exchanged between
- *         parties to prevent IV reuse has been reached
+ * @brief Increments the IV's variable part
+ * @note  The IV variable part eventually overflowing is an intended behaviour
+ * @note  Being its variable part on 64 bits, no failsafe mechanism for
+ *        preventing the IV reuse were implemented, as even by encrypting or
+ *        decrypting a message every 100ms would require over 50 years to
+ *        exchange the 2^64 messages necessary for the same IV to be reused
  */
-bool IV::incIV()
- {
-  // Increment the IV least significant variable part
-  //
-  // NOTE: Such value eventually overflowing is an intended
-  //       behaviour not causing IV reuse (see later)
-  iv_var++;
-
-  // If the minimum (iv_var_start - iv_var) distance has been reached, notify that
-  // a new symmetric key must be exchanged between parties to prevent IV reuse
-  if(iv_var_start - iv_var < IV_VAR_REKEYING_LIMIT)
-   return true;
-  else
-   return false;
- }
+void IV::incIV()
+ { iv_var++; }

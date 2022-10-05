@@ -45,31 +45,31 @@ void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
 
     // The client has provided an invalid ephemeral public key
     case ERR_INVALID_PUBKEY:
-     THROW_SCODE(ERR_STSM_SRV_CLI_INVALID_PUBKEY,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_CLI_INVALID_PUBKEY, errDesc);
 
     // Unrecognized username on the server
     case ERR_CLIENT_LOGIN_FAILED:
-     THROW_SCODE(ERR_STSM_SRV_CLIENT_LOGIN_FAILED,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_CLIENT_LOGIN_FAILED, errDesc);
 
     // The client has failed the STSM authentication
     case ERR_CLI_AUTH_FAILED:
-     THROW_SCODE(ERR_STSM_SRV_CLI_AUTH_FAILED, errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_CLI_AUTH_FAILED, errDesc);
 
     // An out-of-order STSM message has been received
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_SCODE(ERR_STSM_UNEXPECTED_MESSAGE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errDesc);
 
     // A malformed STSM message has been received
     case ERR_MALFORMED_MESSAGE:
-     THROW_SCODE(ERR_STSM_MALFORMED_MESSAGE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_MALFORMED_MESSAGE, errDesc);
 
     // A STSM message of unknown type has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_TYPE,errDesc);
+     THROW_SCODE_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errDesc);
 
     // Unknown error type
     default:
-     THROW_SCODE(ERR_STSM_UNKNOWN_STSMMSG_ERROR,"(" + std::to_string(errMsgType) + ")");
+     THROW_SCODE_EXCP(ERR_STSM_UNKNOWN_STSMMSG_ERROR, "(" + std::to_string(errMsgType) + ")");
    }
  }
 
@@ -128,27 +128,27 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
 
     // The client reported that the server's ephemeral public key is invalid
     case ERR_INVALID_PUBKEY:
-     THROW_SCODE(ERR_STSM_SRV_SRV_INVALID_PUBKEY);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_SRV_INVALID_PUBKEY);
 
     // The client rejected the server's X.509 certificate
     case ERR_SRV_CERT_REJECTED:
-     THROW_SCODE(ERR_STSM_SRV_SRV_CERT_REJECTED);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_SRV_CERT_REJECTED);
 
     // The client reported the server failing the STSM authentication
     case ERR_SRV_AUTH_FAILED:
-     THROW_SCODE(ERR_STSM_SRV_SRV_AUTH_FAILED);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_SRV_AUTH_FAILED);
 
     // The client reported to have received an out-of-order STSM message
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_SCODE(ERR_STSM_SRV_UNEXPECTED_MESSAGE);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_UNEXPECTED_MESSAGE);
 
     // The client reported to have received a malformed STSM message
     case ERR_MALFORMED_MESSAGE:
-     THROW_SCODE(ERR_STSM_SRV_MALFORMED_MESSAGE);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_MALFORMED_MESSAGE);
 
     // The client reported to have received an STSM message of unknown type
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_SCODE(ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE);
+     THROW_SCODE_EXCP(ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE);
 
     // Unknown Message
     default:
@@ -177,12 +177,12 @@ void SrvSTSMMgr::recv_client_hello()
   // Initialize a memory BIO to the client's ephemeral DH public key
   BIO* cliPubDHBio = BIO_new_mem_buf(cliHelloMsg->cliEDHPubKey, -1);
   if(cliPubDHBio == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Initialize the client's ephemeral DH public key structure
   _otherDHEPubKey = EVP_PKEY_new();
   if(_otherDHEPubKey == nullptr)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
   // Write the client's ephemeral DH public key from the memory BIO into the EVP_PKEY structure
   _otherDHEPubKey = PEM_read_bio_PUBKEY(cliPubDHBio, NULL,NULL, NULL);
@@ -298,18 +298,18 @@ void SrvSTSMMgr::send_srv_auth()
   // Initialize a memory BIO for storing the server's X.509 certificate
   BIO* srvCertBIO = BIO_new(BIO_s_mem());
   if(srvCertBIO == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Write the server's X.509 certificate to the BIO
   if(PEM_write_bio_X509(srvCertBIO, _srvCert) != 1)
-   THROW_SCODE(ERR_OSSL_PEM_WRITE_BIO_X509,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_PEM_WRITE_BIO_X509, OSSL_ERR_DESC);
 
   // Retrieve the certificate size
   int srvCertSize = BIO_pending(srvCertBIO);
 
   // Write the server's X.509 certificate from the BIO to the 'SRV_AUTH' message
   if(BIO_read(srvCertBIO, stsmSrvAuth->srvCert, srvCertSize) <= 0)
-   THROW_SCODE(ERR_OSSL_BIO_READ_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_READ_FAILED, OSSL_ERR_DESC);
 
   // Free the memory BIO
   if(BIO_free(srvCertBIO) != 1)
@@ -366,7 +366,7 @@ EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
   // Derive the expected absolute, or canonicalized, path of the server's private key file
   cliRSAPubKeyFilePath = realpath(std::string(SRV_USER_PUBK_PATH(cliName)).c_str(), NULL);
   if(!cliRSAPubKeyFilePath)
-   THROW_SCODE(ERR_LOGIN_PUBKEYFILE_NOT_FOUND,"client name = \"" + cliName + "\"");
+   THROW_SCODE_EXCP(ERR_LOGIN_PUBKEYFILE_NOT_FOUND, "client name = \"" + cliName + "\"");
 
   // Try-catch block to allow the cliRSAPubKeyFilePath both to be freed and reported in case of errors
   try
@@ -374,18 +374,18 @@ EVP_PKEY* SrvSTSMMgr::getCliRSAPubKey(std::string& cliName)
     // Attempt to open the client's RSA public key file
     cliRSAPubKeyFile = fopen(cliRSAPubKeyFilePath, "r");
     if(!cliRSAPubKeyFile)
-     THROW_SCODE(ERR_LOGIN_PUBKEYFILE_OPEN_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_LOGIN_PUBKEYFILE_OPEN_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
 
     // Attempt to read the client's long-term RSA public key from its file
     cliRSAPubKey = PEM_read_PUBKEY(cliRSAPubKeyFile, NULL, NULL, NULL);
 
     // Close the client's RSA public key file
     if(fclose(cliRSAPubKeyFile) != 0)
-     THROW_SCODE(ERR_FILE_CLOSE_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, cliRSAPubKeyFilePath, ERRNO_DESC);
 
     // Ensure that a valid public key has been read
     if(!cliRSAPubKey)
-     THROW_SCODE(ERR_LOGIN_PUBKEY_INVALID, cliRSAPubKeyFilePath, OSSL_ERR_DESC);
+     THROW_SCODE_EXCP(ERR_LOGIN_PUBKEY_INVALID, cliRSAPubKeyFilePath, OSSL_ERR_DESC);
 
     // Free the client's RSA public key file path
     free(cliRSAPubKeyFilePath);

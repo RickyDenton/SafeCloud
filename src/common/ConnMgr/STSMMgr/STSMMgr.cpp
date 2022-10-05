@@ -30,26 +30,26 @@ EVP_PKEY* STSMMgr::DHE_2048_Keygen()
   // Allocate an EVP_PKEY structure for storing the default DH parameters
   DHParams = EVP_PKEY_new();
   if(DHParams == nullptr)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
   // Initialize the previous EVP_PKEY structure with the default DH parameters
   if(EVP_PKEY_assign(DHParams, EVP_PKEY_DHX, DH_get_2048_256()) != 1)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_ASSIGN,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_ASSIGN, OSSL_ERR_DESC);
 
   /* ------------------- Ephemeral DH 2048 Key Pair Generation ------------------- */
 
   // Create a key generation context using the previously initialized DH default parameters
   DHGenCtx = EVP_PKEY_CTX_new(DHParams, nullptr);
   if(!DHGenCtx)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_CTX_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the key generation context
   if(EVP_PKEY_keygen_init(DHGenCtx) != 1)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_KEYGEN_INIT,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_KEYGEN_INIT, OSSL_ERR_DESC);
 
   // Generate an ephemeral DH 2048 key pair
   if(EVP_PKEY_keygen(DHGenCtx, &DHEKey) != 1)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_KEYGEN,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_KEYGEN, OSSL_ERR_DESC);
 
   // Free the EVP_PKEY structure containing the default
   // DH parameters and the key generation context
@@ -102,15 +102,15 @@ void STSMMgr::writeEDHPubKey(EVP_PKEY* EDHPubKey,unsigned char* addr)
   // Initialize a memory BIO for storing the actor's ephemeral DH public key
   BIO* EDHPubKeyBIO = BIO_new(BIO_s_mem());
   if(EDHPubKeyBIO == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Write the actor's ephemeral DH public key to the BIO
   if(PEM_write_bio_PUBKEY(EDHPubKeyBIO, EDHPubKey) != 1)
-   THROW_SCODE(ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED, OSSL_ERR_DESC);
 
   // Write the actor's ephemeral DH public key from the BIO to the specified memory address
   if(BIO_read(EDHPubKeyBIO, addr, DH2048_PUBKEY_PEM_SIZE) <= 0)
-   THROW_SCODE(ERR_OSSL_BIO_READ_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_READ_FAILED, OSSL_ERR_DESC);
 
   // Free the memory BIO
   if(BIO_free(EDHPubKeyBIO) != 1)
@@ -133,11 +133,11 @@ void STSMMgr::delMyDHEPrivKey()
   // Initialize a memory BIO for storing the local actor's ephemeral DH public key
   BIO* myEDHPubKeyBIO = BIO_new(BIO_s_mem());
   if(myEDHPubKeyBIO == NULL)
-   THROW_SCODE(ERR_OSSL_BIO_NEW_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
   // Write the local actor's ephemeral DH public key to the BIO
   if(PEM_write_bio_PUBKEY(myEDHPubKeyBIO, _myDHEKey) != 1)
-   THROW_SCODE(ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED, OSSL_ERR_DESC);
 
   // Free the local actor's ephemeral DH key pair
   EVP_PKEY_free(_myDHEKey);
@@ -145,7 +145,7 @@ void STSMMgr::delMyDHEPrivKey()
   // Re-initialize the local actor's EVP_PKEY structure
   _myDHEKey = EVP_PKEY_new();
   if(_myDHEKey == nullptr)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
   // Write the local actor's ephemeral DH public key from
   // the memory BIO into the newly created EVP_PKEY structure
@@ -201,39 +201,39 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
 
   // Ensure both actors' public keys to be available
   if(!_myDHEKey)
-   THROW_SCODE(ERR_STSM_MY_PUBKEY_MISSING);
+   THROW_SCODE_EXCP(ERR_STSM_MY_PUBKEY_MISSING);
   if(!_otherDHEPubKey)
-   THROW_SCODE(ERR_STSM_OTHER_PUBKEY_MISSING);
+   THROW_SCODE_EXCP(ERR_STSM_OTHER_PUBKEY_MISSING);
 
   /* ----------------- Key Derivation Context Preparation ----------------- */
 
   // Create the key derivation context
   sSecretDerCTX = EVP_PKEY_CTX_new(_myDHEKey, NULL);
   if(!sSecretDerCTX)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_CTX_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the key derivation context
   if(EVP_PKEY_derive_init(sSecretDerCTX) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_DERIVE_INIT,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_DERIVE_INIT, OSSL_ERR_DESC);
 
   // Set the remote actor's public key in the key derivation context
   if(EVP_PKEY_derive_set_peer(sSecretDerCTX, _otherDHEPubKey) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER, OSSL_ERR_DESC);
 
   /* ---------------------- Shared Secret Derivation ---------------------- */
 
   // Determine the required buffer size for storing the derived shared secret
   if(EVP_PKEY_derive(sSecretDerCTX, NULL, &sSecretSize) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_DERIVE,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_DERIVE, OSSL_ERR_DESC);
 
   // Allocate the shared secret buffer
   sSecret = (unsigned char*)(malloc(int(sSecretSize)));
   if(!sSecret)
-   THROW_SCODE(ERR_MALLOC_FAILED,"requested size = " + std::to_string(sSecretSize), ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_MALLOC_FAILED, "requested size = " + std::to_string(sSecretSize), ERRNO_DESC);
 
   // Derive the shared secret into its buffer
   if(EVP_PKEY_derive(sSecretDerCTX, sSecret, &sSecretSize) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_PKEY_DERIVE,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_PKEY_DERIVE, OSSL_ERR_DESC);
 
   // Free the key derivation context
   EVP_PKEY_CTX_free(sSecretDerCTX);
@@ -257,24 +257,24 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
   // capable of storing a SHA-256 digest (256 bits)
   sSecretDigest = (unsigned char*) malloc(EVP_MD_size(EVP_sha256()));
   if(!sSecretDigest)
-   THROW_SCODE(ERR_MALLOC_FAILED,"requested size = " + std::to_string(EVP_MD_size(EVP_sha256())), ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_MALLOC_FAILED, "requested size = " + std::to_string(EVP_MD_size(EVP_sha256())), ERRNO_DESC);
 
   // Create the message digest context for hashing the shared secret
   sSecretHashCTX = EVP_MD_CTX_new();
   if(!sSecretHashCTX)
-   THROW_SCODE(ERR_OSSL_EVP_MD_CTX_NEW,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the message digest context using SHA-256 as hash function
   if(EVP_DigestInit(sSecretHashCTX, EVP_sha256()) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_DIGEST_INIT,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_DIGEST_INIT, OSSL_ERR_DESC);
 
   // Pass the derived shared secret to the EVP_DigestUpdate()
   if(EVP_DigestUpdate(sSecretHashCTX, (unsigned char*)sSecret, sSecretSize) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_DIGEST_UPDATE,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_DIGEST_UPDATE, OSSL_ERR_DESC);
 
   // Finalize the digest and write it into its buffer
   if(EVP_DigestFinal(sSecretHashCTX, sSecretDigest, &sSecretDigestSize) <= 0)
-   THROW_SCODE(ERR_OSSL_EVP_DIGEST_FINAL,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_OSSL_EVP_DIGEST_FINAL, OSSL_ERR_DESC);
 
   // Free the message digest context
   EVP_MD_CTX_free(sSecretHashCTX);
@@ -373,7 +373,7 @@ void STSMMgr::writeMyEDHPubKey(unsigned char* addr)
  {
   // Ensure the local actor's ephemeral DH public key to be available
   if(!_myDHEKey)
-   THROW_SCODE(ERR_STSM_MY_PUBKEY_MISSING);
+   THROW_SCODE_EXCP(ERR_STSM_MY_PUBKEY_MISSING);
   else
    writeEDHPubKey(_myDHEKey,addr);
  }
@@ -391,7 +391,7 @@ void STSMMgr::writeOtherEDHPubKey(unsigned char* addr)
  {
   // Ensure the remote actor's ephemeral DH public key to be available
   if(!_otherDHEPubKey)
-   THROW_SCODE(ERR_STSM_OTHER_PUBKEY_MISSING);
+   THROW_SCODE_EXCP(ERR_STSM_OTHER_PUBKEY_MISSING);
   else
    writeEDHPubKey(_otherDHEPubKey,addr);
  }

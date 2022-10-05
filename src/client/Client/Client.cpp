@@ -30,13 +30,13 @@ void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
   // "srvIP" must consist of a valid IPv4 address, which can be ascertained
   // by converting its value from string to its network representation as:
   if(inet_pton(AF_INET, srvIP, &_srvAddr.sin_addr.s_addr) <= 0)
-   THROW_SCODE(ERR_SRV_ADDR_INVALID);
+   THROW_SCODE_EXCP(ERR_SRV_ADDR_INVALID);
 
   // If srvPort >= SRV_PORT_MIN, convert it to the network byte order within the "_srvAddr" structure
   if(srvPort >= SRV_PORT_MIN)
    _srvAddr.sin_port = htons(srvPort);
   else   // Otherwise, throw an exception
-   THROW_SCODE(ERR_SRV_PORT_INVALID);
+   THROW_SCODE_EXCP(ERR_SRV_PORT_INVALID);
 
   // At this point the SafeCloud server IP and port parameters are valid
   LOG_DEBUG("SafeCloud server address set to " + std::string(srvIP) + ":" + std::to_string(srvPort))
@@ -59,18 +59,18 @@ X509* Client::getCACert()
   // Attempt to open the CA certificate from its .pem file
   CACertFile = fopen(CLI_CA_CERT_PATH, "r");
   if(!CACertFile)
-   THROW_SCODE(ERR_CA_CERT_OPEN_FAILED,CLI_CA_CERT_PATH,ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_CA_CERT_OPEN_FAILED, CLI_CA_CERT_PATH, ERRNO_DESC);
 
   // Read the X.509 CA certificate from its file
   CACert = PEM_read_X509(CACertFile, NULL, NULL, NULL);
 
   // Close the CA certificate file
   if(fclose(CACertFile) != 0)
-   THROW_SCODE(ERR_FILE_CLOSE_FAILED,CLI_CA_CERT_PATH,ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, CLI_CA_CERT_PATH, ERRNO_DESC);
 
   // Ensure the contents of the CA certificate file to consist of a valid certificate
   if(!CACert)
-   THROW_SCODE(ERR_CA_CERT_INVALID,CLI_CA_CERT_PATH,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_CA_CERT_INVALID, CLI_CA_CERT_PATH, OSSL_ERR_DESC);
 
   // At this point the CA certificate has been loaded successfully
   // and, in DEBUG_MODE, print its subject and issuer
@@ -98,18 +98,18 @@ X509_CRL* Client::getCACRL()
   // Attempt to open the CA CRL from its .pem file
   CACRLFile = fopen(CLI_CA_CRL_PATH, "r");
   if(!CACRLFile)
-   THROW_SCODE(ERR_CA_CRL_OPEN_FAILED,CLI_CA_CRL_PATH,ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_CA_CRL_OPEN_FAILED, CLI_CA_CRL_PATH, ERRNO_DESC);
 
   // Read the CA X.509 CRL from its file
   CACRL = PEM_read_X509_CRL(CACRLFile, NULL, NULL, NULL);
 
   // Close the CA CRL file
   if(fclose(CACRLFile) != 0)
-   THROW_SCODE(ERR_FILE_CLOSE_FAILED,CLI_CA_CRL_PATH,ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, CLI_CA_CRL_PATH, ERRNO_DESC);
 
   // Ensure the contents of the CA CRL file to consist of a valid X.509 certificate revocation list
   if(!CACRL)
-   THROW_SCODE(ERR_CA_CRL_INVALID,CLI_CA_CRL_PATH,OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_CA_CRL_INVALID, CLI_CA_CRL_PATH, OSSL_ERR_DESC);
 
   // At this point the CA CRL has been loaded successfully
   LOG_DEBUG("CA CRL successfully loaded")
@@ -146,19 +146,19 @@ void Client::buildX509Store()
   // Initialize the client X.509 certificates store
   _certStore = X509_STORE_new();
   if(!_certStore)
-   THROW_SCODE(ERR_STORE_INIT_FAILED, OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_STORE_INIT_FAILED, OSSL_ERR_DESC);
 
   // Add the CA's certificate to the store
   if(X509_STORE_add_cert(_certStore, CACert) != 1)
-   THROW_SCODE(ERR_STORE_ADD_CACERT_FAILED, OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_STORE_ADD_CACERT_FAILED, OSSL_ERR_DESC);
 
   // Add the CA's CRL to the store
   if(X509_STORE_add_crl(_certStore, CACRL) != 1)
-   THROW_SCODE(ERR_STORE_ADD_CACRL_FAILED, OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_STORE_ADD_CACRL_FAILED, OSSL_ERR_DESC);
 
   // Configure the store NOT to accept certificates that have been revoked in the CRL
   if(X509_STORE_set_flags(_certStore, X509_V_FLAG_CRL_CHECK) != 1)
-   THROW_SCODE(ERR_STORE_REJECT_REVOKED_FAILED, OSSL_ERR_DESC);
+   THROW_SCODE_EXCP(ERR_STORE_REJECT_REVOKED_FAILED, OSSL_ERR_DESC);
 
   // At this point the client's certificate store has been successfully initialized
   LOG_DEBUG("X.509 certificate store successfully initialized")
@@ -230,7 +230,7 @@ void Client::loginError(sCodeException& loginExcp)
      *       as the ERR_CLI_LOGIN_FAILED sCodeException is necessarily handled outside the start() method
      */
     _shutdown = true;
-    THROW_SCODE(ERR_CLI_LOGIN_FAILED);
+    THROW_SCODE_EXCP(ERR_CLI_LOGIN_FAILED);
    }
  }
 
@@ -319,7 +319,7 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
   // Derive the expected absolute, or canonicalized, path of the user's private key file
   RSAKeyFilePath = realpath(std::string(CLI_USER_PRIVK_PATH(username)).c_str(),NULL);
   if(!RSAKeyFilePath)
-   THROW_SCODE(ERR_LOGIN_PRIVKFILE_NOT_FOUND,CLI_USER_PRIVK_PATH(username),ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_LOGIN_PRIVKFILE_NOT_FOUND, CLI_USER_PRIVK_PATH(username), ERRNO_DESC);
 
   // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in case of errors
   try
@@ -327,7 +327,7 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
     // Attempt to open the user's RSA private key file
     RSAKeyFile = fopen(RSAKeyFilePath, "r");
     if(!RSAKeyFile)
-     THROW_SCODE(ERR_LOGIN_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_LOGIN_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
 
     // Attempt to read the user's long-term RSA private key from its file
     _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, (void*)password.c_str());
@@ -337,11 +337,11 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
 
     // Close the RSA private key file
     if(fclose(RSAKeyFile) != 0)
-     THROW_SCODE(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
 
     // Ensure that a valid private key has been read
     if(!_rsaKey)
-      THROW_SCODE(ERR_LOGIN_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
+      THROW_SCODE_EXCP(ERR_LOGIN_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
 
     // At this point, being the RSA private key valid,
     // the client has successfully locally authenticated
@@ -403,11 +403,11 @@ void Client::login()
 
     // Ensure the password not to be empty
     if(password.empty())
-     THROW_SCODE(ERR_LOGIN_PWD_EMPTY);
+     THROW_SCODE_EXCP(ERR_LOGIN_PWD_EMPTY);
 
     // Ensure the password to be at most "CLI_PWD_MAX_LENGTH" characters
     if(password.length() > CLI_PWD_MAX_LENGTH)
-     THROW_SCODE(ERR_LOGIN_PWD_TOO_LONG, password);
+     THROW_SCODE_EXCP(ERR_LOGIN_PWD_TOO_LONG, password);
 
     // Attempt to locally authenticate the user by retrieving
     // and decrypting its RSA long-term private key
@@ -421,12 +421,12 @@ void Client::login()
     // Set the client's download directory
     _downDir = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(), NULL);
     if(_downDir.empty())
-     THROW_SCODE(ERR_DOWNDIR_NOT_FOUND, CLI_USER_DOWN_PATH(username), ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_DOWNDIR_NOT_FOUND, CLI_USER_DOWN_PATH(username), ERRNO_DESC);
 
     // Set the client's temporary files directory
     _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(), NULL);
     if(_tempDir.empty())
-     THROW_SCODE(ERR_TMPDIR_NOT_FOUND, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_TMPDIR_NOT_FOUND, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
 
     LOG_DEBUG("User \"" + _name + "\" successfully logged in")
     LOG_DEBUG("Download directory: " + _downDir)
@@ -495,7 +495,7 @@ void Client::srvConnect()
   // to do so representing an unrecoverable error
   csk = socket(AF_INET, SOCK_STREAM, 0);
   if(csk == -1)
-   THROW_SCODE(ERR_CSK_INIT_FAILED,ERRNO_DESC);
+   THROW_SCODE_EXCP(ERR_CSK_INIT_FAILED, ERRNO_DESC);
 
 // In DEBUG_MODE, log the TCP connection attempt
 #ifdef DEBUG_MODE
@@ -513,10 +513,10 @@ void Client::srvConnect()
    {
     // Recoverable connection errors
     if(errno == ECONNREFUSED || errno == ENETUNREACH || errno == ETIMEDOUT)
-     THROW_SCODE(ERR_SRV_UNREACHABLE, ERRNO_DESC);
+     THROW_SCODE_EXCP(ERR_SRV_UNREACHABLE, ERRNO_DESC);
 
     // All others are non-recoverable FATAL errors
-    THROW_SCODE(ERR_CSK_CONN_FAILED, ERRNO_DESC);
+    THROW_SCODE_EXCP(ERR_CSK_CONN_FAILED, ERRNO_DESC);
    }
 
   // Initialize the connection's manager
