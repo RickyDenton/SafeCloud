@@ -65,6 +65,14 @@ class CliConnMgr : public ConnMgr
     */
    void startCliSTSM();
 
+   /**
+    * @brief  Returns a pointer to the session manager's child object
+    * @return A pointer to the session manager's child object
+    * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+    */
+   CliSessMgr* getSession();
+
+
 
    // TODO
    // uploadFile()

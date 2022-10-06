@@ -97,7 +97,8 @@ enum scode : unsigned char
   ERR_STSM_CLI_MALFORMED_MESSAGE,
   ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,
 
-
+  // Other errors
+  ERR_CONN_NO_SESSION,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -308,6 +309,9 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,   "The server reported to have received an out-of-order STSM message"} },
     { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,   "The server reported to have received a malformed STSM message"} },
     { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown type"} },
+
+    // Other Errors
+    { ERR_CONN_NO_SESSION, {FATAL,"The connection is not in the session phase"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 

@@ -9,9 +9,13 @@
 #include <termios.h>
 
 #include <unistd.h>
+#include <vector>
+#include <sstream>
+#include <iterator>
 #include "errlog.h"
 #include "../client_utils.h"
 #include "client_excp.h"
+#include <bits/stdc++.h>
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -532,11 +536,171 @@ void Client::srvConnect()
 
 /* =========================== CLIENT COMMANDS METHODS =========================== */
 
-// TODO: Stub implementation
-bool Client::cmdPrompt()
+
+// TODO: STUB
+void Client::listDownloadDir()
  {
-  std::cout << "IN CMDPROMPT()!" << std::endl;
-  return true;
+  std::cout << "in listDownloadDir()" << std::endl;
+ }
+
+
+// TODO: Description
+void Client::printCmdHelp()
+ {
+  std::cout << "\nSafeCloud Commands" << std::endl;
+  std::cout << "------------------" << std::endl;
+  std::cout << "UP   filename                  - Uploads a file to the SafeCloud storage (< 4GB)" << std::endl;
+  std::cout << "DOWN filename                  - Downloads a file from the SafeCloud storage into the download directory" << std::endl;
+  std::cout << "DEL  filename                  - Deletes a file from the SafeCloud storage" << std::endl;
+  std::cout << "REN  old_filename new_filename - Renames a file within the SafeCloud storage" << std::endl;
+  std::cout << "LIST storage                   - List the files within the Safecloud storage" << std::endl;
+  std::cout << "LIST local                     - List the files in the local download directory" << std::endl;
+  std::cout << "HELP                           - Prints this list of available commands\n" << std::endl;
+  std::cout << "LOGOUT/EXIT/QUIT               - Closes the application\n" << std::endl;
+ }
+
+
+// TODO: Description
+bool Client::parseUserCmd1(std::string& cmd)
+ {
+  // HELP command
+  if(cmd == "HELP" || cmd == "H")
+   {
+    printCmdHelp();
+    return false;
+   }
+
+  // LOGOUT command
+  if(cmd == "LOGOUT" || cmd == "EXIT" || cmd == "QUIT" || cmd == "CLOSE")
+   return true;
+
+  // Unsupported command
+  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+ }
+
+
+
+// TODO: Description
+bool Client::parseUserCmd2(std::string& cmd, std::string& arg1)
+ {
+  // UPLOAD command
+  if(cmd == "UP" || cmd == "UPLOAD")
+   {
+    _cliConnMgr->getSession()->uploadFile(arg1);
+    return false;
+   }
+
+  // DOWNLOAD command
+  if(cmd == "DOWN" || cmd == "DOWNLOAD")
+   {
+    _cliConnMgr->getSession()->downloadFile(arg1);
+    return false;
+   }
+
+  // LIST command (local or remote)
+  if(cmd == "LIST")
+   {
+    // Convert the LIST target to upper case
+    transform(arg1.begin(), arg1.end(), arg1.begin(), ::tolower);
+
+    // LIST local
+    if(arg1 == "local" || arg1 == "download")
+     listDownloadDir();
+    else
+
+     // LIST remote
+     if(arg1 == "storage" || arg1 == "remote")
+      _cliConnMgr->getSession()->listRemoteFiles();
+     else
+
+      // Unsupported command
+      THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+
+    return false;
+   }
+
+  // Unsupported command
+  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+ }
+
+
+// TODO: Description
+bool Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2)
+ {
+  // RENAME command
+  if(cmd == "RENAME" || cmd == "REN")
+   {
+    _cliConnMgr->getSession()->renameRemFile(arg1,arg2);
+    return false;
+   }
+
+  // Unsupported command
+  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+ }
+
+
+// TODO: Description
+bool Client::parseUserCmd(std::string& cmdLine)
+ {
+  // Initialize an input string stream to the contents of the cmdLine string
+  std::istringstream cmdStringStream(cmdLine);
+
+  // Initialize a vector containing the words in the cmdLine string
+  std::vector<std::string> cmdLineWords{std::istream_iterator<std::string>{cmdStringStream}, std::istream_iterator<std::string>{}};
+
+  // Number of words in the cmdLine string
+  size_t numCmdLineWords = cmdLineWords.size();
+
+  // If there are no words, just return to print the prompt again
+  if(numCmdLineWords == 0)
+   return false;
+
+  // Otherwise, convert the first word (the command) to upper case
+  transform(cmdLineWords[0].begin(), cmdLineWords[0].end(), cmdLineWords[0].begin(), ::toupper);
+
+  // Parse the command depending on its number of words
+  switch(numCmdLineWords)
+   {
+    case 1:
+     return parseUserCmd1(cmdLineWords[0]);
+
+    case 2:
+     return parseUserCmd2(cmdLineWords[0], cmdLineWords[1]);
+
+    case 3:
+     return parseUserCmd3(cmdLineWords[0], cmdLineWords[1], cmdLineWords[2]);
+
+    // Currently commands up to 3 words are supported
+    default:
+     THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+   }
+ }
+
+
+// TODO: Description
+bool Client::userCmdPrompt()
+ {
+  bool cliShutdown;       // 'true' when the user prompts the 'quit' command
+  std::string cmdLine;    // Command line (multiple words)
+
+  // Introductory messages
+  std::cout << "Successfully connected with the SafeCloud Server\n" << std::endl;
+  std::cout << "Type \"help\" for a list of available commands\n" << std::endl;
+
+  // Command loop
+  do
+   {
+    try
+     {
+      // Print the command prompt
+      std::cout << "> ";
+      getline(std::cin, cmdLine);
+      cliShutdown = parseUserCmd(cmdLine);
+     }
+    catch(cmdException& cmdExcp)
+     {}
+
+   } while(!cliShutdown);
  }
 
 
@@ -627,9 +791,8 @@ void Client::start()
           // Attempt to connect the client with the SafeCloud server
           srvConnect();
 
-          // Prompt and process the user's application commands
-          // TODO: Another do-try loop here?
-          _shutdown = cmdPrompt();
+          // Prompt and process user commands
+          _shutdown = userCmdPrompt();
          }
 
         // Connection error

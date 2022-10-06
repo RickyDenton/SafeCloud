@@ -103,3 +103,16 @@ void CliConnMgr::startCliSTSM()
   // Switch the connection to the SESSION phase
   _connState = SESSION;
  }
+
+
+/**
+ * @brief  Returns a pointer to the session manager's child object
+ * @return A pointer to the session manager's child object
+ * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+ */
+CliSessMgr* CliConnMgr::getSession()
+ {
+  if(_connState != SESSION || _cliSessMgr == nullptr)
+   THROW_SCODE_EXCP(ERR_CONN_NO_SESSION);
+  return _cliSessMgr;
+ }

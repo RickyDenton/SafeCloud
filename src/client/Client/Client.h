@@ -150,7 +150,20 @@ class Client
   /* ------------------------------ Client Commands ------------------------------ */
 
   // TODO
-  bool cmdPrompt();
+
+  void listDownloadDir();
+
+  static void printCmdHelp();
+
+  bool parseUserCmd1(std::string& cmd);
+
+  bool parseUserCmd2(std::string& cmd, std::string& arg1);
+
+  bool parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2);
+
+  bool parseUserCmd(std::string& cmdLine);
+
+  bool userCmdPrompt();;
 
 
   // TODO

@@ -1,6 +1,7 @@
 /* SafeCloud Client Session Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
+#include <iostream>
 #include "CliSessMgr.h"
 
 /* ======================== CLASS METHODS IMPLEMENTATION ======================== */
@@ -22,3 +23,28 @@ CliSessMgr::CliSessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int b
                        : SessMgr(csk,tmpDir,buf,bufSize,iv,skey), _downDir(downDir)
  {}
 
+
+
+// TODO: STUB
+void CliSessMgr::uploadFile(std::string& filePath)
+ {
+  std::cout << "In uploadFile() (filePath = " << filePath << ")" << std::endl;
+ }
+
+// TODO: STUB
+void CliSessMgr::downloadFile(std::string& fileName)
+ {
+  std::cout << "In downloadFile() (fileName = " << fileName << ")" << std::endl;
+ }
+
+// TODO: STUB
+void CliSessMgr::listRemoteFiles()
+ {
+  std::cout << "In listRemoteFiles()" << std::endl;
+ }
+
+// TODO: STUB
+void CliSessMgr::renameRemFile(std::string& oldFileName,std::string& newFileName)
+ {
+  std::cout << "In renameRemFile() (oldFileName = " << oldFileName << ", newFileName = " << newFileName << ")" << std::endl;
+ }

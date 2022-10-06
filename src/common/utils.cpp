@@ -6,7 +6,7 @@
 #include "utils.h"
 #include "defaults.h"
 #include "errlog.h"
-#include<bits/stdc++.h>
+#include <bits/stdc++.h>
 
 /**
  * @brief      Safely erases "size" bytes from address "addr" and resets its value to 'nullptr'

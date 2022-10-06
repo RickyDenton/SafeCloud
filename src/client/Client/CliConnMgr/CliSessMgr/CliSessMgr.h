@@ -3,6 +3,7 @@
 
 /* SafeCloud Client Session Manager */
 
+#include <string>
 #include "ConnMgr/SessMgr/SessMgr.h"
 
 class CliSessMgr : SessMgr
@@ -21,6 +22,16 @@ class CliSessMgr : SessMgr
   /* ======================== Other Methods ======================== */
 
   // TODO
+  void uploadFile(std::string& filePath);
+
+  // TODO
+  void downloadFile(std::string& fileName);
+
+  // TODO
+  void listRemoteFiles();
+
+  // TODO
+  void renameRemFile(std::string& oldFileName,std::string& newFileName);
  };
 
 
