@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "AES_128_CBC.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
@@ -35,32 +35,32 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
 
   // Assert the plaintext size to be positive
   if(ptSize <= 0)
-   THROW_SCODE_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "ptSize = " + std::to_string(ptSize));
+   THROW_EXEC_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "ptSize = " + std::to_string(ptSize));
 
   // Assert the resulting ciphertext maximum size (ptSize + AES_BLOCK_SIZE) not to overflow
   // on an "int" type, case in which an erroneous negative ciphertext size would be returned
   if(ptSize > INT_MAX - AES_BLOCK_SIZE)
-   THROW_SCODE_EXCP(ERR_OSSL_AES_128_CBC_PT_TOO_LARGE, std::to_string(ptSize));
+   THROW_EXEC_EXCP(ERR_OSSL_AES_128_CBC_PT_TOO_LARGE, std::to_string(ptSize));
 
   // Create the cipher encryption context
   aesEncCTX = EVP_CIPHER_CTX_new();
   if(!aesEncCTX)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the cipher encryption context specifying the cipher, key and IV
   if(EVP_EncryptInit(aesEncCTX, EVP_aes_128_cbc(), key, reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_ENCRYPT_INIT, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_INIT, OSSL_ERR_DESC);
 
   // Encrypt the plaintext to the ciphertext's buffer
   if(EVP_EncryptUpdate(aesEncCTX, ctDest, &encBytes, ptAddr, ptSize) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_ENCRYPT_UPDATE, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_UPDATE, OSSL_ERR_DESC);
 
   // Update the total number of encrypted bytes
   encBytesTot = encBytes;
 
   // Finalize the encryption by adding padding
   if(EVP_EncryptFinal(aesEncCTX, ctDest + encBytesTot, &encBytes) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_ENCRYPT_FINAL, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_FINAL, OSSL_ERR_DESC);
 
   // Update the total number of encrypted bytes
   encBytesTot += encBytes;
@@ -106,27 +106,27 @@ int AES_128_CBC_Decrypt(const unsigned char* key, IV* iv, unsigned char* ctAddr,
 
   // Assert the ciphertext size to be positive
   if(ctSize <= 0)
-   THROW_SCODE_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "ctSize = " + std::to_string(ctSize));
+   THROW_EXEC_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "ctSize = " + std::to_string(ctSize));
 
   // Create the cipher decryption context
   aesDecCTX = EVP_CIPHER_CTX_new();
   if(!aesDecCTX)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the cipher decryption context specifying the cipher, key and IV
   if(EVP_DecryptInit(aesDecCTX, EVP_aes_128_cbc(), key, reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_DECRYPT_INIT, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_INIT, OSSL_ERR_DESC);
 
   // Decrypt the ciphertext to the plaintext buffer
   if(EVP_DecryptUpdate(aesDecCTX, ptDest, &decBytes, ctAddr, ctSize) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_DECRYPT_UPDATE, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_UPDATE, OSSL_ERR_DESC);
 
   // Update the total number of decrypted bytes
   decBytesTot = decBytes;
 
   // Finalize the decryption by removing padding
   if(EVP_DecryptFinal(aesDecCTX, ptDest + decBytesTot, &decBytes) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_DECRYPT_FINAL, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_FINAL, OSSL_ERR_DESC);
 
   // Update the total number of decrypted bytes
   decBytesTot += decBytes;

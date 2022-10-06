@@ -2,8 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "CliConnMgr.h"
-#include "errlog.h"
-#include <arpa/inet.h>
+#include "err/execErrCodes.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -31,14 +30,14 @@ void CliConnMgr::recvMsg()
       */
      }
    }
-  catch(sCodeException& recvExcp)
+  catch(execErrExcp& recvExcp)
    {
     // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error
     // code and clear its additional information (representing the name of the client
     // associated with the connection manager, which on the client side is implicit)
-    if(recvExcp.scode == ERR_PEER_DISCONNECTED)
+    if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
      {
-      recvExcp.scode = ERR_SRV_DISCONNECTED;
+      recvExcp.exErrcode = ERR_SRV_DISCONNECTED;
       recvExcp.addDscr = "";
      }
 
@@ -83,7 +82,7 @@ CliConnMgr::~CliConnMgr()
  * @brief  Executes the STSM client protocol, and
  *         initializes the communication's session phase
  * @throws All the STSM exceptions and most of the OpenSSL
- *         exceptions (see "scode.h" for more details)
+ *         exceptions (see "execErrCode.h" for more details)
  */
 void CliConnMgr::startCliSTSM()
  {
@@ -113,6 +112,6 @@ void CliConnMgr::startCliSTSM()
 CliSessMgr* CliConnMgr::getSession()
  {
   if(_connState != SESSION || _cliSessMgr == nullptr)
-   THROW_SCODE_EXCP(ERR_CONN_NO_SESSION);
+   THROW_EXEC_EXCP(ERR_CONN_NO_SESSION);
   return _cliSessMgr;
  }

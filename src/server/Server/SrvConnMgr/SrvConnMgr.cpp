@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "SrvConnMgr.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -68,11 +68,11 @@ bool SrvConnMgr::recvHandleData()
        return _srvSessMgr->SessBlockHandler();
       }
    }
-  catch(sCodeException& recvExcp)
+  catch(execErrExcp& recvExcp)
    {
     // Change a ERR_PEER_DISCONNECTED into the more specific ERR_CLI_DISCONNECTED error code
-    if(recvExcp.scode == ERR_PEER_DISCONNECTED)
-     recvExcp.scode = ERR_CLI_DISCONNECTED;
+    if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
+     recvExcp.exErrcode = ERR_CLI_DISCONNECTED;
 
     // Rethrow the exception
     throw;

@@ -1,19 +1,25 @@
-#ifndef SAFECLOUD_SCODE_H
-#define SAFECLOUD_SCODE_H
+#ifndef SAFECLOUD_EXECERRCODES_H
+#define SAFECLOUD_EXECERRCODES_H
 
-/* SafeCloud application status codes definitions and descriptions */
+/**
+ * SafeCloud application execution error codes definitions
+ *
+ * These errors cause the TCP connection between the SafeCloud client and server, if present,
+ * to be aborted (and the application to be terminated for errors of FATAL severity)
+ */
 
+/* ================================== INCLUDES ================================== */
 #include <unordered_map>
+#include "errCode.h"
 
-/* ============================== TYPE DEFINITIONS ============================== */
+/* ====================== SAFECLOUD EXECUTION ERROR CODES ====================== */
 
-// SafeCloud application status codes definitions
-enum scode : unsigned char
+enum execErrCode : unsigned char
  {
   // Operation Successful
   OK = 0,
 
-  /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
+  /* ------------------------ SERVER-SPECIFIC ERRORS ------------------------ */
 
   // Server Private Key File
   ERR_SRV_PRIVKFILE_NOT_FOUND,
@@ -58,7 +64,7 @@ enum scode : unsigned char
   ERR_SRV_PSELECT_FAILED,
 
 
-  /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
+  /* ------------------------ CLIENT-SPECIFIC ERRORS ------------------------ */
 
   // X.509 Store Creation
   ERR_CA_CERT_OPEN_FAILED,
@@ -100,7 +106,7 @@ enum scode : unsigned char
   // Other errors
   ERR_CONN_NO_SESSION,
 
-  /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
+  /* --------------------- CLIENT-SERVER COMMON ERRORS --------------------- */
 
   // Server Connection Parameters
   ERR_SRV_ADDR_INVALID,
@@ -188,39 +194,15 @@ enum scode : unsigned char
   ERR_NON_POSITIVE_BUFFER_SIZE,
 
 
-
   // Unknown error
   ERR_UNKNOWN
  };
 
 
+/* ================== SAFECLOUD EXECUTION ERROR CODES INFO MAP ================== */
 
-
-// SafeCloud Severity Levels
-enum severityLvl : unsigned char
- {
-  FATAL,     // Unrecoverable error, the application must be terminated
-  CRITICAL,  // Unrecoverable error
-  ERROR,     // Recoverable error
-  WARNING,   // Unexpected event
-  INFO,      // Informational content
-  DEBUG      // Debug content
- };
-
-
-// Used for associating a severity level and a
-// human-readable description to SafeCloud status codes
-struct scodeInfo
- {
-  enum severityLvl sev;   // The scode severity level (FATAL to INFO)
-  const char*      dscr;  // The scode human-readable description
- };
-
-
-/* =========================== GLOBAL STATIC VARIABLES =========================== */
-
-// Associates each SafeCloud status code with its severity level and human-readable description
-static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
+// Associates each SafeCloud execution error code with its severity level and human-readable description
+static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
   {
     // Operation Successful
     { OK, {DEBUG,"Operation Successful"}},
@@ -402,9 +384,173 @@ static const std::unordered_map<scode,scodeInfo> scodeInfoMap =
     {ERR_MALLOC_FAILED,                    {FATAL,"malloc() failed"} },
     {ERR_NON_POSITIVE_BUFFER_SIZE,         {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
 
-    // Unknown
+    // Unknown error
     {ERR_UNKNOWN,                          {CRITICAL, "Unknown Error"} }
   };
 
 
-#endif //SAFECLOUD_SCODE_H
+/* =================== SAFECLOUD EXECUTION ERRORS EXCEPTION  =================== */
+
+/**
+ * @brief An exception class associated with an execution error code
+ *        (execErrCode) and an optional additional description an reason
+ */
+class execErrExcp : public errExcp
+ {
+   public:
+
+    /* ========================= Attributes ========================= */
+    enum execErrCode exErrcode;  // The exception's execution error code (severity >= WARNING)
+
+  /* ================= Constructors and Destructor ================= */
+
+#ifdef DEBUG_MODE
+  /* ------------------- DEBUG_MODE Constructors ------------------- */
+
+  // execErrCode-only constructor (with implicit source file name and line)
+  execErrExcp(const enum execErrCode exCode, std::string srcFileName, const unsigned int line)
+    : errExcp(std::move(srcFileName),line), exErrcode(exCode)
+   {}
+
+  // execErrCode + additional description constructor (with implicit source file name and line)
+  execErrExcp(const enum execErrCode exCode, std::string addDescr, std::string srcFileName, const unsigned int line)
+    : errExcp(std::move(addDescr),std::move(srcFileName),line), exErrcode(exCode)
+   {}
+
+  // execErrCode + additional description + reason constructor (with implicit source file name and line)
+  execErrExcp(const enum execErrCode exCode, std::string addDescr, std::string errReason, std::string srcFileName, const unsigned int line)
+    : errExcp(std::move(addDescr),std::move(errReason), std::move(srcFileName),line), exErrcode(exCode)
+   {}
+#else
+  /* ----------------- Non-DEBUG_MODE Constructors ----------------- */
+
+  // execErrCode-only constructor
+  explicit execErrExcp(const enum execErrCode execCode)
+    : errExcp(), exErrcode(execCode)
+   {}
+
+  // execErrCode + additional description constructor
+  execErrExcp(const enum execErrCode execCode, std::string addDescr)
+    : errExcp(std::move(addDescr)), exErrcode(execCode)
+   {}
+
+  // execErrCode + additional description + reason constructor
+  execErrExcp(const enum execErrCode execCode, std::string addDescr, std::string errReason)
+    : errExcp(std::move(addDescr),std::move(errReason)), exErrcode(execCode)
+   {}
+#endif
+
+  // Destructor
+  ~execErrExcp()
+   {}
+ };
+
+
+/* ======================= EXECUTION ERRORS HANDLING MACROS ======================= */
+
+/* --------------------------- Execution Errors Logging --------------------------- */
+
+/**
+ * LOG_EXEC_CODE_ macros, calling the handleExecErrCode() function with the arguments passed to the LOG_EXEC_CODE macro:
+ *  - 1 argument   -> execErrCode only
+ *  - 2 arguments  -> execErrCode + additional description
+ *  - 3 arguments  -> execErrCode + additional description + error reason
+ *  - (DEBUG_MODE) -> The source file name and line number at which the exception is thrown
+ */
+#ifdef DEBUG_MODE
+ #define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,"","",__FILE__,__LINE__-1)
+ #define LOG_EXEC_CODE_DSCR(execErrCode,dscr) handleExecErrCode(execErrCode,dscr,"",__FILE__,__LINE__-1)
+ #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,dscr,reason) handleExecErrCode(execErrCode,dscr,reason,__FILE__,__LINE__-1)
+#else
+#define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,"","")
+ #define LOG_EXEC_CODE_DSCR(execErrCode,humanDscr) handleExecErrCode(execErrCode,humanDscr,"")
+ #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,humanDscr,reason) handleExecErrCode(execErrCode,humanDscr,reason)
+#endif
+
+/**
+ * Substitutes the appropriate LOG_EXEC_CODE_ depending on the number of arguments passed to the LOG_EXEC_CODE variadic macro:
+ *  - 1 argument  -> execErrCode only
+ *  - 2 arguments -> execErrCode + additional description
+ *  - 3 arguments -> execErrCode + additional description + error reason
+ */
+#define GET_LOG_EXEC_CODE_MACRO(_1,_2,_3,LOG_EXEC_CODE_MACRO,...) LOG_EXEC_CODE_MACRO
+#define LOG_EXEC_CODE(...) GET_LOG_EXEC_CODE_MACRO(__VA_ARGS__,LOG_EXEC_CODE_DSCR_REASON,LOG_EXEC_CODE_DSCR,LOG_EXEC_CODE_ONLY)(__VA_ARGS__)
+
+
+/* --------------------- Execution Error Exceptions Throwing --------------------- */
+
+/**
+ * THROW_EXEC_EXCP_ macros, passing their arguments to the matching execErrExcp exception constructor
+ *  - 1 argument   -> execErrCode only
+ *  - 2 arguments  -> execErrCode + additional description
+ *  - 3 arguments  -> execErrCode + additional description + error reason
+ *  - (DEBUG_MODE) -> The source file name and line number at which the execErrExcp has been thrown
+ */
+#ifdef DEBUG_MODE
+#define THROW_EXEC_EXCP_CODE_ONLY(execErrCode) throw execErrExcp(execErrCode,__FILE__,__LINE__-1)
+ #define THROW_EXEC_EXCP_DSCR(execErrCode,dscr) throw execErrExcp(execErrCode,dscr,__FILE__,__LINE__-1)
+ #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,dscr,reason) throw execErrExcp(execErrCode,dscr,reason,__FILE__,__LINE__-1)
+#else
+#define THROW_EXEC_EXCP_CODE_ONLY(execErrCode) throw execErrExcp(execErrCode)
+ #define THROW_EXEC_EXCP_DSCR(execErrCode,humanDscr) throw execErrExcp(execErrCode,humanDscr)
+ #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,humanDscr,reason) throw execErrExcp(execErrCode,humanDscr,reason)
+#endif
+
+
+/**
+ * Substitutes the appropriate THROW_EXEC_EXCP_ macro depending on the number of arguments passed to the THROW_EXEC_EXCP variadic macro:
+ *  - 1 argument  -> execErrCode only
+ *  - 2 arguments -> execErrCode + additional description
+ *  - 3 arguments -> execErrCode + additional description + error reason
+ */
+#define GET_THROW_EXEC_EXCP_MACRO(_1,_2,_3,THROW_EXEC_EXCP_MACRO,...) THROW_EXEC_EXCP_MACRO
+#define THROW_EXEC_EXCP(...) GET_THROW_EXEC_EXCP_MACRO(__VA_ARGS__,THROW_EXEC_EXCP_DSCR_REASON,THROW_EXEC_EXCP_DSCR,THROW_EXEC_EXCP_CODE_ONLY)(__VA_ARGS__)
+
+
+/* ===================== EXECUTION ERRORS HANDLING FUNCTIONS ===================== */
+
+/**
+ * @brief             Execution error codes handler, passing its information to the SafeCloud application default error handler
+ * @param execErrCode The execution error code that has occurred
+ * @param addDsc      The additional execution error description (optional)
+ * @param reason      The execution error reason (optional)
+ * @param srcFile     (DEBUG MODE ONLY) The source file where the execution error has occurred
+ * @param lineNumber  (DEBUG MODE ONLY) The line number at which the execution error has occurred
+ */
+#ifdef DEBUG_MODE
+void handleExecErrCode(const execErrCode exeErrCode, const std::string& addDscr, const std::string& reason, const std::string& srcFile, const unsigned int lineNumber)
+#else
+void handleExecErrCode(const execErrCode exeErrCode,const std::string& addDscr,const std::string& reason)
+#endif
+ {
+  // Retrieve the information associated with the execution error code from the execErrCodeInfoMap
+  errCodeInfo exeErrCodeInfo = execErrCodeInfoMap.find(exeErrCode)->second;
+
+  // Call the SafeCloud application default error handler passing it the information associated with the execution error
+#ifdef DEBUG_MODE
+  handleErrCode(exeErrCodeInfo,addDscr,reason,srcFile,lineNumber);
+#else
+  handleErrCode(exeErrCodeInfo,addDscr,reason);
+#endif
+ }
+
+
+/**
+ * @brief            Execution error exceptions default handler, passing the exception's
+ *                   information to the handleExecErrCode() execution code error handler
+ * @param exeErrExcp The execErrExcp exception that was caught
+ */
+void handleExecErrException(const execErrExcp& exeErrExcp)
+ {
+#ifdef DEBUG_MODE
+  handleExecErrCode(exeErrExcp.exErrcode, exeErrExcp.addDscr, exeErrExcp.reason, exeErrExcp.srcFile, exeErrExcp.lineNumber);
+#else
+  handleExecErrCode(exeErrExcp.exErrcode,exeErrExcp.addDscr,exeErrExcp.reason);
+#endif
+  /*
+   * NOTE: Exception objects are automatically destroyed after handling (matching
+   *       catch{} clause), and so do not require to be manually deallocated
+   */
+ }
+
+#endif //SAFECLOUD_EXECERRCODES_H

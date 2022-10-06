@@ -1,7 +1,7 @@
 #ifndef SAFECLOUD_ANSI_COLORS_H
 #define SAFECLOUD_ANSI_COLORS_H
 
-/* List of ANSI color codes used for severity-based logging formatting */
+/* List of ANSI colors used for severity-based error logging formatting */
 
 #define RESET "\u001b[0m"    // Reset color to terminal default
 
@@ -44,6 +44,5 @@
 #define BOLDBRIGHTMAGENTA "\e[1;95m"
 #define BOLDBRIGHTCYAN    "\e[1;96m"
 #define BOLDBRIGHTWHITE   "\e[1;97m"
-
 
 #endif //SAFECLOUD_ANSI_COLORS_H

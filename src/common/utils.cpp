@@ -5,8 +5,11 @@
 #include <string>
 #include "utils.h"
 #include "defaults.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 #include <bits/stdc++.h>
+
+
+/* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
 
 /**
  * @brief      Safely erases "size" bytes from address "addr" and resets its value to 'nullptr'
@@ -42,6 +45,8 @@ void safeFree(void*& pnt,unsigned int size)
    }
  }
 
+/* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
+
 
 /**
  * @brief Sanitizes a SafeCloud username by converting it to lower-case and ensuring that:\n
@@ -62,19 +67,19 @@ void sanitizeUsername(std::string& username)
 
   // Ensure the username not to be empty
   if(username.empty())
-   THROW_SCODE_EXCP(ERR_LOGIN_NAME_EMPTY);
+   THROW_EXEC_EXCP(ERR_LOGIN_NAME_EMPTY);
 
   // Ensure the username not to be too long
   if(username.length() > CLI_NAME_MAX_LENGTH)
-   THROW_SCODE_EXCP(ERR_LOGIN_NAME_TOO_LONG);
+   THROW_EXEC_EXCP(ERR_LOGIN_NAME_TOO_LONG);
 
   // Ensure the first character to consist of a letter of the alphabet (a-z, A-Z)
   if(!isalpha(username.front()))
-   THROW_SCODE_EXCP(ERR_LOGIN_NAME_WRONG_FORMAT);
+   THROW_EXEC_EXCP(ERR_LOGIN_NAME_WRONG_FORMAT);
 
   // Ensure the username to contain valid characters only (a-z, A-Z, 0-9, _)
   if(username.find_first_not_of(validNameChars) != std::string::npos)
-   THROW_SCODE_EXCP(ERR_LOGIN_NAME_INVALID_CHARS);
+   THROW_EXEC_EXCP(ERR_LOGIN_NAME_INVALID_CHARS);
 
   // Convert the username to lowercase
   transform(username.begin(), username.end(), username.begin(), ::tolower);

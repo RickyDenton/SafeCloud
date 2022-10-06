@@ -2,8 +2,8 @@
 
 /* ================================== INCLUDES ================================== */
 #include "IV.h"
-#include "scode.h"
-#include "errlog.h"
+#include "codes/execErrCodes.h"
+#include "err/execErrCodes.h"
 #include <cstring>
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
@@ -17,17 +17,17 @@ IV::IV() : iv_AES_CBC(), iv_AES_GCM(), iv_var(), iv_var_start()
  {
   // Seed the OpenSSL PRNG
   if(!RAND_poll())
-   THROW_SCODE_EXCP(ERR_OSSL_RAND_POLL_FAILED, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_RAND_POLL_FAILED, OSSL_ERR_DESC);
 
   // Randomly generate the IV's components
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_CBC), sizeof(iv_AES_CBC)) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_AES_GCM), sizeof(iv_AES_GCM)) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   if(RAND_bytes(reinterpret_cast<unsigned char*>(&iv_var), sizeof(iv_var)) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_RAND_BYTES_FAILED, OSSL_ERR_DESC);
 
   // Set starting value of the IV's variable part
   iv_var_start = iv_var;

@@ -7,12 +7,14 @@
 /* SafeCloud Application common utility functions declarations */
 
 
+/* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
+
 /**
  * @brief      Safely erases "size" bytes from address "addr" and resets its value to 'nullptr'
  * @param addr The memory address from where safely erasing data
  * @param size The size in bytes of the data to be safely deleted
  */
-void safeMemset0(void*& addr, unsigned int size);
+//void safeMemset0(void*& addr, unsigned int size);
 
 
 /**
@@ -21,7 +23,9 @@ void safeMemset0(void*& addr, unsigned int size);
  * @param pnt  The pointer to the dynamic memory allocated via a malloc()
  * @param size The size in bytes of the dynamic memory allocated via malloc()
  */
-void safeFree(void*& pnt,unsigned int size);
+//void safeFree(void*& pnt,unsigned int size);
+
+/* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
 
 
 /**

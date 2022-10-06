@@ -61,7 +61,7 @@ class CliConnMgr : public ConnMgr
     * @brief  Executes the STSM client protocol, and
     *         initializes the communication's session phase
     * @throws All the STSM exceptions and most of the OpenSSL
-    *         exceptions (see "scode.h" for more details)
+    *         exceptions (see "execErrCode.h" for more details)
     */
    void startCliSTSM();
 

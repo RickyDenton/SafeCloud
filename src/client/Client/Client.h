@@ -7,7 +7,7 @@
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 #include <string>
 
 
@@ -94,10 +94,10 @@ class Client
    /**
     * @brief           Client's login error handler, which deletes the client's personal
     *                  information and decreases the number of remaining login attempts
-    * @param loginExcp The login-related sCodeException
+    * @param loginExcp The login-related execErrExcp
     * @throws          ERR_CLI_LOGIN_FAILED Maximum number of login attempts reached
     */
-   void loginError(sCodeException& loginExcp);
+   void loginError(execErrExcp& loginExcp);
 
    /**
      * @brief   Reads a character from stdin while temporarily disabling
@@ -136,11 +136,11 @@ class Client
   /**
    * @brief           Client's connection error handler, which resets the server's connection and, in case of
    *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
-   * @param loginExcp The connection-related sCodeException
+   * @param loginExcp The connection-related execErrExcp
    * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
    *                                       for it to be handled in the loginError() handler)
    */
-  void connError(sCodeException& connExcp);
+  void connError(execErrExcp& connExcp);
 
 
    // TODO: Write description

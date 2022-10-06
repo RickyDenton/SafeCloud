@@ -13,7 +13,7 @@
 
 // SafeCloud Libraries
 #include "defaults.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 #include "Server/Server.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
@@ -21,10 +21,11 @@ Server* srv;  // The singleton Server object
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
-/* ------------------------- Client Shutdown Management ------------------------- */
+/* ------------------------- Server Shutdown Management ------------------------- */
 
 /**
- * @brief            Deletes the Server object and terminates the SafeCloud Server application
+ * @brief            SafeCloud Server shutdown handler, deleting the
+ *                   Server object and terminating the application
  * @param exitStatus The exit status to be returned to the OS via the exit() function
  */
 void terminate(int exitStatus)
@@ -78,17 +79,17 @@ void serverInit(uint16_t& srvPort)
   // Attempt to initialize the client object by passing the server connection parameters
   try
    { srv = new Server(srvPort); }
-  catch(sCodeException& excp)
+  catch(execErrExcp& excp)
    {
     // If the exception is relative to an invalid srvIP passed via command-line arguments, "gently"
     // inform the user of the allowed port values without recurring to the built-in logging macros
-    if(excp.scode == ERR_SRV_PORT_INVALID)
+    if(excp.exErrcode == ERR_SRV_PORT_INVALID)
      std::cerr << "\nPlease specify a PORT >= " << std::to_string(SRV_PORT_MIN) << " for the '-p' option\n" << std::endl;
 
-     // All other exceptions should be handled by the general handleScodeException()
+     // All other exceptions should be handled by the general handleExecErrException()
      // function (which, being all of FATAL severity, will terminate the execution)
     else
-     handleScodeException(excp);
+     handleExecErrException(excp);
 
     // If no fatal error occurred, delete the Server object and exit silently
     delete(srv);
@@ -216,11 +217,11 @@ int main(int argc, char** argv)
   // Start the SafeCloud server
   try
    { srv->start(); }
-  catch(sCodeException& excp)
+  catch(execErrExcp& excp)
    {
     // If an error occurred in the server's execution,
     // handle it and terminate the application
-    handleScodeException(excp);
+    handleExecErrException(excp);
     terminate(EXIT_FAILURE);
    }
 

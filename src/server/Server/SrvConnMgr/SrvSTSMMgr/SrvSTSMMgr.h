@@ -178,7 +178,7 @@ class SrvSTSMMgr : public STSMMgr
      *         key exchange protocol with the client has successfully completed and so
      *         connection can switch to the session phase ('true') or not ('false')
      * @throws All the STSM exceptions and most of the OpenSSL
-     *         exceptions (see "scode.h" for more details)
+     *         exceptions (see "execErrCode.h" for more details)
      */
     bool STSMMsgHandler();
  };

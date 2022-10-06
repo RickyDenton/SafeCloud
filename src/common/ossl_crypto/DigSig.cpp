@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "DigSig.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
@@ -28,20 +28,20 @@ unsigned int digSigSign(EVP_PKEY* signPrivKey, unsigned char* srcAddr, size_t sr
   // Create the digital signature signing context
   digSigCTX = EVP_MD_CTX_new();
   if(!digSigCTX)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the digital signature signing context so to use the SHA-256 hash-and-sign paradigm
   if(EVP_SignInit(digSigCTX, EVP_sha256()) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_SIGN_INIT, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_SIGN_INIT, OSSL_ERR_DESC);
 
   // Pass the address and size of the data to be signed
   if(EVP_SignUpdate(digSigCTX, srcAddr, srcSize) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_SIGN_UPDATE, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_SIGN_UPDATE, OSSL_ERR_DESC);
 
   // Sign the data with the provided private key and write
   // the resulting signature into the destination buffer
   if(EVP_SignFinal(digSigCTX, sigAddr, &sigSize, signPrivKey) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_SIGN_FINAL, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_SIGN_FINAL, OSSL_ERR_DESC);
 
   // Free the digital signature signing context
   EVP_MD_CTX_free(digSigCTX);
@@ -71,26 +71,26 @@ void digSigVerify(EVP_PKEY* signPubKey, unsigned char* srcAddr, size_t srcSize, 
   // Create the digital signature verification context
   digVerCTX = EVP_MD_CTX_new();
   if(!digVerCTX)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the digital signature verification context so to use the SHA-256 hash-and-sign paradigm
   if(EVP_VerifyInit(digVerCTX, EVP_sha256()) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_VERIFY_INIT, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_VERIFY_INIT, OSSL_ERR_DESC);
 
   // Pass the address and size of the data to be verified
   if(EVP_VerifyUpdate(digVerCTX, srcAddr, srcSize) != 1)
-   THROW_SCODE_EXCP(ERR_OSSL_EVP_VERIFY_UPDATE, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_OSSL_EVP_VERIFY_UPDATE, OSSL_ERR_DESC);
 
   // Verify the digital signature
   int verFinalRet = EVP_VerifyFinal(digVerCTX, signAddr, signSize, signPubKey);
 
     // EVP_VerifyFinal internal error
     if(verFinalRet == -1)
-     THROW_SCODE_EXCP(ERR_OSSL_EVP_VERIFY_FINAL, OSSL_ERR_DESC);
+     THROW_EXEC_EXCP(ERR_OSSL_EVP_VERIFY_FINAL, OSSL_ERR_DESC);
 
     // Signature verification failed
     if(verFinalRet == 0)
-     THROW_SCODE_EXCP(ERR_OSSL_SIG_VERIFY_FAILED, OSSL_ERR_DESC);
+     THROW_EXEC_EXCP(ERR_OSSL_SIG_VERIFY_FAILED, OSSL_ERR_DESC);
 
   // At this point the digital signature is valid (verFinalRet ==1)
 

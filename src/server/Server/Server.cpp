@@ -3,8 +3,7 @@
 /* SafeCloud Application Server Implementation*/
 
 /* ================================== INCLUDES ================================== */
-#include "scode.h"
-#include "errlog.h"
+#include "err/execErrCodes.h"
 #include "defaults.h"
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -29,7 +28,7 @@ void Server::setSrvEndpoint(uint16_t& srvPort)
   if(srvPort >= SRV_PORT_MIN)
    _srvAddr.sin_port = htons(srvPort);
   else   // Otherwise, throw an exception
-   THROW_SCODE_EXCP(ERR_SRV_PORT_INVALID);
+   THROW_EXEC_EXCP(ERR_SRV_PORT_INVALID);
 
   LOG_DEBUG("SafeCloud server port set to " + std::to_string(srvPort))
  }
@@ -50,7 +49,7 @@ void Server::getServerRSAKey()
   // Derive the expected absolute, or canonicalized, path of the server's private key file
   RSAKeyFilePath = realpath(SRV_PRIVK_PATH,NULL);
   if(!RSAKeyFilePath)
-   THROW_SCODE_EXCP(ERR_SRV_PRIVKFILE_NOT_FOUND, SRV_PRIVK_PATH, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_SRV_PRIVKFILE_NOT_FOUND, SRV_PRIVK_PATH, ERRNO_DESC);
 
   // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in an exception
   try
@@ -58,18 +57,18 @@ void Server::getServerRSAKey()
     // Attempt to open the server's RSA private key file
     RSAKeyFile = fopen(RSAKeyFilePath, "r");
     if(!RSAKeyFile)
-     THROW_SCODE_EXCP(ERR_SRV_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_SRV_PRIVKFILE_OPEN_FAILED, RSAKeyFilePath, ERRNO_DESC);
 
     // Attempt to read the server's long-term RSA private key from its file
     _rsaKey = PEM_read_PrivateKey(RSAKeyFile, NULL, NULL, NULL);
 
     // Close the RSA private key file
     if(fclose(RSAKeyFile) != 0)
-     THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_FILE_CLOSE_FAILED, RSAKeyFilePath, ERRNO_DESC);
 
     // Ensure that a valid private key has been read
     if(!_rsaKey)
-     THROW_SCODE_EXCP(ERR_SRV_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
+     THROW_EXEC_EXCP(ERR_SRV_PRIVK_INVALID, RSAKeyFilePath, OSSL_ERR_DESC);
 
     // At this point the server's long-term RSA private key is valid
     LOG_DEBUG("SafeCloud server long-term RSA private key successfully loaded")
@@ -77,7 +76,7 @@ void Server::getServerRSAKey()
     // Free the RSA key file path
     free(RSAKeyFilePath);
    }
-  catch(sCodeException& excp)
+  catch(execErrExcp& excp)
    {
     // Free the RSA key file path
     free(RSAKeyFilePath);
@@ -102,18 +101,18 @@ void Server::getServerCert()
   // Attempt to open the server certificate from its .pem file
   srvCertFile = fopen(SRV_CERT_PATH, "r");
   if(!srvCertFile)
-   THROW_SCODE_EXCP(ERR_SRV_CERT_OPEN_FAILED, SRV_CERT_PATH, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_SRV_CERT_OPEN_FAILED, SRV_CERT_PATH, ERRNO_DESC);
 
   // Read the X.509 server certificate from its file
   srvCert = PEM_read_X509(srvCertFile, NULL, NULL, NULL);
 
   // Close the CA certificate file
   if(fclose(srvCertFile) != 0)
-   THROW_SCODE_EXCP(ERR_FILE_CLOSE_FAILED, SRV_CERT_PATH, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_FILE_CLOSE_FAILED, SRV_CERT_PATH, ERRNO_DESC);
 
   // Ensure the contents of the CA certificate file to consist of a valid certificate
   if(!srvCert)
-   THROW_SCODE_EXCP(ERR_SRV_CERT_INVALID, SRV_CERT_PATH, OSSL_ERR_DESC);
+   THROW_EXEC_EXCP(ERR_SRV_CERT_INVALID, SRV_CERT_PATH, OSSL_ERR_DESC);
 
   // At this point the server certificate has been loaded successfully
   // and, in DEBUG_MODE, print its subject and issuer
@@ -140,17 +139,17 @@ void Server::initLsk()
   // Attempt to initialize the server listening socket
   _lsk = socket(AF_INET, SOCK_STREAM, 0);
   if(_lsk == -1)
-   THROW_SCODE_EXCP(ERR_LSK_INIT_FAILED, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_LSK_INIT_FAILED, ERRNO_DESC);
 
   LOG_DEBUG("Created listening socket with file descriptor '" + std::to_string(_lsk) + "'")
 
   // Attempt to set the listening socket's SO_REUSEADDR option for enabling fast rebinds in case of failures
   if(setsockopt(_lsk, SOL_SOCKET, SO_REUSEADDR, &lskOptSet, sizeof(lskOptSet)) == -1)
-   THROW_SCODE_EXCP(ERR_LSK_SO_REUSEADDR_FAILED, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_LSK_SO_REUSEADDR_FAILED, ERRNO_DESC);
 
   // Attempt to bind the listening socket on the specified OS port
   if(bind(_lsk, (struct sockaddr*)&_srvAddr, sizeof(_srvAddr)) < 0)
-   THROW_SCODE_EXCP(ERR_LSK_BIND_FAILED, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_LSK_BIND_FAILED, ERRNO_DESC);
 
   // Add the listening socket to the set of file descriptors of open
   // sockets and initialize the maximum socket file descriptor value to it
@@ -214,7 +213,7 @@ void Server::newClientData(int ski)
 
     // Log the error and continue checking the next
     // socket descriptor in the server's main loop
-    LOG_SCODE(ERR_CSK_MISSING_MAP,std::to_string(ski));
+    LOG_EXEC_CODE(ERR_CSK_MISSING_MAP, std::to_string(ski));
     return;
    }
 
@@ -225,10 +224,10 @@ void Server::newClientData(int ski)
   // returns whether to maintain or close the client's connection
   try
    { keepConn = srvConnMgr->recvHandleData(); }
-  catch(sCodeException& excp)
+  catch(execErrExcp& excp)
    {
     // TODO: Check
-    handleScodeException(excp);
+    handleExecErrException(excp);
 
     // The connection must be closed
     keepConn = false;
@@ -270,7 +269,7 @@ void Server::newClientConnection()
   // the next socket descriptor in the server's main loop
   if(csk == -1)
    {
-    LOG_SCODE(ERR_CSK_ACCEPT_FAILED,ERRNO_DESC);
+    LOG_EXEC_CODE(ERR_CSK_ACCEPT_FAILED, ERRNO_DESC);
     return;
    }
 
@@ -292,18 +291,18 @@ void Server::newClientConnection()
     // TODO: Implement in a SafeCloud Message
 
     // Log the error and continue checking the next socket descriptor in the server's main loop
-    LOG_SCODE(ERR_CSK_MAX_CONN,std::string(cliIP) + std::to_string(cliPort));
+    LOG_EXEC_CODE(ERR_CSK_MAX_CONN, std::string(cliIP) + std::to_string(cliPort));
     return;
    }
 
   // Attempt to initialize the client's connection manager
   try
    { srvConnMgr = new SrvConnMgr(csk,_guestIdx,_rsaKey,_srvCert); }
-  catch(sCodeException& excp)
+  catch(execErrExcp& excp)
    {
     // TODO: check how to implement this
     // Log the error
-    handleScodeException(excp);
+    handleExecErrException(excp);
 
     // Delete the srvConnMgr object
     delete srvConnMgr;
@@ -396,7 +395,7 @@ void Server::srvLoop()
 
        // Otherwise it is a fatal error, and the SafeCloud server must be aborted
        else
-        THROW_SCODE_EXCP(ERR_SRV_PSELECT_FAILED, ERRNO_DESC);
+        THROW_EXEC_EXCP(ERR_SRV_PSELECT_FAILED, ERRNO_DESC);
 
       /* pselect() timeout */
       case 0:
@@ -480,7 +479,7 @@ Server::~Server()
 
   // If open, close the listening socket
   if(_lsk != -1 && close(_lsk) != 0)
-   LOG_SCODE(ERR_LSK_CLOSE_FAILED,ERRNO_DESC);
+   LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
 
   // Safely erase all sensitive attributes
   EVP_PKEY_free(_rsaKey);
@@ -501,11 +500,11 @@ void Server::start()
  {
   // Check that the server has not already started
   if(_started)
-   THROW_SCODE_EXCP(ERR_SRV_ALREADY_STARTED);
+   THROW_EXEC_EXCP(ERR_SRV_ALREADY_STARTED);
 
   // Start listening on the listening socket, allowing up to a predefined maximum number of queued connections
   if(listen(_lsk, SRV_MAX_QUEUED_CONN) < 0)
-   THROW_SCODE_EXCP(ERR_LSK_LISTEN_FAILED, ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_LSK_LISTEN_FAILED, ERRNO_DESC);
 
   // Set that the SafeCloud server has started
   _started = true;

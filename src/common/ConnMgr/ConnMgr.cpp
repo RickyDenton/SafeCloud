@@ -5,8 +5,8 @@
 #include <string>
 #include "ConnMgr.h"
 #include "defaults.h"
-#include "scode.h"
-#include "errlog.h"
+#include "codes/execErrCodes.h"
+#include "err/execErrCodes.h"
 #include "ConnMgr/STSMMgr/STSMMsg.h"
 #include <dirent.h>
 #include <arpa/inet.h>
@@ -32,7 +32,7 @@ void ConnMgr::cleanTmpDir()
   // Open the temporary directory
   tmpDir = opendir(_tmpDirC);
   if(!tmpDir)
-   LOG_SCODE(ERR_TMPDIR_OPEN_FAILED,*_tmpDir,ERRNO_DESC);
+   LOG_EXEC_CODE(ERR_TMPDIR_OPEN_FAILED, *_tmpDir, ERRNO_DESC);
   else
    {
     // For each file in the temporary folder
@@ -47,12 +47,12 @@ void ConnMgr::cleanTmpDir()
 
       // Delete the file
       if(remove(tmpFileAbsPath) == -1)
-       LOG_SCODE(ERR_TMPFILE_DELETE_FAILED,std::string(tmpFileAbsPath),ERRNO_DESC);
+       LOG_EXEC_CODE(ERR_TMPFILE_DELETE_FAILED, std::string(tmpFileAbsPath), ERRNO_DESC);
      }
 
     // Close the temporary folder
     if(closedir(tmpDir) == -1)
-     LOG_SCODE(ERR_FILE_CLOSE_FAILED,*_tmpDir, ERRNO_DESC);
+     LOG_EXEC_CODE(ERR_FILE_CLOSE_FAILED, *_tmpDir, ERRNO_DESC);
    }
  }
 
@@ -112,11 +112,11 @@ bool ConnMgr::recvData()
    {
     // recv() FATAL error
     case -1:
-     THROW_SCODE_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
 
     // Abrupt server disconnection
     case 0:
-     THROW_SCODE_EXCP(ERR_PEER_DISCONNECTED, *_name);
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
 
     // > 0 => recvRet = number of bytes read from socket (<= maxReadBytes)
     default:
@@ -192,7 +192,7 @@ ConnMgr::~ConnMgr()
 
   // Close the connection socket
   if(close(_csk) != 0)
-   LOG_SCODE(ERR_CSK_CLOSE_FAILED,std::to_string(_csk),ERRNO_DESC);
+   LOG_EXEC_CODE(ERR_CSK_CLOSE_FAILED, std::to_string(_csk), ERRNO_DESC);
 
   // If set, delete the contents of the connection's temporary directory
   if(_tmpDir != nullptr)

@@ -181,7 +181,7 @@ class CliSTSMMgr : public STSMMgr
     *         the SafeCloud server so to establish a shared AES_128 session key
     *         and IV and to authenticate the client and server with one another
     * @throws All the STSM exceptions and most of the OpenSSL
-    *         exceptions (see "scode.h" for more details)
+    *         exceptions (see "execErrCode.h" for more details)
     */
    void startCliSTSM();
  };
