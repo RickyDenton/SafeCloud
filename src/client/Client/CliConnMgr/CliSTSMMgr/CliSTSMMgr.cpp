@@ -5,7 +5,7 @@
 #include <string.h>
 #include "CliSTSMMgr.h"
 #include "../CliConnMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "ConnMgr/STSMMgr/STSMMsg.h"
 #include "ossl_crypto/AES_128_CBC.h"
 #include "ossl_crypto/DigSig.h"

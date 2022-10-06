@@ -7,7 +7,7 @@
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include <string>
 
 

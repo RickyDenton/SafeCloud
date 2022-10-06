@@ -4,7 +4,7 @@
 #include "SrvSTSMMgr.h"
 #include "ConnMgr/STSMMgr/STSMMsg.h"
 #include "../SrvConnMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "ossl_crypto/DigSig.h"
 #include "ossl_crypto/AES_128_CBC.h"
 #include "utils.h"
@@ -461,7 +461,7 @@ void SrvSTSMMgr::recv_cli_auth()
      *   - Errors in opening or interpreting the contents of a client's public key file should never happen
      */
     if(cliLoginExcp.exErrcode != ERR_LOGIN_PUBKEYFILE_NOT_FOUND)
-     LOG_EXEC_CODE(cliLoginExcp.exErrcode, cliLoginExcp.addDscr, cliLoginExcp.reason);
+     LOG_EXEC_CODE(cliLoginExcp.exErrcode, *cliLoginExcp.addDscr, *cliLoginExcp.reason);
 
     // In any case conceal the error from the client by replying them
     // that their name was not recognized, aborting the connection

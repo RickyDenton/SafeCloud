@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "CliConnMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -38,7 +38,7 @@ void CliConnMgr::recvMsg()
     if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
      {
       recvExcp.exErrcode = ERR_SRV_DISCONNECTED;
-      recvExcp.addDscr = "";
+      recvExcp.addDscr = nullptr;
      }
 
     // Rethrow the exception

@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "STSMMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include <string.h>
 
 /* ============================== PROTECTED METHODS ============================== */

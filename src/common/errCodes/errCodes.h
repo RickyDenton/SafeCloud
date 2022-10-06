@@ -1,7 +1,7 @@
-#ifndef SAFECLOUD_ERRCODE_H
-#define SAFECLOUD_ERRCODE_H
+#ifndef SAFECLOUD_ERRCODES_H
+#define SAFECLOUD_ERRCODES_H
 
-/* SafeCloud Generic Error Codes Definitions */
+/* SafeCloud Generic Error Codes Declarations */
 
 #include <openssl/err.h>
 #include <iostream>
@@ -36,20 +36,22 @@ struct errCodeInfo
 /**
  * @brief An abstract exception class that can be derived so to throw error
  *        status codes with an optional additional description and reason
+ * @note  The dynamic strings allocated in calling this function are deallocated
+ *        within the SafeCloud default error handler (handleErrCode() function)
  */
 class errExcp : public std::exception
  {
    public:
 
    /* ========================= Attributes ========================= */
-   std::string addDscr;     // An optional description associated with the error that has occurred
-   std::string reason;      // An optional reason associated with the error that has occurred
+   std::string* addDscr;     // An optional description associated with the error that has occurred
+   std::string* reason;      // An optional reason associated with the error that has occurred
 
 /* In DEBUG_MODE a errExcp also carries the source file name
  * and the line number at which the exception has been raised
  */
 #ifdef DEBUG_MODE
-  std::string srcFile;     // Source file name where the exception has been raised
+  std::string* srcFile;     // Source file name where the exception has been raised
   unsigned int lineNumber; // Line in the source file at which the exception has been raised
 #endif
 
@@ -59,37 +61,34 @@ class errExcp : public std::exception
   /* ------------------- DEBUG_MODE Constructors ------------------- */
 
   // No optional fields' constructor (implicit source file name and line only)
-  errExcp(std::string srcFileName, const unsigned int line)
-    : srcFile(std::move(srcFileName)), lineNumber(line)
+  errExcp(std::string* srcFileName, const unsigned int line)
+    : srcFile(srcFileName), addDscr(nullptr), reason(nullptr), lineNumber(line)
    {}
 
   // Additional description constructor (with implicit source file name and line)
-  errExcp(std::string addDescr, std::string srcFileName, const unsigned int line)
-    : addDscr(std::move(addDescr)), srcFile(std::move(srcFileName)), lineNumber(line)
+  errExcp(std::string* addDescr, std::string* srcFileName, const unsigned int line)
+    : addDscr(addDescr), srcFile(srcFileName), reason(nullptr), lineNumber(line)
    {}
 
   // Additional description + reason constructor (with implicit source file name and line)
-  errExcp(std::string addDescr, std::string errReason, std::string srcFileName, const unsigned int line)
-    : addDscr(std::move(addDescr)), reason(std::move(errReason)), srcFile(std::move(srcFileName)), lineNumber(line)
+  errExcp(std::string* addDescr, std::string* errReason, std::string* srcFileName, const unsigned int line)
+    : addDscr(addDescr), reason(errReason), srcFile(srcFileName), lineNumber(line)
    {}
 #else
   /* ----------------- Non-DEBUG_MODE Constructors ----------------- */
 
   // Empty constructor
-  errExcp()
+  errExcp() : addDscr(nullptr), reason(nullptr)
    {}
 
   // Additional description constructor
-  explicit errExcp(std::string addDescr) : addDscr(std::move(addDescr))
+  explicit errExcp(std::string* addDescr) : addDscr(addDescr), reason(nullptr)
    {}
 
   // Additional description + reason constructor
-  errExcp(std::string addDescr, std::string errReason) : addDscr(std::move(addDescr)), reason(std::move(errReason))
+  errExcp(std::string* addDescr, std::string* errReason) : addDscr(addDescr), reason(errReason)
    {}
 #endif
-
-  // Pure virtual destructor (this class must be derived)
-  virtual ~errExcp() = 0;
  };
 
 
@@ -135,53 +134,7 @@ class errExcp : public std::exception
  #define LOG_DEBUG(logStr) ;
 #endif
 
-
-/* ============================ FORWARD DECLARATIONS ============================ */
-extern void terminate(int exit_status);   // SafeCloud application default shutdown handler
-
-
-/* ============================ FUNCTIONS DEFINITIONS ============================ */
-
-/**
- * @brief Prints to stdout the formatted logging header associated with an
- *        an error code's severity level (handleErrCode() helper function)
- * @param sevLevel The error code's severity level
- */
-void printSevLevHeader(errCodeSeverity sevLevel)
- {
-  switch(sevLevel)
-   {
-    case FATAL:
-     std::cout << BOLDBRIGHTRED << "<FATAL> " << BRIGHTRED;
-    break;
-
-    case CRITICAL:
-     std::cout << BOLDBRIGHTRED << "<CRITICAL> " << BRIGHTRED;
-    break;
-
-    case ERROR:
-     std::cout << BOLDRED << "<ERROR> " << RED;
-    break;
-
-    case WARNING:
-     std::cout << BOLDYELLOW << "<WARNING> " << YELLOW;
-    break;
-
-    case INFO:
-     std::cout << "<INFO> ";
-    break;
-
-    case DEBUG:
-     std::cout << BOLDBRIGHTBLACK << "<DEBUG> " << BRIGHTBLACK;
-    break;
-
-    // Unknown severity level (a fatal error of itself)
-    default:
-     std::cerr << "<FATAL> UNKNOWN SECURITY LEVEL in printSevLevHeader() (" + std::to_string(sevLevel) + ")" << std::endl;
-    terminate(EXIT_FAILURE);
-   }
- }
-
+/* =========================== FUNCTIONS DECLARATIONS =========================== */
 
 /**
  * @brief            SafeCloud application default error handler, which:\n
@@ -200,46 +153,10 @@ void printSevLevHeader(errCodeSeverity sevLevel)
  * @param lineNumber (DEBUG MODE ONLY) The line number at which the error has occurred
  */
 #ifdef DEBUG_MODE
-void handleErrCode(const errCodeInfo errInf, const std::string& addDscr, const std::string& reason, const std::string& srcFile, const unsigned int lineNumber)
+void handleErrCode(const errCodeInfo errInf, const std::string* addDscr, const std::string* reason, const std::string* srcFile, const unsigned int lineNumber);
 #else
-void handleErrCode(const errCodeInfo errInf,const std::string& addDscr,const std::string& reason)
-#endif
- {
-/*
-  // Obtain an iterator to the entry of the execErrCodeInfoMap associated with the exception's status code
-  auto scodeInfoMapIt = execErrCodeInfoMap.find(sCode);
-
-  // Retrieve the status code's severity level and description
-  enum errCodeSeverity sevLev = scodeInfoMapIt->second.sevLev;
-  std::string humanDscr = scodeInfoMapIt->second.humanDscr;
-*/
-
-  // Print the formatted logging header associated with the error code's severity level
-  printSevLevHeader(errInf.sevLev);
-
-  // Print the human-readable description associated with the error code
-  std::cout << errInf.humanDscr;
-
-  // If present, log the error additional description and reason
-  if(!addDscr.empty())
-   {
-    if(!reason.empty())
-     std::cout << " (" << addDscr << ", reason: " << reason << ")";
-    else
-     std::cout << " (" << addDscr << ")";
-   }
-
-  // In DEBUG_MODE, print the source file name and line number at which the exception was thrown
-#ifdef DEBUG_MODE
-  std::cout << " (file: \"" << srcFile << "\", line: " << lineNumber << ")";
+void handleErrCode(const errCodeInfo errInf,const std::string* addDscr,const std::string* reason);
 #endif
 
-  // Print the error logging trailer
-  std::cout << RESET << std::endl;
 
-  // For error codes of FATAL severity, call the SafeCloud application shutdown handler
-  if(errInf.sevLev == FATAL)
-   terminate(EXIT_FAILURE);
- }
-
-#endif //SAFECLOUD_ERRCODE_H
+#endif //SAFECLOUD_ERRCODES_H

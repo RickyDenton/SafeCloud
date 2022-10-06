@@ -3,7 +3,7 @@
 /* SafeCloud Application Server Implementation*/
 
 /* ================================== INCLUDES ================================== */
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "defaults.h"
 #include <unistd.h>
 #include <arpa/inet.h>

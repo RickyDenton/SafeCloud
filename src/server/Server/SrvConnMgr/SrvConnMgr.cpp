@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "SrvConnMgr.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 

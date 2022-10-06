@@ -2,7 +2,7 @@
 #define SAFECLOUD_SESSERRCODES_H
 
 /**
- * SafeCloud session error codes definitions
+ * SafeCloud session error codes declarations
  *
  * These are non-fatal error that may occur in the session
  * phase, causing its state to be reset without aborting
@@ -11,25 +11,21 @@
 
 /* ================================== INCLUDES ================================== */
 #include <unordered_map>
-#include "errCode.h"
+#include "errCodes/errCodes.h"
 
 /* ======================= SAFECLOUD SESSION ERROR CODES ======================= */
 
 enum sessErrCode : unsigned char
  {
-  // Operation Successful
-  OK = 0,
 
   /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
 
 
   /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
-
+  ERR_UNSUPPORTED_CMD,
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
-  // Unknown error
-  ERR_UNKNOWN
  };
 
 
@@ -38,11 +34,14 @@ enum sessErrCode : unsigned char
 // Associates each SafeCloud session error code with its severity level and human-readable description
 static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
   {
-    // Operation Successful
-    { OK, {DEBUG,"Operation Successful"}},
 
-    // Unknown error
-    {ERR_UNKNOWN,{CRITICAL, "Unknown Error"} }
+    /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
+
+    /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
+    { ERR_UNSUPPORTED_CMD, {INFO,"Unsupported command"}},
+
+    /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
+
   };
 
 
@@ -65,18 +64,18 @@ class sessErrExcp : public errExcp
   /* ------------------- DEBUG_MODE Constructors ------------------- */
 
   // sessErrCode-only constructor (with implicit source file name and line)
-  sessErrExcp(const enum sessErrCode seErrCode, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(srcFileName),line), sesErrCode(seErrCode)
+  sessErrExcp(const enum sessErrCode seErrCode, std::string* srcFileName, const unsigned int line)
+    : errExcp(srcFileName,line), sesErrCode(seErrCode)
    {}
 
   // sessErrCode + additional description constructor (with implicit source file name and line)
-  sessErrExcp(const enum sessErrCode seErrCode, std::string addDescr, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(addDescr),std::move(srcFileName),line), sesErrCode(seErrCode)
+  sessErrExcp(const enum sessErrCode seErrCode, std::string* addDescr, std::string* srcFileName, const unsigned int line)
+    : errExcp(addDescr,srcFileName,line), sesErrCode(seErrCode)
    {}
 
   // sessErrCode + additional description + reason constructor (with implicit source file name and line)
-  sessErrExcp(const enum sessErrCode seErrCode, std::string addDescr, std::string errReason, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(addDescr),std::move(errReason), std::move(srcFileName),line), sesErrCode(seErrCode)
+  sessErrExcp(const enum sessErrCode seErrCode, std::string* addDescr, std::string* errReason, std::string* srcFileName, const unsigned int line)
+    : errExcp(addDescr,errReason, srcFileName,line), sesErrCode(seErrCode)
    {}
 #else
   /* ----------------- Non-DEBUG_MODE Constructors ----------------- */
@@ -87,23 +86,24 @@ class sessErrExcp : public errExcp
    {}
 
   // sessErrCode + additional description constructor
-  sessErrExcp(const enum sessErrCode seErrCode, std::string addDescr)
-    : errExcp(std::move(addDescr)), sesErrCode(seErrCode)
+  sessErrExcp(const enum sessErrCode seErrCode, std::string* addDescr)
+    : errExcp(addDescr), sesErrCode(seErrCode)
    {}
 
   // sessErrCode + additional description + reason constructor
-  sessErrExcp(const enum sessErrCode seErrCode, std::string addDescr, std::string errReason)
-    : errExcp(std::move(addDescr),std::move(errReason)), sesErrCode(seErrCode)
+  sessErrExcp(const enum sessErrCode seErrCode, std::string* addDescr, std::string* errReason)
+    : errExcp(addDescr,errReason), sesErrCode(seErrCode)
    {}
 #endif
-
-  // Destructor
-  ~sessErrExcp()
-   {}
  };
 
 
 /* ======================== SESSION ERRORS HANDLING MACROS ======================== */
+
+/*
+ * NOTE: The dynamic strings allocated in these macros are deallocated
+ *       within the SafeCloud default error handler (handleErrCode() function)
+ */
 
 /* ---------------------------- Session Errors Logging ---------------------------- */
 
@@ -115,13 +115,13 @@ class sessErrExcp : public errExcp
  *  - (DEBUG_MODE) -> The source file name and line number at which the exception is thrown
  */
 #ifdef DEBUG_MODE
- #define LOG_SESS_CODE_ONLY(sessErrCode) handleSessErrCode(sessErrCode,"","",__FILE__,__LINE__-1)
- #define LOG_SESS_CODE_DSCR(sessErrCode,dscr) handleSessErrCode(sessErrCode,dscr,"",__FILE__,__LINE__-1)
- #define LOG_SESS_CODE_DSCR_REASON(sessErrCode,dscr,reason) handleSessErrCode(sessErrCode,dscr,reason,__FILE__,__LINE__-1)
+ #define LOG_SESS_CODE_ONLY(sessErrCode) handleSessErrCode(sessErrCode,nullptr,nullptr,new std::string(__FILE__),__LINE__-1)
+ #define LOG_SESS_CODE_DSCR(sessErrCode,dscr) handleSessErrCode(sessErrCode,new std::string(dscr),nullptr,new std::string(__FILE__),__LINE__-1)
+ #define LOG_SESS_CODE_DSCR_REASON(sessErrCode,dscr,reason) handleSessErrCode(sessErrCode,new std::string(dscr),new std::string(reason),new std::string(__FILE__),__LINE__-1)
 #else
-#define LOG_SESS_CODE_ONLY(sessErrCode) handleSessErrCode(sessErrCode,"","")
- #define LOG_SESS_CODE_DSCR(sessErrCode,humanDscr) handleSessErrCode(sessErrCode,humanDscr,"")
- #define LOG_SESS_CODE_DSCR_REASON(sessErrCode,humanDscr,reason) handleSessErrCode(sessErrCode,humanDscr,reason)
+#define LOG_SESS_CODE_ONLY(sessErrCode) handleSessErrCode(sessErrCode,nullptr,nullptr)
+ #define LOG_SESS_CODE_DSCR(sessErrCode,dscr) handleSessErrCode(sessErrCode,new std::string(dscr),nullptr)
+ #define LOG_SESS_CODE_DSCR_REASON(sessErrCode,dscr,reason) handleSessErrCode(sessErrCode,new std::string(dscr),new std::string(reason))
 #endif
 
 /**
@@ -144,13 +144,13 @@ class sessErrExcp : public errExcp
  *  - (DEBUG_MODE) -> The source file name and line number at which the sessErrCode has been thrown
  */
 #ifdef DEBUG_MODE
-#define THROW_SESS_EXCP_CODE_ONLY(sessErrCode) throw sessErrExcp(sessErrCode,__FILE__,__LINE__-1)
- #define THROW_SESS_EXCP_DSCR(sessErrCode,dscr) throw sessErrExcp(sessErrCode,dscr,__FILE__,__LINE__-1)
- #define THROW_SESS_EXCP_DSCR_REASON(sessErrCode,dscr,reason) throw sessErrExcp(sessErrCode,dscr,reason,__FILE__,__LINE__-1)
+#define THROW_SESS_EXCP_CODE_ONLY(sessErrCode) throw sessErrExcp(sessErrCode,new std::string(__FILE__),__LINE__-1)
+ #define THROW_SESS_EXCP_DSCR(sessErrCode,dscr) throw sessErrExcp(sessErrCode,new std::string(dscr),new std::string(__FILE__),__LINE__-1)
+ #define THROW_SESS_EXCP_DSCR_REASON(sessErrCode,dscr,reason) throw sessErrExcp(sessErrCode,new std::string(dscr),new std::string(reason),new std::string(__FILE__),__LINE__-1)
 #else
 #define THROW_SESS_EXCP_CODE_ONLY(sessErrCode) throw sessErrExcp(sessErrCode)
- #define THROW_SESS_EXCP_DSCR(sessErrCode,humanDscr) throw sessErrExcp(sessErrCode,humanDscr)
- #define THROW_SESS_EXCP_DSCR_REASON(sessErrCode,humanDscr,reason) throw sessErrExcp(sessErrCode,humanDscr,reason)
+ #define THROW_SESS_EXCP_DSCR(sessErrCode,dscr) throw sessErrExcp(sessErrCode,new std::string(dscr))
+ #define THROW_SESS_EXCP_DSCR_REASON(sessErrCode,dscr,reason) throw sessErrExcp(sessErrCode,new std::string(dscr),new std::string(reason))
 #endif
 
 
@@ -164,7 +164,7 @@ class sessErrExcp : public errExcp
 #define THROW_SESS_EXCP(...) GET_THROW_SESS_EXCP_MACRO(__VA_ARGS__,THROW_SESS_EXCP_DSCR_REASON,THROW_SESS_EXCP_DSCR,THROW_SESS_EXCP_CODE_ONLY)(__VA_ARGS__)
 
 
-/* ====================== SESSION ERRORS HANDLING FUNCTIONS ====================== */
+/* =============== SESSION ERRORS HANDLING FUNCTIONS DECLARATIONS =============== */
 
 /**
  * @brief             Session error codes handler, passing its information to the SafeCloud application default error handler
@@ -175,21 +175,10 @@ class sessErrExcp : public errExcp
  * @param lineNumber  (DEBUG MODE ONLY) The line number at which the session error has occurred
  */
 #ifdef DEBUG_MODE
-void handleSessErrCode(const sessErrCode sesErrCode, const std::string& addDscr, const std::string& reason, const std::string& srcFile, const unsigned int lineNumber)
+void handleSessErrCode(sessErrCode sesErrCode, const std::string* addDscr, const std::string* reason, const std::string* srcFile, unsigned int lineNumber);
 #else
-void handleSessErrCode(const sessErrCode sesErrCode,const std::string& addDscr,const std::string& reason)
+void handleSessErrCode(const sessErrCode sesErrCode,const std::string* addDscr,const std::string* reason);
 #endif
- {
-  // Retrieve the information associated with the session error code from the sessErrCodeInfoMap
-  errCodeInfo sesCodeInfo = sessErrCodeInfoMap.find(sesErrCode)->second;
-
-  // Call the SafeCloud application default error handler passing it the information associated with the session error
-#ifdef DEBUG_MODE
-  handleErrCode(sesCodeInfo, addDscr, reason, srcFile, lineNumber);
-#else
-  handleErrCode(sesCodeInfo,addDscr,reason);
-#endif
- }
 
 
 /**
@@ -197,18 +186,7 @@ void handleSessErrCode(const sessErrCode sesErrCode,const std::string& addDscr,c
  *                   information to the handleSessErrCode() session code error handler
  * @param exeErrExcp The sessErrExcp exception that was caught
  */
-void handleSessErrException(const sessErrExcp& sesErrExcp)
- {
-#ifdef DEBUG_MODE
-  handleSessErrCode(sesErrExcp.sesErrCode, sesErrExcp.addDscr, sesErrExcp.reason, sesErrExcp.srcFile, sesErrExcp.lineNumber);
-#else
-  handleSessErrCode(sesErrExcp.sesErrCode,sesErrExcp.addDscr,sesErrExcp.reason);
-#endif
-  /*
-   * NOTE: Exception objects are automatically destroyed after handling (matching
-   *       catch{} clause), and so do not require to be manually deallocated
-   */
- }
+void handleSessErrException(const sessErrExcp& sesErrExcp);
 
 
 #endif //SAFECLOUD_SESSERRCODES_H

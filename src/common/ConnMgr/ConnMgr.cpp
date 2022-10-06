@@ -5,8 +5,7 @@
 #include <string>
 #include "ConnMgr.h"
 #include "defaults.h"
-#include "codes/execErrCodes.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "ConnMgr/STSMMgr/STSMMsg.h"
 #include <dirent.h>
 #include <arpa/inet.h>

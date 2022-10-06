@@ -2,7 +2,7 @@
 #define SAFECLOUD_EXECERRCODES_H
 
 /**
- * SafeCloud application execution error codes definitions
+ * SafeCloud application execution error codes declarations
  *
  * These errors cause the TCP connection between the SafeCloud client and server, if present,
  * to be aborted (and the application to be terminated for errors of FATAL severity)
@@ -10,7 +10,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include <unordered_map>
-#include "errCode.h"
+#include "errCodes/errCodes.h"
 
 /* ====================== SAFECLOUD EXECUTION ERROR CODES ====================== */
 
@@ -408,18 +408,18 @@ class execErrExcp : public errExcp
   /* ------------------- DEBUG_MODE Constructors ------------------- */
 
   // execErrCode-only constructor (with implicit source file name and line)
-  execErrExcp(const enum execErrCode exCode, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(srcFileName),line), exErrcode(exCode)
+  execErrExcp(const enum execErrCode exCode, std::string* srcFileName, const unsigned int line)
+    : errExcp(srcFileName,line), exErrcode(exCode)
    {}
 
   // execErrCode + additional description constructor (with implicit source file name and line)
-  execErrExcp(const enum execErrCode exCode, std::string addDescr, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(addDescr),std::move(srcFileName),line), exErrcode(exCode)
+  execErrExcp(const enum execErrCode exCode, std::string* addDescr, std::string* srcFileName, const unsigned int line)
+    : errExcp(addDescr,srcFileName,line), exErrcode(exCode)
    {}
 
   // execErrCode + additional description + reason constructor (with implicit source file name and line)
-  execErrExcp(const enum execErrCode exCode, std::string addDescr, std::string errReason, std::string srcFileName, const unsigned int line)
-    : errExcp(std::move(addDescr),std::move(errReason), std::move(srcFileName),line), exErrcode(exCode)
+  execErrExcp(const enum execErrCode exCode, std::string* addDescr, std::string* errReason, std::string* srcFileName, const unsigned int line)
+    : errExcp(addDescr,errReason, srcFileName,line), exErrcode(exCode)
    {}
 #else
   /* ----------------- Non-DEBUG_MODE Constructors ----------------- */
@@ -430,23 +430,24 @@ class execErrExcp : public errExcp
    {}
 
   // execErrCode + additional description constructor
-  execErrExcp(const enum execErrCode execCode, std::string addDescr)
-    : errExcp(std::move(addDescr)), exErrcode(execCode)
+  execErrExcp(const enum execErrCode execCode, std::string* addDescr)
+    : errExcp(addDescr), exErrcode(execCode)
    {}
 
   // execErrCode + additional description + reason constructor
-  execErrExcp(const enum execErrCode execCode, std::string addDescr, std::string errReason)
-    : errExcp(std::move(addDescr),std::move(errReason)), exErrcode(execCode)
+  execErrExcp(const enum execErrCode execCode, std::string* addDescr, std::string* errReason)
+    : errExcp(addDescr,errReason), exErrcode(execCode)
    {}
 #endif
-
-  // Destructor
-  ~execErrExcp()
-   {}
  };
 
 
 /* ======================= EXECUTION ERRORS HANDLING MACROS ======================= */
+
+/*
+ * NOTE: The dynamic strings allocated in these macros are deallocated
+ *       within the SafeCloud default error handler (handleErrCode() function)
+ */
 
 /* --------------------------- Execution Errors Logging --------------------------- */
 
@@ -458,13 +459,13 @@ class execErrExcp : public errExcp
  *  - (DEBUG_MODE) -> The source file name and line number at which the exception is thrown
  */
 #ifdef DEBUG_MODE
- #define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,"","",__FILE__,__LINE__-1)
- #define LOG_EXEC_CODE_DSCR(execErrCode,dscr) handleExecErrCode(execErrCode,dscr,"",__FILE__,__LINE__-1)
- #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,dscr,reason) handleExecErrCode(execErrCode,dscr,reason,__FILE__,__LINE__-1)
+ #define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,nullptr,nullptr,new std::string(__FILE__),__LINE__-1)
+ #define LOG_EXEC_CODE_DSCR(execErrCode,dscr) handleExecErrCode(execErrCode,new std::string(dscr),nullptr,new std::string(__FILE__),__LINE__-1)
+ #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,dscr,reason) handleExecErrCode(execErrCode,new std::string(dscr),new std::string(reason),new std::string(__FILE__),__LINE__-1)
 #else
-#define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,"","")
- #define LOG_EXEC_CODE_DSCR(execErrCode,humanDscr) handleExecErrCode(execErrCode,humanDscr,"")
- #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,humanDscr,reason) handleExecErrCode(execErrCode,humanDscr,reason)
+#define LOG_EXEC_CODE_ONLY(execErrCode) handleExecErrCode(execErrCode,nullptr,nullptr)
+ #define LOG_EXEC_CODE_DSCR(execErrCode,dscr) handleExecErrCode(execErrCode,new std::string(dscr),nullptr)
+ #define LOG_EXEC_CODE_DSCR_REASON(execErrCode,dscr,reason) handleExecErrCode(execErrCode,new std::string(dscr),new std::string(reason))
 #endif
 
 /**
@@ -487,13 +488,13 @@ class execErrExcp : public errExcp
  *  - (DEBUG_MODE) -> The source file name and line number at which the execErrExcp has been thrown
  */
 #ifdef DEBUG_MODE
-#define THROW_EXEC_EXCP_CODE_ONLY(execErrCode) throw execErrExcp(execErrCode,__FILE__,__LINE__-1)
- #define THROW_EXEC_EXCP_DSCR(execErrCode,dscr) throw execErrExcp(execErrCode,dscr,__FILE__,__LINE__-1)
- #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,dscr,reason) throw execErrExcp(execErrCode,dscr,reason,__FILE__,__LINE__-1)
+#define THROW_EXEC_EXCP_CODE_ONLY(execErrCode) throw execErrExcp(execErrCode,new std::string(__FILE__),__LINE__-1)
+ #define THROW_EXEC_EXCP_DSCR(execErrCode,dscr) throw execErrExcp(execErrCode,new std::string(dscr),new std::string(__FILE__),__LINE__-1)
+ #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,dscr,reason) throw execErrExcp(execErrCode,new std::string(dscr),new std::string(reason),new std::string(__FILE__),__LINE__-1)
 #else
 #define THROW_EXEC_EXCP_CODE_ONLY(execErrCode) throw execErrExcp(execErrCode)
- #define THROW_EXEC_EXCP_DSCR(execErrCode,humanDscr) throw execErrExcp(execErrCode,humanDscr)
- #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,humanDscr,reason) throw execErrExcp(execErrCode,humanDscr,reason)
+ #define THROW_EXEC_EXCP_DSCR(execErrCode,dscr) throw execErrExcp(execErrCode,new std::string(dscr))
+ #define THROW_EXEC_EXCP_DSCR_REASON(execErrCode,dscr,reason) throw execErrExcp(execErrCode,new std::string(dscr),new std::string(reason))
 #endif
 
 
@@ -507,7 +508,7 @@ class execErrExcp : public errExcp
 #define THROW_EXEC_EXCP(...) GET_THROW_EXEC_EXCP_MACRO(__VA_ARGS__,THROW_EXEC_EXCP_DSCR_REASON,THROW_EXEC_EXCP_DSCR,THROW_EXEC_EXCP_CODE_ONLY)(__VA_ARGS__)
 
 
-/* ===================== EXECUTION ERRORS HANDLING FUNCTIONS ===================== */
+/* ============== EXECUTION ERRORS HANDLING FUNCTIONS DECLARATIONS ============== */
 
 /**
  * @brief             Execution error codes handler, passing its information to the SafeCloud application default error handler
@@ -518,21 +519,10 @@ class execErrExcp : public errExcp
  * @param lineNumber  (DEBUG MODE ONLY) The line number at which the execution error has occurred
  */
 #ifdef DEBUG_MODE
-void handleExecErrCode(const execErrCode exeErrCode, const std::string& addDscr, const std::string& reason, const std::string& srcFile, const unsigned int lineNumber)
+void handleExecErrCode(execErrCode exeErrCode, const std::string* addDscr, const std::string* reason, const std::string* srcFile, unsigned int lineNumber);
 #else
-void handleExecErrCode(const execErrCode exeErrCode,const std::string& addDscr,const std::string& reason)
+void handleExecErrCode(const execErrCode exeErrCode,const std::string* addDscr,const std::string* reason);
 #endif
- {
-  // Retrieve the information associated with the execution error code from the execErrCodeInfoMap
-  errCodeInfo exeErrCodeInfo = execErrCodeInfoMap.find(exeErrCode)->second;
-
-  // Call the SafeCloud application default error handler passing it the information associated with the execution error
-#ifdef DEBUG_MODE
-  handleErrCode(exeErrCodeInfo,addDscr,reason,srcFile,lineNumber);
-#else
-  handleErrCode(exeErrCodeInfo,addDscr,reason);
-#endif
- }
 
 
 /**
@@ -540,17 +530,7 @@ void handleExecErrCode(const execErrCode exeErrCode,const std::string& addDscr,c
  *                   information to the handleExecErrCode() execution code error handler
  * @param exeErrExcp The execErrExcp exception that was caught
  */
-void handleExecErrException(const execErrExcp& exeErrExcp)
- {
-#ifdef DEBUG_MODE
-  handleExecErrCode(exeErrExcp.exErrcode, exeErrExcp.addDscr, exeErrExcp.reason, exeErrExcp.srcFile, exeErrExcp.lineNumber);
-#else
-  handleExecErrCode(exeErrExcp.exErrcode,exeErrExcp.addDscr,exeErrExcp.reason);
-#endif
-  /*
-   * NOTE: Exception objects are automatically destroyed after handling (matching
-   *       catch{} clause), and so do not require to be manually deallocated
-   */
- }
+void handleExecErrException(const execErrExcp& exeErrExcp);
+
 
 #endif //SAFECLOUD_EXECERRCODES_H

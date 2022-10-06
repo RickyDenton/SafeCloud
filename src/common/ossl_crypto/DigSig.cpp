@@ -2,7 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "DigSig.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 

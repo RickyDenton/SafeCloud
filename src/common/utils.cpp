@@ -1,12 +1,12 @@
 /* SafeCloud Application common utility functions definitions */
 
-#include <string.h>
 #include <cctype>
 #include <string>
 #include "utils.h"
 #include "defaults.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include <bits/stdc++.h>
+//#include <string.h>
 
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
@@ -16,16 +16,16 @@
  * @param addr The memory address from where safely erasing data
  * @param size The size in bytes of the data to be safely deleted
  */
-void safeMemset0(void*& addr, unsigned int size)
- {
-#pragma optimize("", off)
-  if(addr != nullptr)
-   {
-    memset(addr, 0, size);
-    addr = nullptr;
-   }
-#pragma optimize("", on)
- }
+//void safeMemset0(void*& addr, unsigned int size)
+// {
+//#pragma optimize("", off)
+//  if(addr != nullptr)
+//   {
+//    memset(addr, 0, size);
+//    addr = nullptr;
+//   }
+//#pragma optimize("", on)
+// }
 
 
 /**
@@ -34,16 +34,16 @@ void safeMemset0(void*& addr, unsigned int size)
  * @param pnt  The pointer to the dynamic memory allocated via a malloc()
  * @param size The size in bytes of the dynamic memory allocated via malloc()
  */
-void safeFree(void*& pnt,unsigned int size)
- {
-  void* pntBak = pnt;   // Pointer copy to call the free() after the safeErase()
-
-  if(pnt != nullptr)
-   {
-    safeMemset0(pnt, size);
-    free(pntBak);
-   }
- }
+//void safeFree(void*& pnt,unsigned int size)
+// {
+//  void* pntBak = pnt;   // Pointer copy to call the free() after the safeErase()
+//
+//  if(pnt != nullptr)
+//   {
+//    safeMemset0(pnt, size);
+//    free(pntBak);
+//   }
+// }
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
 

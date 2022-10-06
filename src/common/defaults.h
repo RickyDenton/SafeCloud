@@ -23,7 +23,7 @@
 /* ----------------------- Server Connection Parameters ----------------------- */
 
 #define SRV_MAX_QUEUED_CONN 30            // The maximum number of incoming client connection requests before further are refused (listen() argument)
-#define SRV_MAX_CONN        FD_SETSIZE-1  // The maximum number of concurrent client connections before further are rejected (select() limitation, 1024 (FD_SETSIZE) - 1 (Listening Socket))
+#define SRV_MAX_CONN        (FD_SETSIZE-1)  // The maximum number of concurrent client connections before further are rejected (select() limitation, 1024 (FD_SETSIZE) - 1 (Listening Socket))
 #define SRV_PSELECT_TIMEOUT 1             // The server's pselect() timeout in seconds
 
 /* -------------------------- Server Files Parameters -------------------------- */
@@ -35,7 +35,7 @@
 
 // User Files
 #define SRV_USERS_DIR_PATH               "./users/"
-#define SRV_USER_HOME_PATH(username)     SRV_USERS_DIR_PATH + username + "/"
+#define SRV_USER_HOME_PATH(username)     (SRV_USERS_DIR_PATH + username + "/")
 #define SRV_USER_POOL_PATH(username)     SRV_USER_HOME_PATH(username) + "pool/"
 #define SRV_USER_PUBK_DIR_PATH(username) SRV_USER_HOME_PATH(username) + "pubk/"
 #define SRV_USER_PUBK_PATH(username)     SRV_USER_PUBK_DIR_PATH(username) + username + "_pubk.pem"
@@ -56,7 +56,7 @@
 
 // Users Files
 #define CLI_USERS_DIR_PATH                "./users/"
-#define CLI_USER_HOME_PATH(username)      CLI_USERS_DIR_PATH + username + "/"
+#define CLI_USER_HOME_PATH(username)      (CLI_USERS_DIR_PATH + username + "/")
 #define CLI_USER_DOWN_PATH(username)      CLI_USER_HOME_PATH(username) + "downloads/"
 #define CLI_USER_PRIVK_DIR_PATH(username) CLI_USER_HOME_PATH(username) + "privk/"
 #define CLI_USER_PRIVK_PATH(username)     CLI_USER_PRIVK_DIR_PATH(username) + username + "_privk.pem"

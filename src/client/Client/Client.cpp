@@ -12,7 +12,8 @@
 #include <vector>
 #include <sstream>
 #include <iterator>
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "../client_utils.h"
 #include <bits/stdc++.h>
 
@@ -214,12 +215,12 @@ void Client::loginError(execErrExcp& loginExcp)
   // In release mode only log in their entirety errors of CRITICAL severity, while all
   // others are concealed with a generic "wrong username or password" error so to not
   // provide information whether a client with the provided username exists or not
-  if(loginExcp.execErrCode != ERR_FILE_CLOSE_FAILED && loginExcp.execErrCode != ERR_DOWNDIR_NOT_FOUND &&
-     loginExcp.execErrCode != ERR_TMPDIR_NOT_FOUND)
+  if(loginExcp.exErrcode != ERR_FILE_CLOSE_FAILED && loginExcp.exErrcode != ERR_DOWNDIR_NOT_FOUND &&
+     loginExcp.exErrcode != ERR_TMPDIR_NOT_FOUND)
    {
-    loginExcp.execErrCode = ERR_LOGIN_WRONG_NAME_OR_PWD;
-    loginExcp.addDscr = "";
-    loginExcp.reason = "";
+    loginExcp.exErrcode = ERR_LOGIN_WRONG_NAME_OR_PWD;
+    loginExcp.addDscr = nullptr;
+    loginExcp.reason = nullptr;
    }
   handleExecErrException(loginExcp);
 #endif
@@ -574,7 +575,7 @@ bool Client::parseUserCmd1(std::string& cmd)
    return true;
 
   // Unsupported command
-  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+  THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
  }
 
 
@@ -613,13 +614,13 @@ bool Client::parseUserCmd2(std::string& cmd, std::string& arg1)
      else
 
       // Unsupported command
-      THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+      THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
 
     return false;
    }
 
   // Unsupported command
-  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+  THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
  }
 
 
@@ -634,7 +635,7 @@ bool Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg
    }
 
   // Unsupported command
-  THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+  THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
  }
 
 
@@ -671,7 +672,7 @@ bool Client::parseUserCmd(std::string& cmdLine)
 
     // Currently commands up to 3 words are supported
     default:
-     THROW_CMD_EXCP(ERR_UNSUPPORTED_CMD);
+     THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
    }
  }
 
@@ -696,8 +697,10 @@ bool Client::userCmdPrompt()
       getline(std::cin, cmdLine);
       cliShutdown = parseUserCmd(cmdLine);
      }
-    catch(cmdException& cmdExcp)
-     {}
+    catch(sessErrExcp& sessErrExcp)
+     {
+      std::cout << "In sessErrExcp handler" << std::endl;
+     }
 
    } while(!cliShutdown);
  }

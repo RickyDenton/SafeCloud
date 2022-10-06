@@ -2,8 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "IV.h"
-#include "codes/execErrCodes.h"
-#include "err/execErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include <cstring>
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
