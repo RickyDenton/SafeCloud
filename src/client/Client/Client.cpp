@@ -256,7 +256,6 @@ signed char Client::getchHide()
   tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
 
   // Read a character from stdin
-  // TODO: Check the static cast to be correct
   ch = static_cast<signed char>(getchar());
 
   // Restore the previous terminal configuration
@@ -488,9 +487,19 @@ void Client::connError(execErrExcp& connExcp)
  }
 
 
-// TODO: Write description
-// Server TCP connection + STSM Handshake
-void Client::srvConnect()
+/**
+ * @brief Attempts to establish a secure connection with the SafeCloud server by:
+ *           1) Establishing a TCP connection with its IP:Port
+ *           2) Creating the client's connection and STSM key establishment manager objects
+ *           3) Performing the STSM key establishment protocol so to authenticate the
+ *              client and server with one another and to establish a shared session key
+ * @throws ERR_CSK_INIT_FAILED Connection socket creation failed
+ * @throws ERR_SRV_UNREACHABLE Failed to connect with the SafeCloud server
+ * @throws ERR_CSK_CONN_FAILED Fatal error in connecting with the SafeCloud server
+ * @throws All the STSM exceptions and most of the OpenSSL
+ *         exceptions (see "execErrCode.h" for more details)
+ */
+void Client::srvSecureConnect()
  {
   int csk;      // The connection socket towards the SafeCloud server
   int connRes;  // connect() operation result
@@ -531,6 +540,9 @@ void Client::srvConnect()
 
   // At this point the client has successfully connected with the server
   _connected = true;
+
+  // Log that a secure connection with the SafeCloud Server has been established
+  LOG_INFO("Successfully established a secure connection with the SafeCloud Server")
  }
 
 
@@ -544,10 +556,12 @@ void Client::listDownloadDir()
  }
 
 
-// TODO: Description
+/**
+ * @brief Prints the user command prompt contextual help
+ */
 void Client::printCmdHelp()
  {
-  std::cout << "\nSafeCloud Commands" << std::endl;
+  std::cout << "\nAvailable Commands" << std::endl;
   std::cout << "------------------" << std::endl;
   std::cout << "UP   filename                  - Uploads a file to the SafeCloud storage (< 4GB)" << std::endl;
   std::cout << "DOWN filename                  - Downloads a file from the SafeCloud storage into the download directory" << std::endl;
@@ -555,68 +569,93 @@ void Client::printCmdHelp()
   std::cout << "REN  old_filename new_filename - Renames a file within the SafeCloud storage" << std::endl;
   std::cout << "LIST storage                   - List the files within the Safecloud storage" << std::endl;
   std::cout << "LIST local                     - List the files in the local download directory" << std::endl;
-  std::cout << "HELP                           - Prints this list of available commands\n" << std::endl;
+  std::cout << "HELP                           - Prints this list of available commands" << std::endl;
   std::cout << "LOGOUT/EXIT/QUIT               - Closes the application\n" << std::endl;
  }
 
 
-// TODO: Description
-bool Client::parseUserCmd1(std::string& cmd)
+/**
+ * @brief  Parses and executes a user's input command consisting
+ *         of 1 word (parseUserCmd() helper function)
+ * @param  cmd The command word
+ * @throws ERR_UNSUPPORTED_CMD Unsupported command
+ */
+void Client::parseUserCmd1(std::string& cmd)
  {
   // HELP command
   if(cmd == "HELP" || cmd == "H")
    {
+    // Print the command prompt contextual help
     printCmdHelp();
-    return false;
+    return;
    }
 
   // LOGOUT command
   if(cmd == "LOGOUT" || cmd == "EXIT" || cmd == "QUIT" || cmd == "CLOSE")
-   return true;
+   {
+    // TODO: Send the "bye" session message
+
+    // Set the Client object's shutdown flag
+    _shutdown = true;
+    return;
+   }
 
   // Unsupported command
   THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
  }
 
 
-
-// TODO: Description
-bool Client::parseUserCmd2(std::string& cmd, std::string& arg1)
+/**
+ * @brief  Parses and executes a user's input command consisting
+ *         of 2 words (parseUserCmd() helper function)
+ * @param  cmd  The command word
+ * @param  arg1 The command word first argument
+ * @throws ERR_UNSUPPORTED_CMD Unsupported command
+ */
+void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
  {
   // UPLOAD command
   if(cmd == "UP" || cmd == "UPLOAD")
    {
+    // Attempt to upload the specified file to the SafeCloud storage pool
     _cliConnMgr->getSession()->uploadFile(arg1);
-    return false;
+    return;
    }
 
   // DOWNLOAD command
   if(cmd == "DOWN" || cmd == "DOWNLOAD")
    {
+    // Attempt to download the specified file from the SafeCloud storage pool
     _cliConnMgr->getSession()->downloadFile(arg1);
-    return false;
+    return;
    }
 
   // LIST command (local or remote)
   if(cmd == "LIST")
    {
-    // Convert the LIST target to upper case
+    // Convert the LIST argument to lower case
     transform(arg1.begin(), arg1.end(), arg1.begin(), ::tolower);
 
     // LIST local
     if(arg1 == "local" || arg1 == "download")
+
+     // List the files in the user's download directory
      listDownloadDir();
+
     else
 
      // LIST remote
      if(arg1 == "storage" || arg1 == "remote")
+
+      // List the files in the SafeCloud storage pool
       _cliConnMgr->getSession()->listRemoteFiles();
+
      else
 
       // Unsupported command
       THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
 
-    return false;
+    return;
    }
 
   // Unsupported command
@@ -624,14 +663,22 @@ bool Client::parseUserCmd2(std::string& cmd, std::string& arg1)
  }
 
 
-// TODO: Description
-bool Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2)
+/**
+ * @brief  Parses and executes a user's input command consisting
+ *         of 3 words (parseUserCmd() helper function)
+ * @param  cmd  The command word
+ * @param  arg1 The command word first argument
+ * @param  arg2 The command word second argument
+ * @throws ERR_UNSUPPORTED_CMD Unsupported command
+ */
+void Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2)
  {
   // RENAME command
   if(cmd == "RENAME" || cmd == "REN")
    {
+    // Attempt to rename the "arg1" file on SafeCloud storage pool to "arg2"
     _cliConnMgr->getSession()->renameRemFile(arg1,arg2);
-    return false;
+    return;
    }
 
   // Unsupported command
@@ -639,36 +686,44 @@ bool Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg
  }
 
 
-// TODO: Description
-bool Client::parseUserCmd(std::string& cmdLine)
+/**
+ * @brief  Parses a user's input command line and executes its associated
+ *         SafeCloud command, if any (userCmdPrompt() helper function)
+ * @param  cmdLine The user's input command line
+ * @throws ERR_UNSUPPORTED_CMD Unsupported command
+ */
+void Client::parseUserCmd(std::string& cmdLine)
  {
-  // Initialize an input string stream to the contents of the cmdLine string
+  // Initialize an input string stream to the contents of the user's command line
   std::istringstream cmdStringStream(cmdLine);
 
-  // Initialize a vector containing the words in the cmdLine string
+  // Create a string vector and initialize it to the words of the user's command line
   std::vector<std::string> cmdLineWords{std::istream_iterator<std::string>{cmdStringStream}, std::istream_iterator<std::string>{}};
 
-  // Number of words in the cmdLine string
+  // Number of words in the user's command line
   size_t numCmdLineWords = cmdLineWords.size();
 
-  // If there are no words, just return to print the prompt again
+  // If the user provided an empty string, just return so to print again the command prompt
   if(numCmdLineWords == 0)
-   return false;
+   return;
 
-  // Otherwise, convert the first word (the command) to upper case
+  // Otherwise, convert the first word in the command line to upper case
   transform(cmdLineWords[0].begin(), cmdLineWords[0].end(), cmdLineWords[0].begin(), ::toupper);
 
-  // Parse the command depending on its number of words
+  // Parse the command line depending on its number of words
   switch(numCmdLineWords)
    {
     case 1:
-     return parseUserCmd1(cmdLineWords[0]);
+     parseUserCmd1(cmdLineWords[0]);
+     return;
 
     case 2:
-     return parseUserCmd2(cmdLineWords[0], cmdLineWords[1]);
+     parseUserCmd2(cmdLineWords[0], cmdLineWords[1]);
+     return;
 
     case 3:
-     return parseUserCmd3(cmdLineWords[0], cmdLineWords[1], cmdLineWords[2]);
+     parseUserCmd3(cmdLineWords[0], cmdLineWords[1], cmdLineWords[2]);
+     return;
 
     // Currently commands up to 3 words are supported
     default:
@@ -677,38 +732,55 @@ bool Client::parseUserCmd(std::string& cmdLine)
  }
 
 
-// TODO: Description
-bool Client::userCmdPrompt()
+/**
+ * @brief User command prompt loop, reading and executing user session commands
+ * @throws TODO (exec exceptions)
+ */
+void Client::userCmdPrompt()
  {
-  bool cliShutdown;       // 'true' when the user prompts the 'quit' command
-  std::string cmdLine;    // Command line (multiple words)
+  // The user's input command line, comprised in general of multiple words
+  std::string cmdLine;
 
-  // Introductory messages
-  std::cout << "Successfully connected with the SafeCloud Server\n" << std::endl;
-  std::cout << "Type \"help\" for a list of available commands\n" << std::endl;
+  // Command prompt contextual help suggestion
+  std::cout << "Type \"help\" for the list of available commands\n" << std::endl;
 
-  // Command loop
+  // User command prompt loop, reading and executing user commands until
+  // the EXIT/QUIT command is provided (or an execution error occurs)
   do
    {
     try
      {
       // Print the command prompt
       std::cout << "> ";
+
+      // Read the user command line
       getline(std::cin, cmdLine);
-      cliShutdown = parseUserCmd(cmdLine);
+
+      // Parse the user command line and execute
+      // the associated SafeCloud command
+      parseUserCmd(cmdLine);
      }
     catch(sessErrExcp& sessErrExcp)
      {
-      std::cout << "In sessErrExcp handler" << std::endl;
-     }
+      // In case an unsupported command was provided, "gently" inform the user
+      // that they can print the list of available commands via the "HELP" command
+      if(sessErrExcp.sesErrCode == ERR_UNSUPPORTED_CMD)
+       { std::cout << "Unsupported command (type \"HELP\" for the list of available commands) " << std::endl; }
 
-   } while(!cliShutdown);
+      // Otherwise handle the recoverable session exception via its default handler
+      else
+       handleSessErrException(sessErrExcp);
+
+      // Reset the session manager's state
+      //_cliConnMgr->getSession()->resetSessState();
+
+      // TODO: other to be done here?
+     }
+   } while(!_shutdown);
  }
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
-
-// TODO: Check member initialization list order
 
 /**
  * @brief         SafeCloud client object constructor, which initializes the IP and port of
@@ -790,11 +862,12 @@ void Client::start()
        {
         try
          {
-          // Attempt to connect the client with the SafeCloud server
-          srvConnect();
+          // Attempt to establish a secure connection with the SafeCloud server
+          srvSecureConnect();
 
-          // Prompt and process user commands
-          _shutdown = userCmdPrompt();
+          // With the secure connection in the session phase,
+          // prompt and execute user session commands
+          userCmdPrompt();
          }
 
         // Connection error
@@ -838,11 +911,3 @@ bool Client::isConnected() const
  */
 bool Client::isShuttingDown() const
  { return _shutdown; }
-
-// TODO:
-// bool srvConnect();
-// bool uploadFile();
-// bool downloadFile();
-// bool deleteFile();
-// bool renameFile();
-// bool listFiles();

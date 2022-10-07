@@ -6,7 +6,7 @@
 #include <string>
 #include "ConnMgr/SessMgr/SessMgr.h"
 
-class CliSessMgr : SessMgr
+class CliSessMgr : public SessMgr
  {
    private:
 

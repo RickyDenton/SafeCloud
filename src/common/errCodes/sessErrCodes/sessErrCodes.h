@@ -17,7 +17,6 @@
 
 enum sessErrCode : unsigned char
  {
-
   /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
 
 
@@ -26,6 +25,8 @@ enum sessErrCode : unsigned char
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
+  // Unknown session error
+  ERR_SESS_UNKNOWN
  };
 
 
@@ -40,8 +41,11 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
     { ERR_UNSUPPORTED_CMD, {INFO,"Unsupported command"}},
 
+
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
+    // Unknown session error
+    {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }
   };
 
 

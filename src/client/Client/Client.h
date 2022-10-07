@@ -129,49 +129,84 @@ class Client
     *        a predefined path function of the provided username
     * @throws ERR_CLI_LOGIN_FAILED Client's login attempts expired
     */
-  void login();
+   void login();
 
-  /* ----------------------------- Server Connection ----------------------------- */
+   /* ----------------------------- Server Connection ----------------------------- */
 
-  /**
-   * @brief           Client's connection error handler, which resets the server's connection and, in case of
-   *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
-   * @param loginExcp The connection-related execErrExcp
-   * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
-   *                                       for it to be handled in the loginError() handler)
-   */
-  void connError(execErrExcp& connExcp);
-
-
-   // TODO: Write description
-   // Server TCP connection + STSM Handshake
-   void srvConnect();
-
-  /* ------------------------------ Client Commands ------------------------------ */
-
-  // TODO
-
-  void listDownloadDir();
-
-  static void printCmdHelp();
-
-  bool parseUserCmd1(std::string& cmd);
-
-  bool parseUserCmd2(std::string& cmd, std::string& arg1);
-
-  bool parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2);
-
-  bool parseUserCmd(std::string& cmdLine);
-
-  bool userCmdPrompt();;
+   /**
+    * @brief           Client's connection error handler, which resets the server's connection and, in case of
+    *                  non-fatal errors, prompt the user whether a reconnection attempt should be performed
+    * @param loginExcp The connection-related execErrExcp
+    * @throws          ERR_SRV_LOGIN_FAILED Server-side client authentication failed (rethrown
+    *                                       for it to be handled in the loginError() handler)
+    */
+   void connError(execErrExcp& connExcp);
 
 
-  // TODO
-   // bool uploadFile();
-   // bool downloadFile();
-   // bool deleteFile();
-   // bool renameFile();
-   // bool listFiles();
+   /**
+    * @brief Attempts to establish a secure connection with the SafeCloud server by:
+    *           1) Establishing a TCP connection with its IP:Port
+    *           2) Creating the client's connection and STSM key establishment manager objects
+    *           3) Performing the STSM key establishment protocol so to authenticate the
+    *              client and server with one another and to establish a shared session key
+    * @throws ERR_CSK_INIT_FAILED Connection socket creation failed
+    * @throws ERR_SRV_UNREACHABLE Failed to connect with the SafeCloud server
+    * @throws ERR_CSK_CONN_FAILED Fatal error in connecting with the SafeCloud server
+    * @throws All the STSM exceptions and most of the OpenSSL
+    *         exceptions (see "execErrCode.h" for more details)
+    */
+   void srvSecureConnect();
+
+   /* -------------------------- Client Session Commands -------------------------- */
+
+   // TODO
+   void listDownloadDir();
+
+   /**
+    * @brief Prints the user command prompt contextual help
+    */
+   static void printCmdHelp();
+
+   /**
+    * @brief  Parses and executes a user's input command consisting
+    *         of 1 word (parseUserCmd() helper function)
+    * @param  cmd The command word
+    * @throws ERR_UNSUPPORTED_CMD Unsupported command
+    */
+   void parseUserCmd1(std::string& cmd);
+
+   /**
+    * @brief  Parses and executes a user's input command consisting
+    *         of 2 words (parseUserCmd() helper function)
+    * @param  cmd  The command word
+    * @param  arg1 The command word first argument
+    * @throws ERR_UNSUPPORTED_CMD Unsupported command
+    */
+   void parseUserCmd2(std::string& cmd, std::string& arg1);
+
+   /**
+    * @brief  Parses and executes a user's input command consisting
+    *         of 3 words (parseUserCmd() helper function)
+    * @param  cmd  The command word
+    * @param  arg1 The command word first argument
+    * @param  arg2 The command word second argument
+    * @throws ERR_UNSUPPORTED_CMD Unsupported command
+    */
+   void parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg2);
+
+   /**
+    * @brief  Parses a user's input command line and executes its associated
+    *         SafeCloud command, if any (userCmdPrompt() helper function)
+    * @param  cmdLine The user's input command line
+    * @throws ERR_UNSUPPORTED_CMD Unsupported command
+    */
+   void parseUserCmd(std::string& cmdLine);
+
+   /**
+    * @brief User command prompt loop, reading and executing user session commands
+    * @throws TODO (exec exceptions)
+    */
+   void userCmdPrompt();
 
   public:
 
@@ -231,10 +266,6 @@ class Client
     * @return 'true' if the client object is shutting down, 'false' otherwise
     */
    bool isShuttingDown() const;
-
-
-   // TODO
-   // void clientBody();
  };
 
 

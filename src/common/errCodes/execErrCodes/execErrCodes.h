@@ -16,9 +16,6 @@
 
 enum execErrCode : unsigned char
  {
-  // Operation Successful
-  OK = 0,
-
   /* ------------------------ SERVER-SPECIFIC ERRORS ------------------------ */
 
   // Server Private Key File
@@ -194,8 +191,8 @@ enum execErrCode : unsigned char
   ERR_NON_POSITIVE_BUFFER_SIZE,
 
 
-  // Unknown error
-  ERR_UNKNOWN
+  // Unknown execution error
+  ERR_EXEC_UNKNOWN
  };
 
 
@@ -204,9 +201,6 @@ enum execErrCode : unsigned char
 // Associates each SafeCloud execution error code with its severity level and human-readable description
 static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
   {
-    // Operation Successful
-    { OK, {DEBUG,"Operation Successful"}},
-
     /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
 
     // Server Private Key File
@@ -275,9 +269,9 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_CLI_LOGIN_FAILED,             {CRITICAL,"Maximum number of login attempts reached, please try again later"} },
 
     // Connection Socket
-    { ERR_CSK_INIT_FAILED,   {FATAL,  "Connection Socket Creation Failed"} },
-    { ERR_SRV_UNREACHABLE,   {WARNING,"Failed to connected with the server"} },
-    { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the server"} },
+    { ERR_CSK_INIT_FAILED,   {FATAL,  "Connection socket creation failed"} },
+    { ERR_SRV_UNREACHABLE,   {WARNING,"Failed to connect with the SafeCloud server"} },
+    { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the SafeCloud server"} },
     { ERR_SRV_DISCONNECTED,  {WARNING, "The server has abruptly disconnected"} },
 
     // STSM Client Errors
@@ -384,8 +378,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_MALLOC_FAILED,                    {FATAL,"malloc() failed"} },
     {ERR_NON_POSITIVE_BUFFER_SIZE,         {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
 
-    // Unknown error
-    {ERR_UNKNOWN,                          {CRITICAL, "Unknown Error"} }
+    // Unknown execution error
+    {ERR_EXEC_UNKNOWN,                          {CRITICAL, "Unknown Execution Error"} }
   };
 
 

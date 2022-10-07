@@ -51,6 +51,10 @@ class SessMgr
 
     /* ======================== Other Methods ======================== */
 
+    // TODO: STUB, resets the session's state
+    void resetSessState();
+
+
     // TODO
     // send(sMsg)?
     // sendBye()?

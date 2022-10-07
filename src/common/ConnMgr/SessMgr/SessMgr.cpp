@@ -34,3 +34,11 @@ SessMgr::~SessMgr()
 //  delete _sentMsg;
 //  delete _recvMsg;
  }
+
+
+/* ============================ OTHER PUBLIC METHODS ============================ */
+
+void SessMgr::resetSessState()
+ {
+  printf("in resetSessState()\n");
+ }
