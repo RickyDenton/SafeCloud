@@ -31,7 +31,7 @@ void ConnMgr::cleanTmpDir()
   // Open the temporary directory
   tmpDir = opendir(_tmpDirC);
   if(!tmpDir)
-   LOG_EXEC_CODE(ERR_TMPDIR_OPEN_FAILED, *_tmpDir, ERRNO_DESC);
+   LOG_EXEC_CODE(ERR_DIR_OPEN_FAILED, *_tmpDir, ERRNO_DESC);
   else
    {
     // For each file in the temporary folder
@@ -46,12 +46,12 @@ void ConnMgr::cleanTmpDir()
 
       // Delete the file
       if(remove(tmpFileAbsPath) == -1)
-       LOG_EXEC_CODE(ERR_TMPFILE_DELETE_FAILED, std::string(tmpFileAbsPath), ERRNO_DESC);
+       LOG_EXEC_CODE(ERR_FILE_DELETE_FAILED, std::string(tmpFileAbsPath), ERRNO_DESC);
      }
 
     // Close the temporary folder
     if(closedir(tmpDir) == -1)
-     LOG_EXEC_CODE(ERR_FILE_CLOSE_FAILED, *_tmpDir, ERRNO_DESC);
+     LOG_EXEC_CODE(ERR_DIR_CLOSE_FAILED, *_tmpDir, ERRNO_DESC);
    }
  }
 

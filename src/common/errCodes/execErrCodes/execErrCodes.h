@@ -115,10 +115,15 @@ enum execErrCode : unsigned char
   ERR_PEER_DISCONNECTED,
 
   // Files and Directories
+  ERR_DIR_OPEN_FAILED,
+  ERR_DIR_CLOSE_FAILED,
+
+  ERR_FILE_OPEN_FAILED,
+  ERR_FILE_READ_FAILED,
+  ERR_FILE_DELETE_FAILED,
+  ERR_FILE_TOO_LARGE,
   ERR_FILE_CLOSE_FAILED,
-  ERR_TMPDIR_NOT_FOUND,
-  ERR_TMPDIR_OPEN_FAILED,
-  ERR_TMPFILE_DELETE_FAILED,
+
 
   // Client Login
   ERR_LOGIN_NAME_EMPTY,
@@ -293,29 +298,34 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
 
     // Server Endpoint Parameters
     { ERR_SRV_ADDR_INVALID,  {ERROR,"The SafeCloud Server IP address is invalid"} },
-    { ERR_SRV_PORT_INVALID,  {ERROR,"The SafeCloud Server port is invalid"} },
+    {ERR_SRV_PORT_INVALID,         {ERROR,    "The SafeCloud Server port is invalid"} },
 
     // Connection sockets
-    { ERR_CSK_CLOSE_FAILED,  {CRITICAL,"Connection Socket Close Failed"} },
-    { ERR_CSK_RECV_FAILED,   {CRITICAL,"Error in receiving data from the connection socket"} },
-    { ERR_PEER_DISCONNECTED,  {WARNING,"Abrupt peer disconnection"} },
+    {ERR_CSK_CLOSE_FAILED,         {CRITICAL, "Connection Socket Close Failed"} },
+    {ERR_CSK_RECV_FAILED,          {CRITICAL, "Error in receiving data from the connection socket"} },
+    {ERR_PEER_DISCONNECTED,        {WARNING,  "Abrupt peer disconnection"} },
 
 
     // Files and Directories
-    { ERR_FILE_CLOSE_FAILED,     {CRITICAL,"Error in closing the file"} },
-    { ERR_TMPDIR_NOT_FOUND,      {CRITICAL,"The client's temporary directory was not found"} },
-    { ERR_TMPDIR_OPEN_FAILED,    {CRITICAL,"Error in opening the temporary directory"} },
-    { ERR_TMPFILE_DELETE_FAILED, {CRITICAL,"Error in deleting the temporary file"} },
+    {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },
+    {ERR_DIR_CLOSE_FAILED,   {CRITICAL, "Error in closing the directory"} },
+
+    {ERR_FILE_OPEN_FAILED,   {CRITICAL, "The file was not found"} },
+    {ERR_FILE_READ_FAILED,   {CRITICAL, "Error in reading from the file"} },
+    {ERR_FILE_DELETE_FAILED, {CRITICAL, "Error in deleting the file"} },
+    {ERR_FILE_TOO_LARGE,     {CRITICAL, "The file is too large"} },
+    {ERR_FILE_CLOSE_FAILED,  {CRITICAL, "Error in closing the file"} },
+
 
     // Client Login
-    { ERR_LOGIN_NAME_EMPTY,         {ERROR,"The user-provided name is empty"} },
-    { ERR_LOGIN_NAME_TOO_LONG,      {ERROR,"The user-provided name is too long"} },
-    { ERR_LOGIN_NAME_WRONG_FORMAT,  {ERROR,"The user-provided name is of invalid format"} },
-    { ERR_LOGIN_NAME_INVALID_CHARS, {ERROR,"The user-provided name contains invalid characters"} },
-    { ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,"Wrong username or password"} },
+    {ERR_LOGIN_NAME_EMPTY,         {ERROR,    "The user-provided name is empty"} },
+    {ERR_LOGIN_NAME_TOO_LONG,      {ERROR,    "The user-provided name is too long"} },
+    {ERR_LOGIN_NAME_WRONG_FORMAT,  {ERROR,    "The user-provided name is of invalid format"} },
+    {ERR_LOGIN_NAME_INVALID_CHARS, {ERROR,    "The user-provided name contains invalid characters"} },
+    {ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,    "Wrong username or password"} },
 
     // OpenSSL Errors
-    { ERR_OSSL_EVP_PKEY_NEW,                 {FATAL,"EVP_PKEY struct creation failed"} },
+    {ERR_OSSL_EVP_PKEY_NEW,        {FATAL,    "EVP_PKEY struct creation failed"} },
     { ERR_OSSL_EVP_PKEY_ASSIGN,              {FATAL,"EVP_PKEY struct assignment failure"} },
     { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"EVP_PKEY context creation failed"} },
     { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"EVP_PKEY key generation initialization failed"} },
@@ -515,7 +525,7 @@ class execErrExcp : public errExcp
 #ifdef DEBUG_MODE
 void handleExecErrCode(execErrCode exeErrCode, const std::string* addDscr, const std::string* reason, const std::string* srcFile, unsigned int lineNumber);
 #else
-void handleExecErrCode(const execErrCode exeErrCode,const std::string* addDscr,const std::string* reason);
+void handleExecErrCode(execErrCode exeErrCode,const std::string* addDscr,const std::string* reason);
 #endif
 
 

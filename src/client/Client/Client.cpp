@@ -15,6 +15,7 @@
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "../client_utils.h"
+#include "DirInfo/DirInfo.h"
 #include <bits/stdc++.h>
 
 /* =============================== PRIVATE METHODS =============================== */
@@ -216,7 +217,7 @@ void Client::loginError(execErrExcp& loginExcp)
   // others are concealed with a generic "wrong username or password" error so to not
   // provide information whether a client with the provided username exists or not
   if(loginExcp.exErrcode != ERR_FILE_CLOSE_FAILED && loginExcp.exErrcode != ERR_DOWNDIR_NOT_FOUND &&
-     loginExcp.exErrcode != ERR_TMPDIR_NOT_FOUND)
+     loginExcp.exErrcode != ERR_DIR_OPEN_FAILED)
    {
     loginExcp.exErrcode = ERR_LOGIN_WRONG_NAME_OR_PWD;
     loginExcp.addDscr = nullptr;
@@ -429,7 +430,7 @@ void Client::login()
     // Set the client's temporary files directory
     _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(), NULL);
     if(_tempDir.empty())
-     THROW_EXEC_EXCP(ERR_TMPDIR_NOT_FOUND, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_DIR_OPEN_FAILED, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
 
     LOG_DEBUG("User \"" + _name + "\" successfully logged in")
     LOG_DEBUG("Download directory: " + _downDir)
@@ -548,11 +549,17 @@ void Client::srvSecureConnect()
 
 /* =========================== CLIENT COMMANDS METHODS =========================== */
 
-
-// TODO: STUB
+/**
+ * @brief Prints the indented metadata and name of all files in the user's download directory
+ */
 void Client::listDownloadDir()
  {
-  std::cout << "in listDownloadDir()" << std::endl;
+  // Build a snapshot of the contents of the user's download directory
+  DirInfo downInfo(&_downDir);
+
+  // Print the indented metadata and name of all files in the user's download directory
+  if(!downInfo.printDirContents())
+   std::cout << "\nThe download directory is empty (\"" << _downDir << "\")\n" << std::endl;
  }
 
 

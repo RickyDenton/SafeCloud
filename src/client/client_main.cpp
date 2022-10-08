@@ -19,6 +19,7 @@
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "Client/Client.h"
 #include "utils.h"
+#include "DirInfo/DirInfo.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 Client* cli;  // The singleton Client object
@@ -236,6 +237,14 @@ int main(int argc, char** argv)
   // Determine the IP and port of the SafeCloud server the client
   // application should connect to by parsing the command-line arguments
   parseCmdArgs(argc,argv,srvIP,srvPort);
+
+
+  /* -------------------------------- TRIES -------------------------------- */
+
+
+
+  /* -------------------------------- TRIES -------------------------------- */
+
 
   // Attempt to initialize the SafeCloud Client object by passing
   // it the IP and port of the SafeCloud server to connect to

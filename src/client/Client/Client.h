@@ -159,7 +159,9 @@ class Client
 
    /* -------------------------- Client Session Commands -------------------------- */
 
-   // TODO
+   /**
+    * @brief Prints the indented metadata and name of all files in the user's download directory
+    */
    void listDownloadDir();
 
    /**
