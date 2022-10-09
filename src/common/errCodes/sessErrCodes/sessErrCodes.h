@@ -25,6 +25,9 @@ enum sessErrCode : unsigned char
 
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
+  // AESGCMMgr Errors
+  ERR_OSSL_DECRYPT_VERIFY_FAILED,
+
   // Unknown session error
   ERR_SESS_UNKNOWN
  };
@@ -43,6 +46,7 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
 
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
+    { ERR_OSSL_DECRYPT_VERIFY_FAILED, {ERROR,"AES_GCM Tag verification failed"}},
 
     // Unknown session error
     {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }

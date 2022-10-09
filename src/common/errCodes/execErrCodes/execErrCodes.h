@@ -181,6 +181,8 @@ enum execErrCode : unsigned char
   ERR_OSSL_EVP_DECRYPT_UPDATE,
   ERR_OSSL_EVP_DECRYPT_FINAL,
 
+  ERR_OSSL_GET_TAG_FAILED,
+  ERR_OSSL_SET_TAG_FAILED,
 
 
   // STSM Generic Errors
@@ -190,6 +192,9 @@ enum execErrCode : unsigned char
   ERR_STSM_UNKNOWN_STSMMSG_ERROR,
   ERR_STSM_MY_PUBKEY_MISSING,
   ERR_STSM_OTHER_PUBKEY_MISSING,
+
+  // AESGCMMgr Errors
+  ERR_AESGCMMGR_INVALID_STATE,
 
   // Other errors
   ERR_MALLOC_FAILED,
@@ -372,7 +377,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_OSSL_EVP_DECRYPT_INIT,             {FATAL, "EVP_CIPHER decrypt initialization failed"} },
     { ERR_OSSL_EVP_DECRYPT_UPDATE,           {FATAL, "EVP_CIPHER decrypt update failed"} },
     { ERR_OSSL_EVP_DECRYPT_FINAL,            {FATAL, "EVP_CIPHER decrypt final failed"} },
-
+    { ERR_OSSL_GET_TAG_FAILED,               {FATAL, "Failed to retrieve the resulting AES_128_GCM tag"} },
+    { ERR_OSSL_SET_TAG_FAILED,               {FATAL, "Failed to set the expected AES_128_GCM tag"} },
 
 
     // STSM Generic Errors
@@ -382,6 +388,10 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_STSM_UNKNOWN_STSMMSG_ERROR,{FATAL,    "Attempting to send an STSM error message of unknown type"} },
     {ERR_STSM_MY_PUBKEY_MISSING,    {FATAL,    "The local actor's ephemeral DH public key is missing"} },
     {ERR_STSM_OTHER_PUBKEY_MISSING, {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
+
+    // AESGCMMgr Errors
+    {ERR_AESGCMMGR_INVALID_STATE,   {CRITICAL, "Invalid AES_128_GCM manager state"} },
+
 
 
     // Other errors
