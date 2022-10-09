@@ -377,8 +377,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_OSSL_EVP_DECRYPT_INIT,             {FATAL, "EVP_CIPHER decrypt initialization failed"} },
     { ERR_OSSL_EVP_DECRYPT_UPDATE,           {FATAL, "EVP_CIPHER decrypt update failed"} },
     { ERR_OSSL_EVP_DECRYPT_FINAL,            {FATAL, "EVP_CIPHER decrypt final failed"} },
-    { ERR_OSSL_GET_TAG_FAILED,               {FATAL, "Failed to retrieve the resulting AES_128_GCM tag"} },
-    { ERR_OSSL_SET_TAG_FAILED,               {FATAL, "Failed to set the expected AES_128_GCM tag"} },
+    { ERR_OSSL_GET_TAG_FAILED,               {FATAL, "Failed to retrieve the encryption operation's AES_128_GCM tag"} },
+    { ERR_OSSL_SET_TAG_FAILED,               {FATAL, "Failed to set the decryption operation's expected AES_128_GCM tag"} },
 
 
     // STSM Generic Errors

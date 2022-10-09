@@ -1,6 +1,9 @@
 #ifndef SAFECLOUD_CONNMGR_H
 #define SAFECLOUD_CONNMGR_H
 
+// TODO: Rewrite descriptions, attributes included
+
+/* ================================== INCLUDES ================================== */
 #include "defaults.h"
 #include "ConnMgr/IV/IV.h"
 #include "ossl_crypto/AES_128_CBC.h"
@@ -38,8 +41,8 @@ class ConnMgr
    uint16_t           _recvBlockSize;          // Expected size of a data block being received
 
    // Cryptographic quantities
-   unsigned char _skey[AES_128_KEY_SIZE];  // The connection's AES_GCM symmetric key
-   IV* _iv;                                // The connection's AES_GCM initialization vector
+   unsigned char _skey[AES_128_KEY_SIZE];  // The connection's symmetric key
+   IV* _iv;                                // The connection's initialization vector
 
    /* ============================== PROTECTED METHODS ============================== */
 
