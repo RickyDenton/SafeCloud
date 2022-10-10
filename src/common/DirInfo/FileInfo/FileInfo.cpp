@@ -3,6 +3,7 @@
 /* ================================== INCLUDES ================================== */
 #include "FileInfo.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
@@ -19,26 +20,41 @@ fileMetadata::fileMetadata() : fileSize(-1), creationTime(-1), lastModTime(-1)
 fileMetadata::fileMetadata(long int fileSize_, long int creationTime_, long int lastModTime_) : fileSize(fileSize_), creationTime(creationTime_), lastModTime(lastModTime_)
  {}
 
+
 /**
- * @brief  FileInfo object constructor, initializing the file name and metadata
- * @param  dirAbsPath The absolute path of the directory the file is contained in
- * @param  fileName_  The file's name
- * @throws ERR_FILE_READ_FAILED Error in reading the file's metadata
+ * @brief  FileInfo object constructor, initializing the
+ *         file name and metadata from its absolute path
+ * @param  fileAbsPath The file's absolute path
+ * @throws ERR_SESS_FILE_READ_FAILED Error in reading the file's metadata
+ * @throws ERR_SESS_FILE_IS_DIR      The file is in fact a directory
  */
-FileInfo::FileInfo(std::string* dirAbsPath,std::string fileName_) : fileName(std::move(fileName_)), fileMeta()
- {
-  // Used for reading the file's metadata via the "stat.h" library
-  struct stat fileInfo{};
+FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
+{
+ // The file's absolute path as a C string
+ char fileAbsPathC[PATH_MAX];
 
-  // Attempt to read the file's metadata
-  if(stat((*dirAbsPath + '/' + fileName).c_str(), &fileInfo) != 0)
-   THROW_EXEC_EXCP(ERR_FILE_READ_FAILED,(*dirAbsPath + fileName),ERRNO_DESC);
+ // Used for reading the file's metadata via the "stat.h" library
+ struct stat fileInfo{};
 
-  // Initialize the file's metadata
-  fileMeta.fileSize = fileInfo.st_size;
-  fileMeta.creationTime = fileInfo.st_ctime;
-  fileMeta.lastModTime = fileInfo.st_mtime;
- }
+ // Convert the file's absolute path to a C string
+ fileAbsPath.copy(fileAbsPathC,PATH_MAX);
+
+ // Attempt to read the file's metadata
+ if(stat(fileAbsPathC, &fileInfo) != 0)
+  THROW_SESS_EXCP(ERR_SESS_FILE_READ_FAILED, fileAbsPathC, ERRNO_DESC);
+
+ // Ensure the file not to be a directory
+ if(S_ISDIR(fileInfo.st_mode))
+  THROW_SESS_EXCP(ERR_SESS_FILE_IS_DIR,fileAbsPath);
+
+ // Initialize the file's metadata
+ fileMeta.fileSize = fileInfo.st_size;
+ fileMeta.creationTime = fileInfo.st_ctime;
+ fileMeta.lastModTime = fileInfo.st_mtime;
+
+ // Extract and initialize the file's name
+ fileName = basename(fileAbsPathC);
+}
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
@@ -90,6 +106,45 @@ void FileInfo::getFormattedSize(char* formSizeDest) const
    }
   else
    sprintf(formSizeDest,"%ldB",candSize); // XXXXB
+ }
+
+
+// TODO: Rewrite descriptions
+void FileInfo::printInfo()
+ {
+  char fileSize[7];          // The file size formatted as a string
+  char timeDate[18];         // A creation or last modified time value expressed as the string "HH:MM:SS DD/MM/YY"
+  struct tm timeCalendar{};  // Stores a creation or last modification time in a calendar-like representation
+
+  // Indentation
+  printf("\n");
+
+  // Header
+  std::cout << fileName << std::endl;
+
+  for(int i = 0; i<fileName.length(); i++)
+   printf("-");
+
+  // Indentation
+  printf("\n");
+
+
+  // Size
+  getFormattedSize(fileSize);
+  std::cout << "Size:          "<< fileSize << std::endl;
+
+  // Creation Time
+  timeCalendar = *localtime(&fileMeta.creationTime);
+  strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
+  std::cout << "Created:       "<< timeDate << std::endl;
+
+  // Last Modified Time
+  timeCalendar = *localtime(&fileMeta.lastModTime);
+  strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
+  std::cout << "Last Modified: "<< timeDate << std::endl;
+
+  // Indentation
+  printf("\n");
  }
 
 

@@ -48,11 +48,6 @@ class SessMgr
 
    unsigned int _bytesTransf;
 
-   /* ------------- Progress Bar Management ------------- */
-   ProgressBar  _progBar;
-   unsigned int _tProgUnit;
-   unsigned int _tProgTemp;
-
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

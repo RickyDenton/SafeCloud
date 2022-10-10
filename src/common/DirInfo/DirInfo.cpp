@@ -33,7 +33,7 @@ DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
        continue;
 
       // Store the file's name and metadata in a FileInfo object
-      dirFiles.emplace_front(FileInfo(dirPath, dirFile->d_name));
+      dirFiles.emplace_front(FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name)));
      }
 
     // Close the target directory

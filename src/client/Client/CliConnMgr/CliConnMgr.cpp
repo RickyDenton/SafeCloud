@@ -95,9 +95,8 @@ void CliConnMgr::startCliSTSM()
   delete _cliSTSMMgr;
   _cliSTSMMgr = nullptr;
 
-  // TODO
   // Instantiate the CliSessMgr child object
-  //_cliSessMgr = new CliSessMgr();
+  _cliSessMgr = new CliSessMgr(*this);
 
   // Switch the connection to the SESSION phase
   _connState = SESSION;

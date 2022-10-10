@@ -2,6 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "SessMgr.h"
+#include "errCodes/errCodes.h"
 
 // TODO: Write descriptions
 
@@ -10,7 +11,7 @@
 
 SessMgr::SessMgr(ConnMgr& connMgr)
   : _sessCmd(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey,_connMgr._iv), _targFileDscr(nullptr), _targFileAbsPath(nullptr), _targFileInfo(nullptr),
-    _tmpFileDscr(nullptr), _tmpFileAbsPath(nullptr), _tmpFileInfo(nullptr), _bytesTransf(0), _progBar(100), _tProgUnit(0), _tProgTemp(0)
+    _tmpFileDscr(nullptr), _tmpFileAbsPath(nullptr), _tmpFileInfo(nullptr), _bytesTransf(0)
  {}
 
 
@@ -20,17 +21,16 @@ SessMgr::~SessMgr()
 
   if(_targFileDscr != nullptr)
    fclose(_targFileDscr);
-  delete _targFileDscr;
 
   delete _targFileAbsPath;
   delete _targFileInfo;
 
   if(_tmpFileDscr != nullptr)
-   fclose(_tmpFileDscr);
-  delete _tmpFileDscr;
-
-  delete _tmpFileAbsPath;
-  delete _tmpFileInfo;
+   {
+    fclose(_tmpFileDscr);
+    if(remove(_tmpFileAbsPath->c_str()) == -1)
+     LOG_WARNING("Couldn't delete the temporary file " + *_tmpFileAbsPath)
+   }
  }
 
 
@@ -46,24 +46,23 @@ void SessMgr::resetSessState()
 
   if(_targFileDscr != nullptr)
    fclose(_targFileDscr);
-  delete _targFileDscr;
+  _targFileDscr = nullptr;
 
   delete _targFileAbsPath;
+  _targFileAbsPath = nullptr;
+
   delete _targFileInfo;
+  _targFileInfo = nullptr;
 
   if(_tmpFileDscr != nullptr)
-   fclose(_tmpFileDscr);
-  delete _tmpFileDscr;
-
-  delete _tmpFileAbsPath;
-  delete _tmpFileInfo;
+   {
+    fclose(_tmpFileDscr);
+    if(remove(_tmpFileAbsPath->c_str()) == -1)
+     LOG_WARNING("Couldn't delete the temporary file " + *_tmpFileAbsPath)
+   }
+  _tmpFileDscr = nullptr;
 
   _bytesTransf = 0;
-
-  _progBar.reset();
-
-  _tProgUnit = 0;
-  _tProgTemp = 0;
 
   printf("in resetSessState()\n");
  }

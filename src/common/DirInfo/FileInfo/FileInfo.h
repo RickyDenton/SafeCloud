@@ -50,12 +50,13 @@ class FileInfo
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
-    * @brief  FileInfo object constructor, initializing the file name and metadata
-    * @param  dirAbsPath The absolute path of the directory the file is contained in
-    * @param  fileName_  The file's name
-    * @throws ERR_FILE_OPEN_FAILED Error in reading the file's metadata
+    * @brief  FileInfo object constructor, initializing the
+    *         file name and metadata from its absolute path
+    * @param  fileAbsPath The file's absolute path
+    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the file's metadata
+    * @throws ERR_SESS_FILE_IS_DIR      The file is in fact a directory
     */
-   FileInfo(std::string* dirAbsPath,std::string fileName);
+   explicit FileInfo(const std::string& fileAbsPath);
 
   /* ============================ OTHER PUBLIC METHODS ============================ */
 
@@ -70,6 +71,9 @@ class FileInfo
    * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
    */
   void getFormattedSize(char* formSizeDest) const;
+
+
+  void printInfo();
 
   /**
    * @brief  Reads and returns a file's metadata

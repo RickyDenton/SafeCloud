@@ -13,6 +13,7 @@
 #include <openssl/rand.h>
 #include "ConnMgr/IV/IV.h"
 
+#define AES_128_GCM_TAG_SIZE 16
 
 class AESGCMMgr
  {

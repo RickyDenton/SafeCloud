@@ -38,25 +38,38 @@ class CliSessMgr : public SessMgr
    cliSessCmdState _cliSessCmdState;  // The current client session command state
    CliConnMgr&     _cliConnMgr;    // The parent CliConnMgr instance managing this object
 
+   /* ------------- Progress Bar Management ------------- */
+   ProgressBar  _progBar;
+   unsigned int _tProgUnit;
+   unsigned int _tProgTemp;
+
+
+
+
+   void parseOpenFile(std::string& filePath);
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
-   CliSessMgr(CliConnMgr& cliConnMgr);
+   explicit CliSessMgr(CliConnMgr& cliConnMgr);
 
    // Same destructor of the SessMgr base class
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
    // TODO
+   void resetCliSessState();
+
+   // TODO: STUB
    void uploadFile(std::string& filePath);
 
-   // TODO
+  // TODO: STUB
    void downloadFile(std::string& fileName);
 
-   // TODO
+  // TODO: STUB
    void listRemoteFiles();
 
-   // TODO
+  // TODO: STUB
    void renameRemFile(std::string& oldFileName,std::string& newFileName);
  };
 

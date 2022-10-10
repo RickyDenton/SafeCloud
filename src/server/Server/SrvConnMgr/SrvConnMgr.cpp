@@ -51,6 +51,9 @@ bool SrvConnMgr::recvHandleData()
          delete _srvSTSMMgr;
          _srvSTSMMgr = nullptr;
 
+         // Instantiate the SrvSessMgr child object
+         _srvSessMgr = new SrvSessMgr(*this);
+
          // Switch the connection to the SESSION phase
          _connState = SESSION;
         }
