@@ -44,6 +44,9 @@ class ConnMgr
    unsigned char _skey[AES_128_KEY_SIZE];  // The connection's symmetric key
    IV* _iv;                                // The connection's initialization vector
 
+   /* =============================== FRIEND CLASSES =============================== */
+   friend class SessMgr;
+
    /* ============================== PROTECTED METHODS ============================== */
 
    /**

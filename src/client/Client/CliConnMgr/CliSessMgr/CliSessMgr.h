@@ -3,35 +3,61 @@
 
 /* SafeCloud Client Session Manager */
 
-#include <string>
+/* ================================== INCLUDES ================================== */
 #include "ConnMgr/SessMgr/SessMgr.h"
+
+
+// Forward Declaration
+class CliConnMgr;
 
 class CliSessMgr : public SessMgr
  {
-   private:
+  private:
 
-    /* ========================= Attributes ========================= */
-    char*             _downDir;       // The client's download directory
+   // Client session commands states
+   enum cliSessCmdState : uint8_t
+    {
+     CLI_IDLE
+     // Client UPLOAD command states
 
-   public:
 
-    /* ================= Constructors and Destructor ================= */
-    CliSessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey, char* downDir);
-    // Same destructor of the SessMgr base class
+     // Client DOWNLOAD command states
 
-  /* ======================== Other Methods ======================== */
 
-  // TODO
-  void uploadFile(std::string& filePath);
+     // Client DELETE command states
 
-  // TODO
-  void downloadFile(std::string& fileName);
 
-  // TODO
-  void listRemoteFiles();
+     // Client RENAME command states
 
-  // TODO
-  void renameRemFile(std::string& oldFileName,std::string& newFileName);
+
+     // Client LIST command states
+
+    };
+
+   /* ================================= ATTRIBUTES ================================= */
+   cliSessCmdState _cliSessCmdState;  // The current client session command state
+   CliConnMgr&     _cliConnMgr;    // The parent CliConnMgr instance managing this object
+
+  public:
+
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
+   CliSessMgr(CliConnMgr& cliConnMgr);
+
+   // Same destructor of the SessMgr base class
+
+   /* ============================= OTHER PUBLIC METHODS ============================= */
+
+   // TODO
+   void uploadFile(std::string& filePath);
+
+   // TODO
+   void downloadFile(std::string& fileName);
+
+   // TODO
+   void listRemoteFiles();
+
+   // TODO
+   void renameRemFile(std::string& oldFileName,std::string& newFileName);
  };
 
 

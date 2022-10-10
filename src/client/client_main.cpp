@@ -19,9 +19,8 @@
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "Client/Client.h"
 #include "utils.h"
-#include "DirInfo/DirInfo.h"
-#include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
+#include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 Client* cli;  // The singleton Client object

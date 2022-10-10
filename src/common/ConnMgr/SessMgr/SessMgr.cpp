@@ -3,42 +3,67 @@
 /* ================================== INCLUDES ================================== */
 #include "SessMgr.h"
 
+// TODO: Write descriptions
 
-/* ======================== CLASS METHODS IMPLEMENTATION ======================== */
+/* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
-/* ------------------------ Constructors and Destructor ------------------------ */
 
-// TODO: Check arguments' value and throw an exception if wrong?
-/**
- * @brief         SessMgr object constructor
- * @param csk     The session's connection socket
- * @param tmpDir  The session's temporary directory
- * @param buf     Session Buffer
- * @param bufSize Session Buffer size
- * @param iv      The initialization vector of implicit IV_SIZE = 12 bytes (96 bit, AES_GCM)
- * @param skey    The symmetric key of implicit SKEY_SIZE = 16 bytes (128 bit, AES_GCM)
- */
-SessMgr::SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey)
-                 : _sessOp(IDLE), _csk(csk), _tmpDir(tmpDir), _buf(buf), _bufInd(0), _bufSize(bufSize), _iv(iv), _skey(skey)//, _sentMsg(nullptr), _recvMsg(nullptr)
+SessMgr::SessMgr(ConnMgr& connMgr)
+  : _sessCmd(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey,_connMgr._iv), _targFileDscr(nullptr), _targFileAbsPath(nullptr), _targFileInfo(nullptr),
+    _tmpFileDscr(nullptr), _tmpFileAbsPath(nullptr), _tmpFileInfo(nullptr), _bytesTransf(0), _progBar(100), _tProgUnit(0), _tProgTemp(0)
  {}
 
 
-/**
- * @brief SessMgr object constructor, which safely deletes its sensitive attributes
- * @note  Apart from the last received and sent session messages all other sensitive attributes are safely
- *        deleted within the associated ConnMgr destructor (which is called immediately after this one)
- */
 SessMgr::~SessMgr()
  {
-  // Delete the last received and sent session messages
-//  delete _sentMsg;
-//  delete _recvMsg;
+  // _connMgr must not be deleted, the other objects do so in their destructors
+
+  if(_targFileDscr != nullptr)
+   fclose(_targFileDscr);
+  delete _targFileDscr;
+
+  delete _targFileAbsPath;
+  delete _targFileInfo;
+
+  if(_tmpFileDscr != nullptr)
+   fclose(_tmpFileDscr);
+  delete _tmpFileDscr;
+
+  delete _tmpFileAbsPath;
+  delete _tmpFileInfo;
  }
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
+
+// TODO: Check and write description
 void SessMgr::resetSessState()
  {
+  _sessCmd = IDLE;
+
+  _aesGCMMgr.resetState();
+
+  if(_targFileDscr != nullptr)
+   fclose(_targFileDscr);
+  delete _targFileDscr;
+
+  delete _targFileAbsPath;
+  delete _targFileInfo;
+
+  if(_tmpFileDscr != nullptr)
+   fclose(_tmpFileDscr);
+  delete _tmpFileDscr;
+
+  delete _tmpFileAbsPath;
+  delete _tmpFileInfo;
+
+  _bytesTransf = 0;
+
+  _progBar.reset();
+
+  _tProgUnit = 0;
+  _tProgTemp = 0;
+
   printf("in resetSessState()\n");
  }

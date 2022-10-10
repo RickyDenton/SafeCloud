@@ -3,62 +3,72 @@
 
 /* SafeCloud Session Manager */
 
+// TODO: Rewrite descriptions, attributes included
+
+/* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
-
-/* -------------------------- Session Operations -------------------------- */
-enum sessionOp
- {
-  IDLE,      // No operation in progress
-  UPLOAD,    // File upload in progress
-  DOWNLOAD,  // File download in progress
-  RENAME,    // File rename in progress
-  DELETE,    // File delete in progress
-  LIST,      // Retrieving client's file list in the SafeCloud server
-  CLOSE,     // Session closing
- };
-
+#include <string>
+#include "DirInfo/FileInfo/FileInfo.h"
+#include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
+#include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
+#include "ConnMgr/ConnMgr.h"
 
 class SessMgr
  {
-   protected:
+  protected:
 
-    /* ========================= Attributes ========================= */
+   enum sessCmd : uint8_t
+    {
+     IDLE,      // Ready to receive commands
+     UPLOAD,    // Uploading a file to the SafeCloud storage pool
+     DOWNLOAD,  // Downloading a file from the SafeCloud storage pool
+     DELETE,    // Deleting a file from the SafeCloud storage pool
+     RENAME,    // Renaming a file within the SafeCloud storage pool
+     LIST       // Listing the contents of the SafeCloud storage pool
+    };
 
-    // General session information
-    sessionOp _sessOp;            // The current session operation
-    const int _csk;               // The session's connection socket
-    char*     _tmpDir;            // The session's temporary directory
+   /* ================================= ATTRIBUTES ================================= */
 
-    // Buffer for sending and receiving session messages
-    unsigned char*     _buf;      // Session Buffer
-    unsigned int       _bufInd;   // Index to the first available byte in the Session buffer
-    const unsigned int _bufSize;  // Session Buffer size
+   /* ------------------- General Info ------------------- */
+   sessCmd        _sessCmd;    // The current session command
+   ConnMgr&       _connMgr;    // The associated connection manager
+   AESGCMMgr      _aesGCMMgr;  // AES_128_GCM Manager
 
-    // Cryptographic quantities
-    unsigned char* _iv;           // The initialization vector of implicit IV_SIZE = 12 bytes (96 bit, AES_GCM)
-    unsigned char* _skey;         // The symmetric key of implicit SKEY_SIZE = 16 bytes (128 bit, AES_GCM)
+   /* ---------------- Files Management ---------------- */
 
-    // Last sent and received session messages
-//    sMsg* _sentMsg;               // The last sent session message
-//    sMsg* _recvMsg;               // The last received session message
+   // Target File
+   FILE*        _targFileDscr;
+   std::string* _targFileAbsPath;     // TODO: Maybe not necessary
+   FileInfo*    _targFileInfo;
 
+   // Temporary File
+   FILE*        _tmpFileDscr;
+   std::string* _tmpFileAbsPath;     // TODO: Maybe not necessary
+   FileInfo*    _tmpFileInfo;
 
-   public:
+   unsigned int _bytesTransf;
 
-    /* ================= Constructors and Destructor ================= */
-    SessMgr(int csk, char* tmpDir, unsigned char* buf, unsigned int bufSize, unsigned char* iv, unsigned char* skey);
-    ~SessMgr();
+   /* ------------- Progress Bar Management ------------- */
+   ProgressBar  _progBar;
+   unsigned int _tProgUnit;
+   unsigned int _tProgTemp;
 
-    /* ======================== Other Methods ======================== */
+  public:
 
-    // TODO: STUB, resets the session's state
-    void resetSessState();
+   /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
+   explicit SessMgr(ConnMgr& _connMgr);
 
-    // TODO
-    // send(sMsg)?
-    // sendBye()?
-    // sendError()?
+   ~SessMgr();
+
+   /* ============================= OTHER PUBLIC METHODS ============================= */
+
+   // TODO: Check and write description
+   void resetSessState();
+
+   // TODO: Send predefined SessMsg, such as "bye", "cancel", etc.
+   // sendBye()?
+   // sendError()?
  };
 
 
