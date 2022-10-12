@@ -72,7 +72,10 @@ class FileInfo
    */
   void getFormattedSize(char* formSizeDest) const;
 
-
+  /**
+   * @brief Prints the indented file's name and metadata on stdout
+   * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
+   */
   void printInfo();
 
   /**

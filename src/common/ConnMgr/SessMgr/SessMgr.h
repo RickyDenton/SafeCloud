@@ -48,6 +48,14 @@ class SessMgr
 
    unsigned int _bytesTransf;
 
+   /* ============================= PROTECTED METHODS ============================= */
+
+   // TODO
+   void wrapSendSessMsg();
+
+   // TODO
+   void unWrapSessMsg();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

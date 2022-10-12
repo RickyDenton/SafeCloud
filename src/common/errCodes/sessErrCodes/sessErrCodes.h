@@ -29,6 +29,9 @@ enum sessErrCode : unsigned char
   ERR_SESS_FILE_IS_DIR,
   ERR_SESS_FILE_TOO_BIG,
 
+  ERR_SESS_UPLOAD_DIR,
+  ERR_SESS_UPLOAD_TOO_BIG,
+
   /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
   // AESGCMMgr Errors
@@ -52,8 +55,13 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     { ERR_SESS_FILE_NOT_FOUND,   {WARNING,"The file was not found"}},
     { ERR_SESS_FILE_OPEN_FAILED, {ERROR,"The file could not be opened"}},
     { ERR_SESS_FILE_READ_FAILED, {ERROR,"Error in reading the file"}},
-    { ERR_SESS_FILE_IS_DIR,      {ERROR,"The specified file is a directory"}},
-    { ERR_SESS_FILE_TOO_BIG,     {WARNING,"The file is too big to be uploaded (> 4GB)"}},
+    { ERR_SESS_FILE_IS_DIR,      {WARNING,"The specified file is a directory"}},
+    { ERR_SESS_FILE_TOO_BIG,     {WARNING,"The file is too big (> 4GB)"}},
+
+
+    { ERR_SESS_UPLOAD_DIR,      {WARNING,"Uploading directories is currently not supported"}},
+    { ERR_SESS_UPLOAD_TOO_BIG,  {WARNING,"The file is too big to be uploaded (it must be < 4GB)"}},
+
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
     { ERR_OSSL_DECRYPT_VERIFY_FAILED, {ERROR,"AES_GCM Tag verification failed"}},

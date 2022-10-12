@@ -6,6 +6,19 @@
 
 /* =============================== PRIVATE METHODS =============================== */
 
+/**
+ * @brief  Returns a pointer to the session manager's child object
+ * @return A pointer to the session manager's child object
+ * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+ */
+SrvSessMgr* SrvConnMgr::getSession()
+ {
+  if(_connState != SESSION || _srvSessMgr == nullptr)
+   THROW_EXEC_EXCP(ERR_CONN_NO_SESSION);
+  return _srvSessMgr;
+ }
+
+
 // TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
 /**
  * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
@@ -23,14 +36,12 @@ bool SrvConnMgr::recvHandleData()
     // Read data from the connection socket and, if a full data block was NOT received
     if(!recvData())
      {
-      /* TODO
-         If the primary connection buffer is full (which may occur only in the session phase
-         when sending/receiving large data), call the SessionMgr bufferFull() data to handle
-         it (which at the end should clear the primary input buffer before proceeding)
+      // If the connection is in the session phase and the SessMgr child object is expecting raw data, call the appropriate handler
+      if(_connState == SESSION && _srvSessMgr != nullptr && _srvSessMgr->passRawData())
+       _srvSessMgr->recvRaw();
 
-      if(_priBufInd == _bufSize + 1)
-       _srvSessMgr.bufferFull();
-      */
+      // Reset the index of the most significant byte in the primary connection buffer
+      _priBufInd = 0;
 
       // Inform the Server object that the client connection must be maintained
       return true;
@@ -65,10 +76,9 @@ bool SrvConnMgr::recvHandleData()
      // Session Phase
      else
       {
-       // TODO
-       // Call the session's message handler, propagating its indication on whether
+       // Call the server session message handler, propagating its indication on whether
        // the client's connection should be maintained to the Server's object
-       return _srvSessMgr->SessBlockHandler();
+       return _srvSessMgr->recvSrvSessMsg();
       }
    }
   catch(execErrExcp& recvExcp)

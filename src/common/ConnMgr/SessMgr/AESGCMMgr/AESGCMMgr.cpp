@@ -146,6 +146,29 @@ int AESGCMMgr::encryptAddPT(unsigned char* ptAddr, int ptSize, unsigned char* ct
   if(EVP_EncryptUpdate(_aesGcmCTX, ctDest, &_sizePart, ptAddr, ptSize) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_UPDATE, OSSL_ERR_DESC);
 
+  /*
+  // LOG: Plaintext Block in hexadecimal
+  char ptBlockHex[(ptSize*2)+1];
+  for(int i = 0; i < ptSize; i++)
+   sprintf(ptBlockHex + 2 * i, "%.2x",ptAddr[i]);
+  ptBlockHex[2 * ptSize] = '\0';
+  printf("ptBlockHex = %s\n",ptBlockHex);
+
+  // LOG: Ciphertext Block in hexadecimal
+  char ctBlockHex[(ptSize*2)+1];
+  for(int i = 0; i < ptSize; i++)
+   sprintf(ctBlockHex + 2 * i, "%.2x",ctDest[i]);
+  ctBlockHex[2 * ptSize] = '\0';
+  printf("ctBlockHex = %s\n",ctBlockHex);
+
+  // LOG: IV in hexadecimal
+  char ivHex[25];
+  for(int i = 0; i < 12; i++)
+   sprintf(ivHex + 2 * i, "%.2x", reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))[i]);
+  ivHex[24] = '\0';
+  printf("ivHex = %s\n",ivHex);
+  */
+
   // Update the encryption operation's cumulative ciphertext size
   _sizeTot += _sizePart;
 
@@ -184,6 +207,15 @@ int AESGCMMgr::encryptFinal(unsigned char* tagDest)
   // Extract the encryption operation's integrity tag and write it into the specified buffer
   if(EVP_CIPHER_CTX_ctrl(_aesGcmCTX, EVP_CTRL_AEAD_GET_TAG, 16, tagDest) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_GET_TAG_FAILED, OSSL_ERR_DESC);
+
+  /*
+  // LOG: Integrity tag in hexadecimal
+  char tagHex[33];
+  for(int i = 0; i < 12; i++)
+   sprintf(tagHex + 2 * i, "%.2x", tagDest[i]);
+  tagHex[32] = '\0';
+  printf("tagHex = %s\n",tagHex);
+  */
 
   // Reset the AES_128_GCM manager state so to be ready for a new encryption or decryption operation
   resetState();
@@ -271,6 +303,29 @@ int AESGCMMgr::decryptAddCT(unsigned char* ctAddr, int ctSize, unsigned char* pt
   if(EVP_DecryptUpdate(_aesGcmCTX, ptDest, &_sizePart, ctAddr, ctSize) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_UPDATE, OSSL_ERR_DESC);
 
+  /*
+  // LOG: Plaintext Block in hexadecimal
+  char ptBlockHex[(ctSize*2)+1];
+  for(int i = 0; i < ctSize; i++)
+   sprintf(ptBlockHex + 2 * i, "%.2x",ptDest[i]);
+  ptBlockHex[2 * ctSize] = '\0';
+  printf("ptBlockHex = %s\n",ptBlockHex);
+
+  // LOG: Ciphertext Block in hexadecimal
+  char ctBlockHex[(ctSize*2)+1];
+  for(int i = 0; i < ctSize; i++)
+   sprintf(ctBlockHex + 2 * i, "%.2x",ctAddr[i]);
+  ctBlockHex[2 * ctSize] = '\0';
+  printf("ctBlockHex = %s\n",ctBlockHex);
+
+  // LOG: IV in hexadecimal
+  char ivHex[25];
+  for(int i = 0; i < 12; i++)
+   sprintf(ivHex + 2 * i, "%.2x", reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))[i]);
+  ivHex[24] = '\0';
+  printf("ivHex = %s\n",ivHex);
+  */
+
   // Update and return the decryption operation's cumulative plaintext size
   _sizeTot += _sizePart;
   return _sizeTot;
@@ -298,6 +353,15 @@ int AESGCMMgr::decryptFinal(unsigned char* tagAddr)
   // Set the decryption operation's expected integrity tag
   if(!EVP_CIPHER_CTX_ctrl(_aesGcmCTX, EVP_CTRL_AEAD_SET_TAG, 16, tagAddr))
    THROW_EXEC_EXCP(ERR_OSSL_SET_TAG_FAILED);
+
+  /*
+  // LOG: Integrity tag in hexadecimal
+  char tagHex[33];
+  for(int i = 0; i < 12; i++)
+   sprintf(tagHex + 2 * i, "%.2x", tagAddr[i]);
+  tagHex[32] = '\0';
+  printf("tagHex = %s\n",tagHex);
+  */
 
   // Finalize the decryption operation by validating the integrity
   // of the resulting plaintext against the expected integrity tag

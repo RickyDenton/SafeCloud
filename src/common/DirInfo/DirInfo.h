@@ -1,7 +1,10 @@
 #ifndef SAFECLOUD_DIRINFO_H
 #define SAFECLOUD_DIRINFO_H
 
-/* This class represents a snapshot of the files (names + metadata) within a directory */
+/*
+ * This class represents a snapshot of the files (names +
+ * metadata) within a directory (subdirectories excluded)
+ */
 
 /* ================================== INCLUDES ================================== */
 #include <string.h>
@@ -25,8 +28,8 @@ class DirInfo
    /**
     * @brief  DirInfo object constructor, creating a snapshot of the files (names + metadata) within a directory
     * @param  dirAbspath The absolute path of the directory to create the snapshot of
-    * @throws ERR_DIR_OPEN_FAILED  The target directory was not found
-    * @throws ERR_FILE_READ_FAILED Error in reading a file's metadata
+    * @throws ERR_DIR_OPEN_FAILED       The target directory was not found
+    * @throws ERR_SESS_FILE_READ_FAILED Error in reading a file's metadata
     */
    explicit DirInfo(std::string* dirAbspath);
 

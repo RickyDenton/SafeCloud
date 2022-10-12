@@ -38,7 +38,7 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
    THROW_EXEC_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "ptSize = " + std::to_string(ptSize));
 
   // Assert the resulting ciphertext maximum size (ptSize + AES_BLOCK_SIZE) not to overflow
-  // on an "int" type, case in which an erroneous negative ciphertext size would be returned
+  // on an "int" msgType, case in which an erroneous negative ciphertext size would be returned
   if(ptSize > INT_MAX - AES_BLOCK_SIZE)
    THROW_EXEC_EXCP(ERR_OSSL_AES_128_CBC_PT_TOO_LARGE, std::to_string(ptSize));
 

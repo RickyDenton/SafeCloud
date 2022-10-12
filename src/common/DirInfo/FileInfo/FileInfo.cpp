@@ -24,9 +24,9 @@ fileMetadata::fileMetadata(long int fileSize_, long int creationTime_, long int 
 /**
  * @brief  FileInfo object constructor, initializing the
  *         file name and metadata from its absolute path
- * @param  fileAbsPath The file's absolute path
+ * @param  fileAbsPath The file's absolute path as a string
  * @throws ERR_SESS_FILE_READ_FAILED Error in reading the file's metadata
- * @throws ERR_SESS_FILE_IS_DIR      The file is in fact a directory
+ * @throws ERR_SESS_FILE_IS_DIR      The file is a directory
  */
 FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
 {
@@ -37,7 +37,7 @@ FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
  struct stat fileInfo{};
 
  // Convert the file's absolute path to a C string
- fileAbsPath.copy(fileAbsPathC,PATH_MAX);
+ strcpy(fileAbsPathC,fileAbsPath.c_str());
 
  // Attempt to read the file's metadata
  if(stat(fileAbsPathC, &fileInfo) != 0)
@@ -109,7 +109,10 @@ void FileInfo::getFormattedSize(char* formSizeDest) const
  }
 
 
-// TODO: Rewrite descriptions
+/**
+ * @brief Prints the indented file's name and metadata on stdout
+ * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
+ */
 void FileInfo::printInfo()
  {
   char fileSize[7];          // The file size formatted as a string
@@ -119,26 +122,26 @@ void FileInfo::printInfo()
   // Indentation
   printf("\n");
 
-  // Header
+  // File name
   std::cout << fileName << std::endl;
 
+  // File name separator
   for(int i = 0; i<fileName.length(); i++)
    printf("-");
 
   // Indentation
   printf("\n");
 
-
-  // Size
+  // Formatted file size
   getFormattedSize(fileSize);
   std::cout << "Size:          "<< fileSize << std::endl;
 
-  // Creation Time
+  // File creation time
   timeCalendar = *localtime(&fileMeta.creationTime);
   strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
   std::cout << "Created:       "<< timeDate << std::endl;
 
-  // Last Modified Time
+  // File last modification time
   timeCalendar = *localtime(&fileMeta.lastModTime);
   strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
   std::cout << "Last Modified: "<< timeDate << std::endl;

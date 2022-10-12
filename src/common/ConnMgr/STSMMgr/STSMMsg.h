@@ -53,7 +53,7 @@ enum STSMMsgType : uint8_t
   // A malformed STSM message was received (any)
   ERR_MALFORMED_MESSAGE,
 
-  // An STSM message of unknown type was received (any)
+  // An STSM message of unknown msgType was received (any)
   ERR_UNKNOWN_STSMMSG_TYPE
  };
 
@@ -76,7 +76,7 @@ enum STSMMsgType : uint8_t
 struct STSMMsgHeader
  {
   uint16_t    len;   // Total STSM message length in bytes (header included)
-  STSMMsgType type;  // STSM message type
+  STSMMsgType type;  // STSM message msgType
  };
 
 /* ----------------------------- Base STSM message ----------------------------- */
@@ -91,7 +91,7 @@ struct STSMMsg
 
 /* ----------------------- 'CLIENT_HELLO' Message (1/4) ----------------------- */
 
-// Implicit header.type ='CLIENT_HELLO'
+// Implicit header.msgType ='CLIENT_HELLO'
 struct STSM_CLIENT_HELLO_MSG : public STSMMsg
  {
   public:
@@ -105,7 +105,7 @@ struct STSM_CLIENT_HELLO_MSG : public STSMMsg
 
 /* ------------------------- 'SRV_AUTH' Message (2/4) ------------------------- */
 
-// Implicit header.type ='SRV_AUTH'
+// Implicit header.msgType ='SRV_AUTH'
 struct STSM_SRV_AUTH_MSG : public STSMMsg
  {
   // The server's ephemeral DH 2048-bit public key in PEM format
@@ -121,7 +121,7 @@ struct STSM_SRV_AUTH_MSG : public STSMMsg
 
 /* ------------------------- 'CLI_AUTH' Message (3/4) ------------------------- */
 
-// Implicit header.type ='CLI_AUTH'
+// Implicit header.msgType ='CLI_AUTH'
 struct STSM_CLI_AUTH_MSG : public STSMMsg
  {
   // The client's name
@@ -133,7 +133,7 @@ struct STSM_CLI_AUTH_MSG : public STSMMsg
 
 /* -------------------------- 'SRV_OK' Message (4/4) -------------------------- */
 
-// Implicit header.type ='SRV_OK'
+// Implicit header.msgType ='SRV_OK'
 struct STSM_SRV_OK_MSG : public STSMMsg
  {};
 
