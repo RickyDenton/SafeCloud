@@ -29,7 +29,7 @@
  */
 void Client::setSrvEndpoint(const char* srvIP, uint16_t& srvPort)
  {
-  // Set the server socket type to IPv4
+  // Set the server socket msgType to IPv4
   _srvAddr.sin_family = AF_INET;
 
   // "srvIP" must consist of a valid IPv4 address, which can be ascertained
@@ -772,17 +772,19 @@ void Client::userCmdPrompt()
       // In case an unsupported command was provided, "gently" inform the user
       // that they can print the list of available commands via the "HELP" command
       if(sessErrExcp.sesErrCode == ERR_UNSUPPORTED_CMD)
-       { std::cout << "Unsupported command (type \"HELP\" for the list of available commands) " << std::endl; }
+       { std::cout << "Unsupported command (msgType \"HELP\" for the list of available commands) " << std::endl; }
 
       // Otherwise handle the recoverable session exception via its default handler
       else
        handleSessErrException(sessErrExcp);
 
-      // Reset the session manager's state
-      //_cliConnMgr->getSession()->resetSessState();
-
       // TODO: other to be done here?
      }
+
+    // If the SafeCloud client is not shutting down, reset its session manager's state
+    if(!_shutdown)
+    _cliConnMgr->getSession()->resetCliSessState();
+
    } while(!_shutdown);
  }
 

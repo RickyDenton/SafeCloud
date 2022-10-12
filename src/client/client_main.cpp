@@ -21,6 +21,7 @@
 #include "utils.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
+#include "DirInfo/DirInfo.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 Client* cli;  // The singleton Client object
