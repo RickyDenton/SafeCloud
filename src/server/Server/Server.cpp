@@ -5,6 +5,7 @@
 /* ================================== INCLUDES ================================== */
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "defaults.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string>
@@ -20,7 +21,7 @@
  */
 void Server::setSrvEndpoint(uint16_t& srvPort)
  {
-  // Set the server socket type to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
+  // Set the server socket msgType to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
   _srvAddr.sin_family = AF_INET;
   _srvAddr.sin_addr.s_addr = INADDR_ANY;
 
@@ -232,6 +233,17 @@ void Server::newClientData(int ski)
     // The connection must be closed
     keepConn = false;
    }
+  catch(sessErrExcp& sessExcp)
+   {
+    // TODO
+    handleSessErrException(sessExcp);
+
+    // Reset the server session manager's state
+    srvConnMgr->getSession()->resetSrvSessState();
+
+    // The connection must be maintained
+    keepConn = true;
+   }
 
   // If necessary close the client's connection and continue
   // checking the next socket descriptor in the server's main loop
@@ -246,7 +258,7 @@ void Server::newClientData(int ski)
 void Server::newClientConnection()
  {
   /* ----------------- Client Endpoint Information ----------------- */
-  struct sockaddr_in  cliAddr{};                         // The client socket type, IP and Port
+  struct sockaddr_in  cliAddr{};                         // The client socket msgType, IP and Port
   static unsigned int cliAddrLen = sizeof(sockaddr_in);  // The (static) size of a sockaddr_in structure
   char cliIP[16];                                        // The client IP address
   int  cliPort;                                          // The client port

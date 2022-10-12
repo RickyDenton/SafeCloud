@@ -5,6 +5,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include "ConnMgr/SessMgr/SessMgr.h"
+#include "ConnMgr/SessMgr/SessMsg.h"
 
 
 // Forward Declaration
@@ -43,10 +44,25 @@ class CliSessMgr : public SessMgr
    unsigned int _tProgUnit;
    unsigned int _tProgTemp;
 
+   /* ============================== PRIVATE METHODS ============================== */
 
+   // TODO
+   void sendCliSessMsg(SessMsgType sessMsgType);
 
+   /**
+    * @brief  Parses a target file to be uploaded by:\n
+    *           1) Initializing its canonicalized path\n
+    *           2) Opening its file descriptor in read-byte mode\n
+    *           3) Determining its file name and metadata\n
+    * @param  filePath The relative or absolute path of the target file to be uploaded
+    * @throws ERR_SESS_FILE_NOT_FOUND   The target file was not found
+    * @throws ERR_SESS_FILE_OPEN_FAILED The target file could not be opened in read mode
+    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the target file's metadata
+    * @throws ERR_SESS_UPLOAD_DIR       The target file is a directory
+    * @throws ERR_SESS_UPLOAD_TOO_BIG   The target file is too large (> 4GB)
+    */
+   void parseUploadFile(std::string& filePath);
 
-   void parseOpenFile(std::string& filePath);
 
   public:
 
@@ -57,10 +73,13 @@ class CliSessMgr : public SessMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   // TODO
+   /**
+    * @brief Resets the client session manager state
+    *        to be ready for the next session command
+    */
    void resetCliSessState();
 
-   // TODO: STUB
+   // TODO
    void uploadFile(std::string& filePath);
 
   // TODO: STUB

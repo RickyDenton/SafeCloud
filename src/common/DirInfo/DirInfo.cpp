@@ -8,8 +8,8 @@
 /**
  * @brief  DirInfo object constructor, creating a snapshot of the files (names + metadata) within a directory
  * @param  dirAbspath The absolute path of the directory to create the snapshot of
- * @throws ERR_DIR_OPEN_FAILED  The target directory was not found
- * @throws ERR_FILE_READ_FAILED Error in reading a file's metadata
+ * @throws ERR_DIR_OPEN_FAILED       The target directory was not found
+ * @throws ERR_SESS_FILE_READ_FAILED Error in reading a file's metadata
  */
 DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
  {
@@ -28,8 +28,8 @@ DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
     // For each file in the target directory
     while((dirFile = readdir(dir)) != NULL)
      {
-      // Skip the directory and its parent's pointers
-      if(!strcmp(dirFile->d_name, ".") || !strcmp(dirFile->d_name, ".."))
+      // Skip the directory itself, the pointer to the parent's directory, and subdirectories
+      if(!strcmp(dirFile->d_name, ".") || !strcmp(dirFile->d_name, "..") || dirFile->d_type == DT_DIR)
        continue;
 
       // Store the file's name and metadata in a FileInfo object

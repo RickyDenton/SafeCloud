@@ -6,6 +6,7 @@
 #include "ConnMgr/ConnMgr.h"
 #include "SrvSTSMMgr/SrvSTSMMgr.h"
 #include "SrvSessMgr/SrvSessMgr.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include <openssl/evp.h>
 #include <unordered_map>
 
@@ -13,11 +14,14 @@ class SrvConnMgr : public ConnMgr
  {
   private:
 
-    /* ================================= ATTRIBUTES ================================= */
-    std::string* _poolDir;    // The connected client's pool directory
 
-    SrvSTSMMgr* _srvSTSMMgr;  // The child server STSM key establishment manager
-    SrvSessMgr* _srvSessMgr;  // The child server session manager
+    /* ================================= ATTRIBUTES ================================= */
+    std::string*       _poolDir;     // The connected client's pool directory
+
+    SrvSTSMMgr*        _srvSTSMMgr;  // The child server STSM key establishment manager
+    SrvSessMgr*        _srvSessMgr;  // The child server session manager
+
+
 
    /* =============================== FRIEND CLASSES =============================== */
    friend class SrvSTSMMgr;
@@ -48,6 +52,13 @@ class SrvConnMgr : public ConnMgr
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
+  /**
+   * @brief  Returns a pointer to the session manager's child object
+   * @return A pointer to the session manager's child object
+   * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+   */
+  SrvSessMgr* getSession();
+
   // TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
   /**
    * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
@@ -60,6 +71,9 @@ class SrvConnMgr : public ConnMgr
    */
   bool recvHandleData();
 
+
+
+
  };
 
 
@@ -69,7 +83,7 @@ class SrvConnMgr : public ConnMgr
 // their associated srvConnMgr object, and thus a client connected with the server
 typedef std::unordered_map<int,SrvConnMgr*> connMap;
 
-// connMap type iterator
+// connMap msgType iterator
 typedef std::unordered_map<int,SrvConnMgr*>::iterator connMapIt;
 
 #endif //SAFECLOUD_SRVCONNMGR_H

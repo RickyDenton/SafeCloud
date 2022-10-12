@@ -9,7 +9,7 @@
 // Forward Declaration
 class SrvConnMgr;
 
-class SrvSessMgr : SessMgr
+class SrvSessMgr : public SessMgr
  {
   private:
 
@@ -32,24 +32,46 @@ class SrvSessMgr : SessMgr
      // Server LIST command states
     };
 
+   // The server session manager reception mode
+   enum srvSessRecvMode : uint8_t
+    {
+     RECV_MSG,  // Session message expected
+     RECV_RAW   // Raw data expected
+    };
+
 
    /* ================================= ATTRIBUTES ================================= */
+   srvSessRecvMode _srvSessRecvMode;  // The current server session manager reception mode
    srvSessCmdState _srvSessCmdState;  // The current server session command state
    SrvConnMgr&     _srvConnMgr;       // The parent SrvConnMgr instance managing this object
 
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
-   SrvSessMgr(SrvConnMgr& cliConnMgr);
+   explicit SrvSessMgr(SrvConnMgr& cliConnMgr);
 
    // Same destructor of the SessMgr base class
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   // TODO: Placeholder implementation
-   bool SessBlockHandler()
-    { return true; }
+   /**
+    * @brief Resets the server session manager state
+    *        to be ready for the next session command
+    */
+   void resetSrvSessState();
 
+   // TODO
+   bool recvSrvSessMsg();
+
+   bool passRawData()
+    {
+     if(_srvSessRecvMode == RECV_RAW)
+      return true;
+     return false;
+    }
+
+   // TODO: Placeholder implementation
+   void recvRaw();
  };
 
 

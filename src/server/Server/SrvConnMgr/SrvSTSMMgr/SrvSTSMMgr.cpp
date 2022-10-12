@@ -16,29 +16,29 @@
 /**
  * @brief  Sends a STSM error message to the server and throws the
  *         associated exception on the client, aborting the connection
- * @param  errMsgType The STSM error message type to be sent to the server
+ * @param  errMsgType The STSM error message msgType to be sent to the server
  * @param  errDesc    An optional description of the error that has occurred
  * @throws ERR_STSM_SRV_CLI_INVALID_PUBKEY  The client has provided an invalid ephemeral public key
  * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized username on the server
  * @throws ERR_STSM_SRV_CLI_AUTH_FAILED     The client has failed the STSM authentication
  * @throws ERR_STSM_UNEXPECTED_MESSAGE      Received an out-of-order STSM message
  * @throws ERR_STSM_MALFORMED_MESSAGE       Received a malformed STSM message
- * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE    Received a STSM message of unknown type
- * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR   Attempting to send an STSM error message of unknown type
+ * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE    Received a STSM message of unknown msgType
+ * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR   Attempting to send an STSM error message of unknown msgType
  */
 void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = "")
  {
   // Interpret the associated connection manager's primary connection buffer as a STSMsg
   STSMMsg* errMsg = reinterpret_cast<STSMMsg*>(_srvConnMgr._priBuf);
 
-  // Set the error message header's length and type
+  // Set the error message header's length and msgType
   errMsg->header.len = sizeof(STSMMsg);
   errMsg->header.type = errMsgType;
 
   // Send the STSM error message
   _srvConnMgr.sendMsg();
 
-  // Throw the exception associated with the error message's type
+  // Throw the exception associated with the error message's msgType
   switch(errMsgType)
    {
     /* ------------------------ Error STSM Messages  ------------------------ */
@@ -63,11 +63,11 @@ void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
     case ERR_MALFORMED_MESSAGE:
      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, errDesc);
 
-    // A STSM message of unknown type has been received
+    // A STSM message of unknown msgType has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errDesc);
 
-    // Unknown error type
+    // Unknown error msgType
     default:
      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_ERROR, "(" + std::to_string(errMsgType) + ")");
    }
@@ -78,20 +78,20 @@ void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
  * @brief  Verifies a received message to consists of the STSM handshake message
  *         appropriate for the current server's STSM state, throwing an error otherwise
  * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
- * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message type and size mismatch
+ * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message msgType and size mismatch
  * @throws ERR_STSM_SRV_SRV_INVALID_PUBKEY   The client reported that the server's ephemeral public key is invalid
  * @throws ERR_STSM_SRV_SRV_CERT_REJECTED    The client rejected the server's X.509 certificate
  * @throws ERR_STSM_SRV_SRV_AUTH_FAILED      The client reported the server failing the STSM authentication
  * @throws ERR_STSM_CLI_UNEXPECTED_MESSAGE   The client reported to have received an out-of-order STSM message
  * @throws ERR_STSM_CLI_MALFORMED_MESSAGE    The client reported to have received a malformed STSM message
- * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The client reported to have received an STSM message of unknown type
+ * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The client reported to have received an STSM message of unknown msgType
  */
 void SrvSTSMMgr::checkSrvSTSMMsg()
  {
   // Interpret the associated connection manager's primary buffer as a STSM message
   STSMMsg* stsmMsg = reinterpret_cast<STSMMsg*>(_srvConnMgr._priBuf);
 
-  // Depending on the received STSM message's type
+  // Depending on the received STSM message's msgType
   switch(stsmMsg->header.type)
    {
     /* ------------- Server-valid received STSM message types  ------------- */
@@ -146,7 +146,7 @@ void SrvSTSMMgr::checkSrvSTSMMsg()
     case ERR_MALFORMED_MESSAGE:
      THROW_EXEC_EXCP(ERR_STSM_SRV_MALFORMED_MESSAGE);
 
-    // The client reported to have received an STSM message of unknown type
+    // The client reported to have received an STSM message of unknown msgType
     case ERR_UNKNOWN_STSMMSG_TYPE:
      THROW_EXEC_EXCP(ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE);
 
@@ -208,7 +208,7 @@ void SrvSTSMMgr::recv_client_hello()
   // LOG: 'CLIENT_HELLO' message contents
   printf("CLIENT_HELLO' message contents: \n");
   std::cout << "cliHelloMsg->header.len = " << cliHelloMsg->header.len << std::endl;
-  std::cout << "cliHelloMsg->header.type = " << cliHelloMsg->header.type << std::endl;
+  std::cout << "cliHelloMsg->header.msgType = " << cliHelloMsg->header.msgType << std::endl;
   std::cout << "cliHelloMsg->iv.iv_AES_CBC = " << cliHelloMsg->iv.iv_AES_CBC << std::endl;
   std::cout << "cliHelloMsg->iv.iv_AES_GCM = " << cliHelloMsg->iv.iv_AES_GCM << std::endl;
   std::cout << "cliHelloMsg->iv.iv_var = " << cliHelloMsg->iv.iv_var << std::endl;
@@ -317,7 +317,7 @@ void SrvSTSMMgr::send_srv_auth()
 
   /* ------------------ Message Finalization and Sending ------------------ */
 
-  // Initialize the 'SRV_AUTH' message length and type
+  // Initialize the 'SRV_AUTH' message length and msgType
   stsmSrvAuth->header.len = sizeof(STSMMsgHeader) + DH2048_PUBKEY_PEM_SIZE + STSM_AUTH_PROOF_SIZE + srvCertSize;
   stsmSrvAuth->header.type = SRV_AUTH;
 
@@ -330,7 +330,7 @@ void SrvSTSMMgr::send_srv_auth()
   // LOG: 'SRV_AUTH' message contents
   printf("'SRV_AUTH' message contents: \n");
   std::cout << "stsmSrvAuth->header.len = " << stsmSrvAuth->header.len << std::endl;
-  std::cout << "stsmSrvAuth->header.type = " << stsmSrvAuth->header.type << std::endl;
+  std::cout << "stsmSrvAuth->header.msgType = " << stsmSrvAuth->header.msgType << std::endl;
   printf("\n");
 
   printf("Server's ephemeral DH public key: \n");
@@ -553,7 +553,7 @@ void SrvSTSMMgr::send_srv_ok()
   // Interpret the associated connection manager's primary connection buffer as a 'SRV_OK' message
   STSM_SRV_OK_MSG* stsmSrvOK = reinterpret_cast<STSM_SRV_OK_MSG*>(_srvConnMgr._priBuf);
 
-  // Initialize the 'SRV_AUTH' message length and type
+  // Initialize the 'SRV_AUTH' message length and msgType
   stsmSrvOK->header.len = sizeof(STSM_SRV_OK_MSG);
   stsmSrvOK->header.type = SRV_OK;
 
@@ -594,7 +594,7 @@ bool SrvSTSMMgr::STSMMsgHandler()
   checkSrvSTSMMsg();
 
   // Depending on the server's current state (and implicitly from
-  // the previous check, the STSM message type that was received)
+  // the previous check, the STSM message msgType that was received)
   if(_stsmSrvState == WAITING_CLI_HELLO)
    {
     // Parse the client's 'CLIENT_HELLO' message
