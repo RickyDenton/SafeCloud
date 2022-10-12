@@ -15,10 +15,16 @@ class CliSessMgr : public SessMgr
  {
   private:
 
-   // Client session commands states
-   enum cliSessCmdState : uint8_t
+   // Client session manager substates
+   enum cliSessMgrSubstate : uint8_t
     {
-     CLI_IDLE
+     CLI_IDLE,
+
+     WAITING_FILE_STATUS,
+     WAITING_SRV_CONF,
+     WAITING_POOL_INFO,
+     WAITING_SRV_COMPL
+
      // Client UPLOAD command states
 
 
@@ -36,8 +42,8 @@ class CliSessMgr : public SessMgr
     };
 
    /* ================================= ATTRIBUTES ================================= */
-   cliSessCmdState _cliSessCmdState;  // The current client session command state
-   CliConnMgr&     _cliConnMgr;    // The parent CliConnMgr instance managing this object
+   cliSessMgrSubstate _cliSessMgrSubstate;  // The current client session manager substate
+   CliConnMgr&        _cliConnMgr;    // The parent CliConnMgr instance managing this object
 
    /* ------------- Progress Bar Management ------------- */
    ProgressBar  _progBar;
@@ -46,8 +52,14 @@ class CliSessMgr : public SessMgr
 
    /* ============================== PRIVATE METHODS ============================== */
 
+  // TODO
+  void sendCliSessSignalMsg(SessMsgType sessMsgType);
+
    // TODO
-   void sendCliSessMsg(SessMsgType sessMsgType);
+   void recvCheckCliSessMsg();
+
+   // TODO
+   void sendCliSessPayloadMsg(SessMsgType sessMsgType);
 
    /**
     * @brief  Parses a target file to be uploaded by:\n
@@ -78,6 +90,8 @@ class CliSessMgr : public SessMgr
     *        to be ready for the next session command
     */
    void resetCliSessState();
+
+   void sendByeMsg();
 
    // TODO
    void uploadFile(std::string& filePath);

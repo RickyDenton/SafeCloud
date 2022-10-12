@@ -600,8 +600,9 @@ void Client::parseUserCmd1(std::string& cmd)
   // LOGOUT command
   if(cmd == "LOGOUT" || cmd == "EXIT" || cmd == "QUIT" || cmd == "CLOSE")
    {
-    // TODO: Send the "bye" session message
-
+    // Send the 'BYE' session message to the server
+    _cliConnMgr->getSession()->sendByeMsg();
+    
     // Set the Client object's shutdown flag
     _shutdown = true;
     return;

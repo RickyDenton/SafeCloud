@@ -112,7 +112,7 @@ void SrvConnMgr::recvHandleData()
       {
        // Call the server session message handler, propagating its indication on whether
        // the client's connection should be maintained to the Server's object
-       return _srvSessMgr->recvCheckSrvSessMsg();
+       _srvSessMgr->recvCheckSrvSessMsg();
       }
    }
   catch(execErrExcp& recvExcp)

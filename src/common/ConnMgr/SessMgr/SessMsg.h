@@ -25,8 +25,11 @@ enum SessMsgType : uint8_t
   CONFIRM,            // Operation confirmation Client -> Server
   CANCEL,             // Cancel the operation   Client -> Server
 
-  FILE_EXISTS,        // A file with such name exists          Server -> Client
-  FILE_NOT_EXISTS,    // A file with such name does not exist  Client -> Server
+  FILE_EXISTS,        // A file with such name exists                               Server -> Client
+  FILE_NOT_EXISTS,    // A file with such name does not exist                       Client -> Server
+
+  FILE_NAME_EXISTS,   // A file with the target new name already exists in the pool Server -> Client
+  POOL_INFO,          // The number of files in the client's storage pool           Server -> Client
 
   COMPLETED,          // Operation completed successfully Client <-> Server
   BYE,                // Graceful logout

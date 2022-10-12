@@ -126,7 +126,6 @@ void SrvSessMgr::recvCheckSrvSessMsg()
     if(!((_sessMgrState == DOWNLOAD || _sessMgrState == LIST)
          && _srvSessMgrSubstate == WAITING_CLI_COMPL))
      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
-    break;
 
    // The client has requested to cancel the operation
    case CANCEL:

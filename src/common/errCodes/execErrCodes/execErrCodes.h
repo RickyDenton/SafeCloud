@@ -104,6 +104,7 @@ enum execErrCode : unsigned char
   // Other errors
   ERR_CONN_NO_SESSION,
   ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
+  ERR_SESS_SRV_GRACEFUL_DISCONNECT,
 
   /* --------------------- CLIENT-SERVER COMMON ERRORS --------------------- */
 
@@ -300,6 +301,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     // Other Errors
     { ERR_CONN_NO_SESSION,                   {FATAL,"The connection is not in the session phase"} },
     { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown msgType"} },
+    { ERR_SESS_SRV_GRACEFUL_DISCONNECT,      {WARNING,"The server has gracefully disconnected"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 

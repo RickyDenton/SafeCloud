@@ -6,11 +6,139 @@
 #include "errCodes/errCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "../CliConnMgr.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
+// TODO
+void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgType)
+ {
+  // Send the session signaling message
+  sendSessSignalMsg(sessMsgType);
 
-void CliSessMgr::sendCliSessMsg(SessMsgType sessMsgType)
+  // In case of session state resetting, terminating or errors,
+  // perform the appropriate actions or raise the appropriate exception
+  switch(sessMsgType)
+   {
+    /* -------------- Error Signaling Messages -------------- */
+    case ERR_INTERNAL_ERROR:
+     THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr());
+
+    case ERR_UNEXPECTED_SESS_MESSAGE:
+     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,abortedCmdToStr());
+
+    case ERR_MALFORMED_SESS_MESSAGE:
+     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,abortedCmdToStr());
+
+    case ERR_UNKNOWN_SESSMSG_TYPE:
+     THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,abortedCmdToStr());
+
+    // No action
+    default:
+     break;
+   }
+ }
+
+
+// TODO
+void CliSessMgr::recvCheckCliSessMsg()
+ {
+  // TODO: Remove
+  std::cout << "in recvCheckCliSessMsg()" << std::endl;
+
+  // unwrap the received session message into the
+  // associated connection manager's secondary buffer
+  unWrapSessMsg();
+
+  // Interpret the contents of the associated connection
+  // manager's secondary buffer as a session message
+  SessMsg* sessMsg = reinterpret_cast<SessMsg*>(_cliConnMgr._secBuf);
+
+  // The client session manager shouldn't receive messages in the 'IDLE' status
+  if(_sessMgrState == IDLE)
+   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+  /*
+   * Check whether the received session message type:
+   *   1) Is session-resetting or terminating
+   *   2) Is allowed in the client session manager state
+   */
+  switch(sessMsg->msgType)
+   {
+    // File existence notification, which can be received in the
+    // 'UPLOAD', 'DOWNLOAD' and 'DELETE'  client session manager states
+    case FILE_EXISTS:
+     if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD || _sessMgrState == DELETE)
+          && _cliSessMgrSubstate == WAITING_FILE_STATUS))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+    // File non-existence notification, which can be received in all but the 'LIST'
+    // client session manager state (and 'IDLE' that was previously accounted for)
+    case FILE_NOT_EXISTS:
+     if(!(_sessMgrState != LIST && _cliSessMgrSubstate == WAITING_FILE_STATUS))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+    // Notification that a file with the specified target name already exists on the
+    // server, which can be received only in the 'RENAME' client session manager state
+    case FILE_NAME_EXISTS:
+     if(!(_sessMgrState == RENAME && _cliSessMgrSubstate == WAITING_SRV_CONF))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+    // Client storage pool information, which can be received
+    // only in the 'LIST' client session manager state
+    case POOL_INFO:
+     if(!(_sessMgrState == LIST && _cliSessMgrSubstate == WAITING_POOL_INFO))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+    // The server informs that it has successfully completed
+    // the current upload, delete or rename operation
+    case COMPLETED:
+     if(!((_sessMgrState == UPLOAD || _sessMgrState == DELETE || _sessMgrState == RENAME)
+          && _cliSessMgrSubstate == WAITING_SRV_COMPL))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+
+    // The server is gracefully disconnecting
+    case BYE:
+     THROW_EXEC_EXCP(ERR_SESS_SRV_GRACEFUL_DISCONNECT,abortedCmdToStr());
+
+    /* ---------------- Recoverable Errors ---------------- */
+
+    // The server has experienced a recoverable internal error
+    case ERR_INTERNAL_ERROR:
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_INTERNAL_ERROR,abortedCmdToStr());
+
+    // The server has received an unexpected session message
+    case ERR_UNEXPECTED_SESS_MESSAGE:
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE,abortedCmdToStr());
+
+    // The server has received a malformed session message
+    case ERR_MALFORMED_SESS_MESSAGE:
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_MALFORMED_MESSAGE,abortedCmdToStr());
+
+    /* ---------------- Unrecoverable Errors ---------------- */
+
+    // The server has received a session message of unknown type, with
+    // its cause associated to a desynchronization between the server
+    // and client IV, from which the connection must be aborted
+    case ERR_UNKNOWN_SESSMSG_TYPE:
+     THROW_EXEC_EXCP(ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,abortedCmdToStr());
+
+    // Unknown Message type
+    default:
+     sendCliSessSignalMsg(ERR_UNKNOWN_SESSMSG_TYPE);
+   }
+
+  // At this point the received session message is
+  // valid for the current client session manager state
+
+  // LOG: Session message length and msgType
+  std::cout << "sessMsg->wrapLen" << sessMsg->msgLen << std::endl;
+  std::cout << "sessMsg->msgType" << sessMsg->msgType << std::endl;
+ }
+
+
+
+void CliSessMgr::sendCliSessPayloadMsg(SessMsgType sessMsgType)
  {
   switch(sessMsgType)
    {
@@ -99,7 +227,7 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
 
 // TODO
 CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessCmdState(CLI_IDLE),
+  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessMgrSubstate(CLI_IDLE),
     _cliConnMgr(cliConnMgr), _progBar(100), _tProgUnit(0), _tProgTemp(0)
  {}
 
@@ -123,6 +251,11 @@ void CliSessMgr::resetCliSessState()
  }
 
 
+// TODO
+void CliSessMgr::sendByeMsg()
+ { sendSessSignalMsg(BYE); }
+
+
  //TODO
 void CliSessMgr::uploadFile(std::string& filePath)
  {
@@ -136,8 +269,10 @@ void CliSessMgr::uploadFile(std::string& filePath)
   _targFileInfo->printInfo();
 
   // Prepare and send the 'FILE_UPLOAD_REQ' message
-  sendCliSessMsg(FILE_UPLOAD_REQ);
+   sendCliSessPayloadMsg(FILE_UPLOAD_REQ);
  }
+
+
 
 // TODO: STUB
 void CliSessMgr::downloadFile(std::string& fileName)
