@@ -16,12 +16,19 @@ class SrvConnMgr : public ConnMgr
 
 
     /* ================================= ATTRIBUTES ================================= */
-    std::string*       _poolDir;     // The connected client's pool directory
 
-    SrvSTSMMgr*        _srvSTSMMgr;  // The child server STSM key establishment manager
-    SrvSessMgr*        _srvSessMgr;  // The child server session manager
+    // Whether the client's connection should be
+    // maintained after parsing incoming client data
+    bool               _keepConn;
 
+    // The connected client's pool directory
+    std::string*       _poolDir;
 
+    // The child server STSM key establishment manager
+    SrvSTSMMgr*        _srvSTSMMgr;
+
+    // The child server session manager
+    SrvSessMgr*        _srvSessMgr;
 
    /* =============================== FRIEND CLASSES =============================== */
    friend class SrvSTSMMgr;
@@ -52,6 +59,9 @@ class SrvConnMgr : public ConnMgr
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
+  // TODO
+  bool keepConn() const;
+
   /**
    * @brief  Returns a pointer to the session manager's child object
    * @return A pointer to the session manager's child object
@@ -62,14 +72,12 @@ class SrvConnMgr : public ConnMgr
   // TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
   /**
    * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
-   *         the handler associated with the connection's current state (KEYXCHANGE or SESSION), returning
-   *         an indication to the Server object whether this client connection should be maintained
-   * @return 'true' if the client connection must be maintained or 'false' otherwise
+   *         the handler associated with the connection's current state (KEYXCHANGE or SESSION)
    * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
    * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
    * @throws TODO (probably all connection exceptions)
    */
-  bool recvHandleData();
+  void recvHandleData();
 
 
 

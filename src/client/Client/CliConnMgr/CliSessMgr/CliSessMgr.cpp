@@ -19,7 +19,7 @@ void CliSessMgr::sendCliSessMsg(SessMsgType sessMsgType)
      // Interpret the contents of the connection manager's secondary buffer as a 'FILE_UPLOAD_REQ' session message
      SessMsgUploadReq* fileUpPayload = reinterpret_cast<SessMsgUploadReq*>(_cliConnMgr._secBuf);
 
-     // Set the payload length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
+     // Set the session message length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
      fileUpPayload->msgLen = sizeof(SessMsgUploadReq) + _targFileInfo->fileName.length();
 
      // Set the session message type

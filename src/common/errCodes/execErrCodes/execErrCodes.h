@@ -59,6 +59,7 @@ enum execErrCode : unsigned char
 
   // Other
   ERR_SRV_PSELECT_FAILED,
+  ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE,
 
 
   /* ------------------------ CLIENT-SPECIFIC ERRORS ------------------------ */
@@ -102,6 +103,7 @@ enum execErrCode : unsigned char
 
   // Other errors
   ERR_CONN_NO_SESSION,
+  ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
 
   /* --------------------- CLIENT-SERVER COMMON ERRORS --------------------- */
 
@@ -199,7 +201,7 @@ enum execErrCode : unsigned char
   // Other errors
   ERR_MALLOC_FAILED,
   ERR_NON_POSITIVE_BUFFER_SIZE,
-
+  ERR_SESS_UNKNOWN_SESSMSG_TYPE,
 
   // Unknown execution error
   ERR_EXEC_UNKNOWN
@@ -252,10 +254,9 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,  {CRITICAL,"Error in opening the client's RSA public key file"} },
     { ERR_LOGIN_PUBKEY_INVALID,          {CRITICAL,"The contents of the client's RSA public key file do not represent a valid RSA public key"} },
 
-
-
     // Other
-    { ERR_SRV_PSELECT_FAILED,     {FATAL,"Server pselect() failed"} },
+    { ERR_SRV_PSELECT_FAILED,                {FATAL,"Server pselect() failed"} },
+    { ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The client reported to have received a session message of unknown msgType"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
 
@@ -297,7 +298,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown msgType"} },
 
     // Other Errors
-    { ERR_CONN_NO_SESSION, {FATAL,"The connection is not in the session phase"} },
+    { ERR_CONN_NO_SESSION,                   {FATAL,"The connection is not in the session phase"} },
+    { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown msgType"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
@@ -395,8 +397,9 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
 
 
     // Other errors
-    {ERR_MALLOC_FAILED,                    {FATAL,"malloc() failed"} },
-    {ERR_NON_POSITIVE_BUFFER_SIZE,         {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
+    {ERR_MALLOC_FAILED,              {FATAL,"malloc() failed"} },
+    {ERR_NON_POSITIVE_BUFFER_SIZE,   {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
+    {ERR_SESS_UNKNOWN_SESSMSG_TYPE,  {CRITICAL,"A session message of unknown msgType has been received"} },
 
     // Unknown execution error
     {ERR_EXEC_UNKNOWN,                          {CRITICAL, "Unknown Execution Error"} }

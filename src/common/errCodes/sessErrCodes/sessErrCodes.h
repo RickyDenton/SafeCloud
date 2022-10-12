@@ -18,7 +18,11 @@
 enum sessErrCode : unsigned char
  {
   /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
+  ERR_SRV_CANCEL_UNKNOWN_OP,
 
+  ERR_SESS_SRV_CLI_INTERNAL_ERROR,
+  ERR_SESS_SRV_CLI_UNEXPECTED_MESSAGE,
+  ERR_SESS_SRV_CLI_MALFORMED_MESSAGE,
 
   /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
   ERR_UNSUPPORTED_CMD,
@@ -37,6 +41,11 @@ enum sessErrCode : unsigned char
   // AESGCMMgr Errors
   ERR_OSSL_DECRYPT_VERIFY_FAILED,
 
+  // Error session messages
+  ERR_SESS_INTERNAL_ERROR,
+  ERR_SESS_UNEXPECTED_MESSAGE,
+  ERR_SESS_MALFORMED_MESSAGE,
+
   // Unknown session error
   ERR_SESS_UNKNOWN
  };
@@ -49,6 +58,11 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
   {
 
     /* -------------------------- SERVER-SPECIFIC ERRORS -------------------------- */
+    { ERR_SRV_CANCEL_UNKNOWN_OP, {ERROR,"The client has cancelled an unknown operation"}},
+
+    { ERR_SESS_SRV_CLI_INTERNAL_ERROR,       {WARNING,"The client reported an internal error"}},
+    { ERR_SESS_SRV_CLI_UNEXPECTED_MESSAGE,   {ERROR,"The client reported to have received an unexpected session message"}},
+    { ERR_SESS_SRV_CLI_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed session message"}},
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
     { ERR_UNSUPPORTED_CMD,       {INFO,"Unsupported command"}},
@@ -65,6 +79,11 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
     { ERR_OSSL_DECRYPT_VERIFY_FAILED, {ERROR,"AES_GCM Tag verification failed"}},
+
+    // Error session messages
+    { ERR_SESS_INTERNAL_ERROR,     {CRITICAL,"An internal error has occurred"}},
+    { ERR_SESS_UNEXPECTED_MESSAGE, {ERROR,"An unexpected session message was received"}},
+    { ERR_SESS_MALFORMED_MESSAGE,  {ERROR,"A malformed session message was received"}},
 
     // Unknown session error
     {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }

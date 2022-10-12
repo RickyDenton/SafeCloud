@@ -9,6 +9,8 @@
 /* ================ SAFECLOUD SESSION MESSAGE TYPES DEFINITIONS ================ */
 enum SessMsgType : uint8_t
  {
+  /* Session messages with a payload */
+
   /*
    * Session messages exchanged between the SafeCloud
    * client and server within a nominal execution
@@ -18,28 +20,35 @@ enum SessMsgType : uint8_t
   FILE_DELETE_REQ,    // File delete request    Client -> Server
   FILE_RENAME_REQ,    // File rename request    Client -> Server
   FILE_LIST_REQ,      // File list request      Client -> Server
+
+
   CONFIRM,            // Operation confirmation Client -> Server
   CANCEL,             // Cancel the operation   Client -> Server
 
-  FILE_EXISTS,      // A file with such name exists          Server -> Client
-  FILE_NOT_EXISTS,  // A file with such name does not exist  Client -> Server
+  FILE_EXISTS,        // A file with such name exists          Server -> Client
+  FILE_NOT_EXISTS,    // A file with such name does not exist  Client -> Server
 
-  OK,               // Operation completed successfully Client <-> Server
+  COMPLETED,          // Operation completed successfully Client <-> Server
+  BYE,                // Graceful logout
+
+  /* Signaling session messages with no payload */
 
 
   /*
-   * Session Error messages, sent by one party to the other upon
-   * erroneous conditions in the Session messages' exchange (causing
-   * both the sending and the receiving party to reset the session state)
+   * Session Error messages, sent by one party to the other
+   * upon erroneous conditions in the Session messages' exchange
    */
 
-  // An unexpected session message was received (any)
+  // Internal error, the command must be aborted (any)
+  ERR_INTERNAL_ERROR,
+
+  // An unexpected session message was received, the command must be aborted (any)
   ERR_UNEXPECTED_SESS_MESSAGE,
 
-  // A malformed session message was received (any)
+  // A malformed session message was received, the command must be aborted (any)
   ERR_MALFORMED_SESS_MESSAGE,
 
-  // A session message of unknown msgType was received (any)
+  // A session message of unknown msgType was received, the connection must be dropped (any)
   ERR_UNKNOWN_SESSMSG_TYPE
  };
 

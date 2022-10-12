@@ -8,6 +8,40 @@
 
 /* ============================= PROTECTED METHODS ============================= */
 
+std::string SessMgr::sessMgrStateToStr()
+ {
+  switch(_sessMgrState)
+   {
+    case IDLE:
+     return "idle";
+
+    case UPLOAD:
+     return "upload";
+
+    case DOWNLOAD:
+     return "download";
+
+    case DELETE:
+     return "delete";
+
+    case RENAME:
+     return "rename";
+
+    case LIST:
+     return "list";
+   }
+ }
+
+std::string SessMgr::abortedCmdToStr()
+ {
+  if(_sessMgrState != IDLE)
+   return sessMgrStateToStr() + " operation aborted";
+  else
+   return "no operation was aborted";
+ }
+
+
+
 void SessMgr::wrapSendSessMsg()
  {
   // Determine the session message size from the first 16 bit
@@ -38,7 +72,6 @@ void SessMgr::wrapSendSessMsg()
  }
 
 
-
 // TODO
 void SessMgr::unWrapSessMsg()
  {
@@ -63,13 +96,28 @@ void SessMgr::unWrapSessMsg()
  }
 
 
+void SessMgr::sendSessSignalMsg(SessMsgType sessMsgType)
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a base session message
+  SessMsg* sessSignalMsg = reinterpret_cast<SessMsg*>(_connMgr._secBuf);
+
+  // Set the session message length and type
+  sessSignalMsg->msgLen  = sizeof(SessMsg);
+  sessSignalMsg->msgType = sessMsgType;
+
+  // Wrap and send the session signal message
+  wrapSendSessMsg();
+ }
+
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 
 // TODO: Write descriptions
 
 SessMgr::SessMgr(ConnMgr& connMgr)
-  : _sessCmd(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey,_connMgr._iv), _targFileDscr(nullptr), _targFileAbsPath(nullptr), _targFileInfo(nullptr),
+  : _sessMgrState(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey, _connMgr._iv), _targFileDscr(nullptr), _targFileAbsPath(nullptr), _targFileInfo(nullptr),
     _tmpFileDscr(nullptr), _tmpFileAbsPath(nullptr), _tmpFileInfo(nullptr), _bytesTransf(0)
  {}
 
@@ -96,10 +144,13 @@ SessMgr::~SessMgr()
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 
+
+
+
 // TODO: Check and write description
 void SessMgr::resetSessState()
  {
-  _sessCmd = IDLE;
+  _sessMgrState = IDLE;
 
   _aesGCMMgr.resetState();
 

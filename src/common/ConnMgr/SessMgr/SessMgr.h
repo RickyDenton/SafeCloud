@@ -8,16 +8,18 @@
 /* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
 #include <string>
+#include <unordered_map>
 #include "DirInfo/FileInfo/FileInfo.h"
 #include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
 #include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include "ConnMgr/ConnMgr.h"
+#include "SessMsg.h"
 
 class SessMgr
  {
   protected:
 
-   enum sessCmd : uint8_t
+   enum sessMgrState : uint8_t
     {
      IDLE,      // Ready to receive commands
      UPLOAD,    // Uploading a file to the SafeCloud storage pool
@@ -30,9 +32,9 @@ class SessMgr
    /* ================================= ATTRIBUTES ================================= */
 
    /* ------------------- General Info ------------------- */
-   sessCmd        _sessCmd;    // The current session command
-   ConnMgr&       _connMgr;    // The associated connection manager
-   AESGCMMgr      _aesGCMMgr;  // AES_128_GCM Manager
+   sessMgrState   _sessMgrState;  // The session manager state
+   ConnMgr&       _connMgr;       // The associated connection manager
+   AESGCMMgr      _aesGCMMgr;     // AES_128_GCM Manager
 
    /* ---------------- Files Management ---------------- */
 
@@ -50,11 +52,18 @@ class SessMgr
 
    /* ============================= PROTECTED METHODS ============================= */
 
+   std::string sessMgrStateToStr();
+
+   std::string abortedCmdToStr();
+
    // TODO
    void wrapSendSessMsg();
 
    // TODO
    void unWrapSessMsg();
+
+   // TODO
+   void sendSessSignalMsg(SessMsgType sessMsgType);
 
   public:
 
@@ -66,8 +75,14 @@ class SessMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
+
+
+
    // TODO: Check and write description
    void resetSessState();
+
+
+
 
    // TODO: Send predefined SessMsg, such as "bye", "cancel", etc.
    // sendBye()?

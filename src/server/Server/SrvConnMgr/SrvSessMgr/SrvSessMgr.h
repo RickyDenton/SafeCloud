@@ -17,6 +17,12 @@ class SrvSessMgr : public SessMgr
    enum srvSessCmdState : uint8_t
     {
      SRV_IDLE,
+
+     WAITING_CLI_CONF,
+     WAITING_CLI_COMPL
+
+
+
      // Server UPLOAD command states
 
 
@@ -39,11 +45,14 @@ class SrvSessMgr : public SessMgr
      RECV_RAW   // Raw data expected
     };
 
-
    /* ================================= ATTRIBUTES ================================= */
    srvSessRecvMode _srvSessRecvMode;  // The current server session manager reception mode
-   srvSessCmdState _srvSessCmdState;  // The current server session command state
+   srvSessCmdState _srvSessMgrSubstate;  // The current server session command state
    SrvConnMgr&     _srvConnMgr;       // The parent SrvConnMgr instance managing this object
+
+
+  // TODO
+  void sendSrvSessSignalMsg(SessMsgType sessMsgType);
 
   public:
 
@@ -61,7 +70,7 @@ class SrvSessMgr : public SessMgr
    void resetSrvSessState();
 
    // TODO
-   bool recvSrvSessMsg();
+   void recvCheckSrvSessMsg();
 
    bool passRawData()
     {

@@ -200,7 +200,7 @@ void Server::newClientData(int ski)
  {
   connMapIt connIt;        // _connMap iterator
   SrvConnMgr* srvConnMgr;  // The client's assigned connection manager
-  bool keepConn;           // Indicates whether the client connection should be maintained or not
+  bool keepCliConn;           // Whether the client connection should be maintained or not
 
   // Retrieve the connection's map entry associated with "ski"
   connIt = _connMap.find(ski);
@@ -224,14 +224,20 @@ void Server::newClientData(int ski)
   // Pass the incoming client data to the SrvConnMgr object, which
   // returns whether to maintain or close the client's connection
   try
-   { keepConn = srvConnMgr->recvHandleData(); }
+   {
+    // Handle the incoming client data via the associated SrvConnMgr object
+    srvConnMgr->recvHandleData();
+
+    // Determine whether the client connection should be maintained or not
+    keepCliConn = srvConnMgr->keepConn();
+   }
   catch(execErrExcp& excp)
    {
     // TODO: Check
     handleExecErrException(excp);
 
-    // The connection must be closed
-    keepConn = false;
+    // The client connection must always be closed
+    keepCliConn = false;
    }
   catch(sessErrExcp& sessExcp)
    {
@@ -241,13 +247,13 @@ void Server::newClientData(int ski)
     // Reset the server session manager's state
     srvConnMgr->getSession()->resetSrvSessState();
 
-    // The connection must be maintained
-    keepConn = true;
+    // The connection must always be maintained
+    keepCliConn = true;
    }
 
   // If necessary close the client's connection and continue
   // checking the next socket descriptor in the server's main loop
-  if(!keepConn)
+  if(!keepCliConn)
    closeConn(connIt);
  }
 
