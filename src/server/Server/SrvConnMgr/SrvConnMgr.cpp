@@ -73,46 +73,49 @@ void SrvConnMgr::recvHandleData()
  {
   try
    {
-    // Read data from the connection socket and, if a full data block was NOT received
-    if(!recvData())
+    // Read data from the connection socket
+    size_t recvBytes = recvData();
+
+    // If the connection is in the session phase and the SrvSessMgr
+    // child object is expecting raw data, call the appropriate handler
+    if(_connState == SESSION && _srvSessMgr != nullptr && _srvSessMgr->passRawData())
      {
-      // If the connection is in the session phase and the SessMgr child object is expecting raw data, call the appropriate handler
-      if(_connState == SESSION && _srvSessMgr != nullptr && _srvSessMgr->passRawData())
-       _srvSessMgr->recvRaw();
+      _srvSessMgr->recvRaw(recvBytes);
 
       // Reset the index of the most significant byte in the primary connection buffer
       _priBufInd = 0;
      }
-
-     // Otherwise, if a complete data block was received, depending on
-     // the connection's current state (key establishment or session)
     else
 
-     // Key establishment phase (STSM protocol)
-     if(_connState == KEYXCHANGE)
+     // Otherwise, if a full data block has been received, pass it to the appropriate message handler depending on the connection phase
+     if(_recvBlockSize == _priBufInd)
       {
-       // Call the STSM message handler and, if it informs that the
-       // STSM key establishment protocol was completed successfully
-       if(_srvSTSMMgr->STSMMsgHandler())
+       // Key establishment phase (STSM protocol)
+       if(_connState == KEYXCHANGE)
         {
-         // Delete the SrvSTSMMgr child object
-         delete _srvSTSMMgr;
-         _srvSTSMMgr = nullptr;
+         // Call the STSM message handler and, if it informs that the
+         // STSM key establishment protocol was completed successfully
+         if(_srvSTSMMgr->STSMMsgHandler())
+          {
+           // Delete the SrvSTSMMgr child object
+           delete _srvSTSMMgr;
+           _srvSTSMMgr = nullptr;
 
-         // Instantiate the SrvSessMgr child object
-         _srvSessMgr = new SrvSessMgr(*this);
+           // Instantiate the SrvSessMgr child object
+           _srvSessMgr = new SrvSessMgr(*this);
 
-         // Switch the connection to the SESSION phase
-         _connState = SESSION;
+           // Switch the connection to the SESSION phase
+           _connState = SESSION;
+          }
         }
-      }
 
-      // Session Phase
-     else
-      {
-       // Call the server session message handler, propagating its indication on whether
-       // the client's connection should be maintained to the Server's object
-       _srvSessMgr->recvCheckSrvSessMsg();
+        // Session Phase
+       else
+        {
+         // Call the server session message handler, propagating its indication on whether
+         // the client's connection should be maintained to the Server's object
+         _srvSessMgr->recvCheckSrvSessMsg();
+        }
       }
    }
   catch(execErrExcp& recvExcp)

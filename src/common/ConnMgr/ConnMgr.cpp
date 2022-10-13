@@ -78,24 +78,36 @@ void ConnMgr::clearSecBuf()
  { _secBufInd = 0; }
 
 
+ // TODO
+void ConnMgr::recvMsg()
+ {
+  do
+   recvData();
+  while(_recvBlockSize != _priBufInd);
+ }
+
+
+
 /**
  * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
  *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
- * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+ * @return The number of bytes read from the socket
  * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
- * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+ * @throws ERR_PEER_DISCONNECTED The peer has abruptly disconnected
  */
-bool ConnMgr::recvData()
+size_t ConnMgr::recvData()
  {
   size_t maxReadBytes;  // Maximum number of bytes that can be read from the connection socket
   ssize_t recvRet;      // Connection socket recv() return
 
-  /* Determine the maximum number of bytes that can be read from connection socket into the primary connection buffer as:
-       - If the expected size of the data block to be received is NOT known (_recvBlockSize == 0), as the difference
-         between the buffer's size and the index of its first available byte (for preventing buffer overflows)
-       - If instead the expected size of the data block to be received IS known (_recvBlockSize > 0), as the minimum
-         between the previous difference and the difference between such expected size and the index of the first
-         available byte in the buffer (for preventing reading a possible following block in the buffer)               */
+  /*
+   * Determine the maximum number of bytes that can be read from connection socket into the primary connection buffer as:
+   *    - If the expected size of the data block to be received is NOT known (_recvBlockSize == 0), as the difference
+   *      between the buffer's size and the index of its first available byte (for preventing buffer overflows)
+   *    - If instead the expected size of the data block to be received IS known (_recvBlockSize > 0), as the minimum
+   *      between the previous difference and the difference between such expected size and the index of the first
+   *      available byte in the buffer (for preventing reading data belonging to the next block in the buffer)
+   */
   if(_recvBlockSize == 0)
    maxReadBytes = (_bufSize - _priBufInd);
   else
@@ -120,17 +132,19 @@ bool ConnMgr::recvData()
     // > 0 => recvRet = number of bytes read from socket (<= maxReadBytes)
     default:
 
-     std::cout << "_recvBlockSize = " << _recvBlockSize << " _priBufInd = " << _priBufInd << std::endl;
-
     // If the expected size of the data block to be received is NOT known (_recvBlockSize == 0),
-    // set it to the first 16 bytes of the received data ("msgSize" field of a sMsgHeader)
+    // set it to the first 16 bytes of the received data (the "len" field of a STSMMsg or SessMessageWrapper)
     if(_recvBlockSize == 0)
-     _recvBlockSize = ((STSMMsg&&)_priBuf).header.len;
+     _recvBlockSize = ((uint16_t*)_priBuf)[0];
 
     // Update the number of significant bytes in the primary buffer
     _priBufInd += recvRet;
 
     std::cout << "_recvBlockSize = " << _recvBlockSize << " _priBufInd = " << _priBufInd << std::endl;
+
+    // Return the number of bytes that have been read from the socket
+    return recvRet;
+
 
     // Return whether a full data block is available for consumption in the primary connection buffer
     if(_recvBlockSize == _priBufInd)

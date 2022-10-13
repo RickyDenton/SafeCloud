@@ -185,7 +185,7 @@ void SrvSessMgr::recvCheckSrvSessMsg()
 }
 
 
-void SrvSessMgr::recvRaw()
+void SrvSessMgr::recvRaw(size_t recvBytes)
  {
   std::cout << "In recvRaw()" << std::endl;
  }

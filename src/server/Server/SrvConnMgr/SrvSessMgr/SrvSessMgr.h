@@ -80,7 +80,7 @@ class SrvSessMgr : public SessMgr
     }
 
    // TODO: Placeholder implementation
-   void recvRaw();
+   void recvRaw(size_t recvBytes);
  };
 
 

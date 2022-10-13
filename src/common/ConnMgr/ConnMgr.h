@@ -71,14 +71,16 @@ class ConnMgr
    /**
     * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
     *         updating the number of significant bytes in it and possibly the expected size of the data block to be received
-    * @return A boolean indicating whether a full data block is available for consumption in the primary connection buffer
+    * @return The number of bytes read from the socket
     * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
-    * @throws ERR_PEER_DISCONNECTED Abrupt peer disconnection
+    * @throws ERR_PEER_DISCONNECTED The peer has abruptly disconnected
     */
-   bool recvData();
+   size_t recvData();
 
 
    void sendMsg();
+
+   void recvMsg();
 
   public:
 

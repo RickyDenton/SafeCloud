@@ -13,23 +13,10 @@
  * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
  * @throws ERR_SRV_DISCONNECTED Abrupt server disconnection
  */
-void CliConnMgr::recvMsg()
+void CliConnMgr::cliRecvMsg()
  {
   try
-   {
-    // Wait until a full data block has been read from the connection socket
-    while(!recvData())
-     {
-      /* TODO
-         If the primary connection buffer is full (which may occur only in the session phase
-         when sending/receiving large data), call the SessionMgr bufferFull() data to handle
-         it (which at the end should clear the primary input buffer before proceeding)
-
-      if(_priBufInd == _bufSize + 1)
-       _cliSessMgr.bufferFull();
-      */
-     }
-   }
+   { recvMsg(); }
   catch(execErrExcp& recvExcp)
    {
     // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error

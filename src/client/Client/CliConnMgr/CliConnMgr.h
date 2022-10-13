@@ -30,7 +30,7 @@ class CliConnMgr : public ConnMgr
     * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
     * @throws ERR_SRV_DISCONNECTED Abrupt server disconnection
     */
-   void recvMsg();
+   void cliRecvMsg();
 
 
   public:
