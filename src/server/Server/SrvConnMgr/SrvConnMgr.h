@@ -3,6 +3,7 @@
 
 /* SafeCloud Server Connection Manager  */
 
+/* ================================== INCLUDES ================================== */
 #include "ConnMgr/ConnMgr.h"
 #include "SrvSTSMMgr/SrvSTSMMgr.h"
 #include "SrvSessMgr/SrvSessMgr.h"
@@ -10,32 +11,31 @@
 #include <openssl/evp.h>
 #include <unordered_map>
 
+
 class SrvConnMgr : public ConnMgr
  {
   private:
 
-
     /* ================================= ATTRIBUTES ================================= */
 
     // Whether the client's connection should be
-    // maintained after parsing incoming client data
+    // maintained after receiving and parsing its data
     bool               _keepConn;
 
-    // The connected client's pool directory
+    // The absolute path of the storage pool of the
+    // authenticated client associated with this manager
     std::string*       _poolDir;
 
-    // The child server STSM key establishment manager
+    // The child server STSM key establishment manager object
     SrvSTSMMgr*        _srvSTSMMgr;
 
-    // The child server session manager
+    // The child server Session Manager object
     SrvSessMgr*        _srvSessMgr;
+
 
    /* =============================== FRIEND CLASSES =============================== */
    friend class SrvSTSMMgr;
    friend class SrvSessMgr;
-
-   /* =============================== PRIVATE METHODS =============================== */
-
 
   public:
 
@@ -59,39 +59,44 @@ class SrvConnMgr : public ConnMgr
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
-  // TODO
+  /**
+   * @brief  Returns whether the client's connection should be maintained
+   * @return whether the client's connection should be maintained
+   */
   bool keepConn() const;
 
   /**
    * @brief  Returns a pointer to the session manager's child object
    * @return A pointer to the session manager's child object
-   * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+   * @throws ERR_CONNMGR_INVALID_STATE The connection is not in the session phase
    */
   SrvSessMgr* getSession();
 
-  // TODO: Possibly update the description depending on the "_srvSessMgr.bufferFull()" implementation
   /**
-   * @brief  Reads data from the client's connection socket and, if a complete data block was received, calls
-   *         the handler associated with the connection's current state (KEYXCHANGE or SESSION)
+   * @brief  Reads data from the manager's connection socket and:\n
+   *           - ConnMgr in RECV_MSG mode: If a complete message has been read, depending on the connection state the
+   *                                       message handler of the srvSTSMMgr or srvSessMgr child object is invoked\n
+   *           - ConnMgr in RECV_RAW mode: The raw data handler of the srvSessMgr child object is invoked\n
+   * @note:  In RECV_MSG mode, if the message being received is incomplete no other action is performed
    * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
-   * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
-   * @throws TODO (probably all connection exceptions)
+   * @throws ERR_CLI_DISCONNECTED The client has abruptly disconnected
+   * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive raw data with the
+   *                                   connection in the STSM key establishment phase
+   * @throws All of the STSM, session, and most of the OpenSSL exceptions
+   *         (see "execErrCode.h" and "sessErrCodes.h" for more details)
    */
   void recvHandleData();
-
-
-
-
  };
 
 
 /* ============================== TYPE DEFINITIONS ============================== */
 
 // An unordered map mapping the file descriptors of open connection sockets with
-// their associated srvConnMgr object, and thus a client connected with the server
+// their associated srvConnMgr objects and thus their associated guests or clients
 typedef std::unordered_map<int,SrvConnMgr*> connMap;
 
-// connMap msgType iterator
+// connMap iterator type
 typedef std::unordered_map<int,SrvConnMgr*>::iterator connMapIt;
+
 
 #endif //SAFECLOUD_SRVCONNMGR_H

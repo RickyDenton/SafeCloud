@@ -6,7 +6,7 @@
 /* ============================= SHARED PARAMETERS ============================= */
 
 // Connection Buffers
-#define CONN_BUF_SIZE (4 * 1024 * 1024)   // 4 MB
+#define CONN_BUF_SIZE (1 * 1024 * 1024)   // 1 MB
 
 // Client Object Parameters
 #define CLI_NAME_MAX_LENGTH 30            // The username maximum length (`\0' not included)

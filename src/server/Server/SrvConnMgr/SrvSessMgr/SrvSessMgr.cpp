@@ -48,7 +48,7 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgType)
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 SrvSessMgr::SrvSessMgr(SrvConnMgr& srvConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(srvConnMgr)), _srvSessMgrSubstate(SRV_IDLE), _srvConnMgr(srvConnMgr), _srvSessRecvMode(RECV_MSG)
+  : SessMgr(reinterpret_cast<ConnMgr&>(srvConnMgr)), _srvSessMgrSubstate(SRV_IDLE), _srvConnMgr(srvConnMgr)
  {}
 
 // Same destructor of the SessMgr base class
@@ -66,9 +66,6 @@ void SrvSessMgr::resetSrvSessState()
 
   // Set that the client connection must be maintained
   _srvConnMgr._keepConn = true;
-
-  // Set the session manager reception mode to expect a message
-  _srvSessRecvMode = RECV_MSG;
  }
 
 
@@ -79,10 +76,10 @@ void SrvSessMgr::resetSrvSessState()
 
 
 // TODO
-void SrvSessMgr::recvCheckSrvSessMsg()
+void SrvSessMgr::SessMsgHandler()
 {
  // TODO: Remove
- std::cout << "in recvCheckSrvSessMsg()" << std::endl;
+ std::cout << "in SessMsgHandler()" << std::endl;
 
  // unwrap the received session message into the
  // associated connection manager's secondary buffer

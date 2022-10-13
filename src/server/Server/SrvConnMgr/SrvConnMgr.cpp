@@ -4,11 +4,6 @@
 #include "SrvConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 
-/* =============================== PRIVATE METHODS =============================== */
-
-
-
-
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -21,7 +16,7 @@
  */
 SrvConnMgr::SrvConnMgr(int csk, unsigned int guestIdx, EVP_PKEY* rsaKey, X509* srvCert)
   : ConnMgr(csk,new std::string("Guest" + std::to_string(guestIdx)),nullptr),
-    _poolDir(nullptr), _srvSTSMMgr(new SrvSTSMMgr(rsaKey,*this,srvCert)), _srvSessMgr(nullptr), _keepConn(true)
+    _keepConn(true), _poolDir(nullptr), _srvSTSMMgr(new SrvSTSMMgr(rsaKey,*this,srvCert)), _srvSessMgr(nullptr)
  {
   // Log the client's connection
   LOG_INFO("\"" + *_name + "\" has connected")
@@ -44,19 +39,24 @@ SrvConnMgr::~SrvConnMgr()
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
-// TODO
+/**
+ * @brief  Returns whether the client's connection should be maintained
+ * @return whether the client's connection should be maintained
+ */
 bool SrvConnMgr::keepConn() const
  { return _keepConn; }
 
 /**
  * @brief  Returns a pointer to the session manager's child object
  * @return A pointer to the session manager's child object
- * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+ * @throws ERR_CONNMGR_INVALID_STATE The connection is not in the session phase
  */
 SrvSessMgr* SrvConnMgr::getSession()
  {
-  if(_connState != SESSION || _srvSessMgr == nullptr)
-   THROW_EXEC_EXCP(ERR_CONN_NO_SESSION);
+  if(_connPhase != SESSION || _srvSessMgr == nullptr)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,
+                   "Attempting to retrieve the child session object with "
+                   "the connection still in the STSM key exchange phase");
   return _srvSessMgr;
  }
 
@@ -69,53 +69,76 @@ SrvSessMgr* SrvConnMgr::getSession()
  * @throws ERR_CLI_DISCONNECTED Abrupt client disconnection
  * @throws TODO (probably all connection exceptions)
  */
+
+
+
+
+/**
+ * @brief  Reads data from the manager's connection socket and:\n
+ *           - ConnMgr in RECV_MSG mode: If a complete message has been read, depending on the connection state the
+ *                                       message handler of the srvSTSMMgr or srvSessMgr child object is invoked\n
+ *           - ConnMgr in RECV_RAW mode: The raw data handler of the srvSessMgr child object is invoked\n
+ * @note:  In RECV_MSG mode, if the message being received is incomplete no other action is performed
+ * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
+ * @throws ERR_CLI_DISCONNECTED The client has abruptly disconnected
+ * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive raw data with the
+ *                                   connection in the STSM key establishment phase
+ * @throws All of the STSM, session, and most of the OpenSSL exceptions
+ *         (see "execErrCode.h" and "sessErrCodes.h" for more details)
+ */
 void SrvConnMgr::recvHandleData()
  {
   try
    {
-    // Read data from the connection socket
-    size_t recvBytes = recvData();
-
-    // If the connection is in the session phase and the SrvSessMgr
-    // child object is expecting raw data, call the appropriate handler
-    if(_connState == SESSION && _srvSessMgr != nullptr && _srvSessMgr->passRawData())
+    /*
+     * If the connection manager is in the RECV_MSG mode and a
+     * complete message has been read in the primary connection buffer
+     *
+     * NOTE: In RECV_MSG mode, if the message being received
+     *       is incomplete no other action is performed
+     */
+    if(_recvMode == RECV_MSG && recvData())
      {
-      _srvSessMgr->recvRaw(recvBytes);
+      // If the connection is in the STSM Key establishment phase
+      if(_connPhase == KEYXCHANGE)
+       {
+        // Call the child SrvSTSMMgr object message handler and, if it returns
+        // that the key establishment protocol has completed successfully
+        if(_srvSTSMMgr->STSMMsgHandler())
+         {
+          // Delete the SrvSTSMMgr child object
+          delete _srvSTSMMgr;
+          _srvSTSMMgr = nullptr;
 
-      // Reset the index of the most significant byte in the primary connection buffer
-      _priBufInd = 0;
+          // Instantiate the SrvSessMgr child object
+          _srvSessMgr = new SrvSessMgr(*this);
+
+          // Switch the connection to the SESSION phase
+          _connPhase = SESSION;
+         }
+       }
+
+      // Otherwise if the connection is in the session phase,
+      // call the child SrvSessMgr object message handler
+      else
+       _srvSessMgr->SessMsgHandler();
      }
+
+    // Otherwise, if the connection manager is in the RECV_MSG
     else
-
-     // Otherwise, if a full data block has been received, pass it to the appropriate message handler depending on the connection phase
-     if(_recvBlockSize == _priBufInd)
+     if(_recvMode == RECV_RAW)
       {
-       // Key establishment phase (STSM protocol)
-       if(_connState == KEYXCHANGE)
-        {
-         // Call the STSM message handler and, if it informs that the
-         // STSM key establishment protocol was completed successfully
-         if(_srvSTSMMgr->STSMMsgHandler())
-          {
-           // Delete the SrvSTSMMgr child object
-           delete _srvSTSMMgr;
-           _srvSTSMMgr = nullptr;
+       // Ensure the connection to be in the session phase and the
+       // SrvSessMgr child object to have been instantiated
+       if(_connPhase != SESSION || _srvSessMgr == nullptr)
+        THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,"RECV_RAW mode set in the STSM Key establishment phase");
 
-           // Instantiate the SrvSessMgr child object
-           _srvSessMgr = new SrvSessMgr(*this);
+       // Read raw data from the connection socket
+       size_t recvBytes = recvData();
 
-           // Switch the connection to the SESSION phase
-           _connState = SESSION;
-          }
-        }
-
-        // Session Phase
-       else
-        {
-         // Call the server session message handler, propagating its indication on whether
-         // the client's connection should be maintained to the Server's object
-         _srvSessMgr->recvCheckSrvSessMsg();
-        }
+       // Call the child SrvSessMgr object raw data handler passing the
+       // number of bytes that have been read from the connection socket
+       _srvSessMgr->recvRaw(recvBytes);
       }
    }
   catch(execErrExcp& recvExcp)

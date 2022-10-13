@@ -151,8 +151,9 @@ SessMgr::~SessMgr()
 void SessMgr::resetSessState()
  {
   _sessMgrState = IDLE;
-
   _aesGCMMgr.resetState();
+
+  _connMgr._recvMode = ConnMgr::RECV_MSG;
 
   if(_targFileDscr != nullptr)
    fclose(_targFileDscr);

@@ -102,7 +102,6 @@ enum execErrCode : unsigned char
   ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,
 
   // Other errors
-  ERR_CONN_NO_SESSION,
   ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
   ERR_SESS_SRV_GRACEFUL_DISCONNECT,
 
@@ -116,6 +115,7 @@ enum execErrCode : unsigned char
   ERR_CSK_CLOSE_FAILED,
   ERR_CSK_RECV_FAILED,
   ERR_PEER_DISCONNECTED,
+  ERR_SEND_FAILED,
 
   // Files and Directories
   ERR_DIR_OPEN_FAILED,
@@ -196,7 +196,8 @@ enum execErrCode : unsigned char
   ERR_STSM_MY_PUBKEY_MISSING,
   ERR_STSM_OTHER_PUBKEY_MISSING,
 
-  // AESGCMMgr Errors
+  // Objects Invalid States
+  ERR_CONNMGR_INVALID_STATE,
   ERR_AESGCMMGR_INVALID_STATE,
 
   // Other errors
@@ -299,21 +300,20 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown msgType"} },
 
     // Other Errors
-    { ERR_CONN_NO_SESSION,                   {FATAL,"The connection is not in the session phase"} },
     { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown msgType"} },
     { ERR_SESS_SRV_GRACEFUL_DISCONNECT,      {WARNING,"The server has gracefully disconnected"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
     // Server Endpoint Parameters
-    { ERR_SRV_ADDR_INVALID,  {ERROR,"The SafeCloud Server IP address is invalid"} },
+    { ERR_SRV_ADDR_INVALID,        {ERROR,"The SafeCloud Server IP address is invalid"} },
     {ERR_SRV_PORT_INVALID,         {ERROR,    "The SafeCloud Server port is invalid"} },
 
     // Connection sockets
     {ERR_CSK_CLOSE_FAILED,         {CRITICAL, "Connection Socket Close Failed"} },
     {ERR_CSK_RECV_FAILED,          {CRITICAL, "Error in receiving data from the connection socket"} },
     {ERR_PEER_DISCONNECTED,        {WARNING,  "Abrupt peer disconnection"} },
-
+    {ERR_SEND_FAILED,              {FATAL,    "Error in sending data on the connection socket"} },
 
     // Files and Directories
     {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },
@@ -393,10 +393,9 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_STSM_MY_PUBKEY_MISSING,    {FATAL,    "The local actor's ephemeral DH public key is missing"} },
     {ERR_STSM_OTHER_PUBKEY_MISSING, {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
 
-    // AESGCMMgr Errors
+    // Objects Invalid States
+    {ERR_CONNMGR_INVALID_STATE,     {CRITICAL, "Invalid ConnMgr state"} },
     {ERR_AESGCMMGR_INVALID_STATE,   {CRITICAL, "Invalid AES_128_GCM manager state"} },
-
-
 
     // Other errors
     {ERR_MALLOC_FAILED,              {FATAL,"malloc() failed"} },

@@ -3,6 +3,7 @@
 
 /* SafeCloud Client Connection Manager  */
 
+/* ================================== INCLUDES ================================== */
 #include "ConnMgr/ConnMgr.h"
 #include "CliSTSMMgr/CliSTSMMgr.h"
 #include "CliSessMgr/CliSessMgr.h"
@@ -13,10 +14,11 @@ class CliConnMgr : public ConnMgr
   private:
 
    /* ================================= ATTRIBUTES ================================= */
-   std::string* _downDir;     // The client's download directory
+   std::string* _downDir;    // The absolute path of the client's download directory
 
-   CliSTSMMgr* _cliSTSMMgr;  // The child client STSM key establishment manager
-   CliSessMgr* _cliSessMgr;  // The child client session manager
+   CliSTSMMgr* _cliSTSMMgr;  // The child client STSM key establishment manager object
+   CliSessMgr* _cliSessMgr;  // The child client Session Manager object
+
 
    /* =============================== FRIEND CLASSES =============================== */
    friend class CliSTSMMgr;
@@ -31,7 +33,6 @@ class CliConnMgr : public ConnMgr
     * @throws ERR_SRV_DISCONNECTED Abrupt server disconnection
     */
    void cliRecvMsg();
-
 
   public:
 
@@ -68,19 +69,9 @@ class CliConnMgr : public ConnMgr
    /**
     * @brief  Returns a pointer to the session manager's child object
     * @return A pointer to the session manager's child object
-    * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+    * @throws ERR_CONNMGR_INVALID_STATE The connection is not in the session phase
     */
    CliSessMgr* getSession();
-
-
-
-   // TODO
-   // uploadFile()
-   // downloadFile()
-   // renameFile()
-   // deleteFile()
-   // listFiles()
-   // close()
  };
 
 

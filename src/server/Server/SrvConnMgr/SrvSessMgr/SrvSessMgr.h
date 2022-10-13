@@ -38,15 +38,8 @@ class SrvSessMgr : public SessMgr
      // Server LIST command states
     };
 
-   // The server session manager reception mode
-   enum srvSessRecvMode : uint8_t
-    {
-     RECV_MSG,  // Session message expected
-     RECV_RAW   // Raw data expected
-    };
 
    /* ================================= ATTRIBUTES ================================= */
-   srvSessRecvMode _srvSessRecvMode;  // The current server session manager reception mode
    srvSessCmdState _srvSessMgrSubstate;  // The current server session command state
    SrvConnMgr&     _srvConnMgr;       // The parent SrvConnMgr instance managing this object
 
@@ -70,14 +63,7 @@ class SrvSessMgr : public SessMgr
    void resetSrvSessState();
 
    // TODO
-   void recvCheckSrvSessMsg();
-
-   bool passRawData()
-    {
-     if(_srvSessRecvMode == RECV_RAW)
-      return true;
-     return false;
-    }
+   void SessMsgHandler();
 
    // TODO: Placeholder implementation
    void recvRaw(size_t recvBytes);

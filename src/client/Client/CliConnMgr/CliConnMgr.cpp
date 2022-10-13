@@ -6,12 +6,13 @@
 
 /* =============================== PRIVATE METHODS =============================== */
 
-// TODO: Fix description depending on the _cliSessMgr.bufferFull() implementation
 /**
- * @brief Waits and reads data from the connection socket
- *        until a full data block has been received
- * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
- * @throws ERR_SRV_DISCONNECTED Abrupt server disconnection
+ * @brief Blocks until a full message has been read from the
+ *        connection socket into the primary communication buffer
+ * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive a message while the
+ *                                   connection manager is in the RECV_RAW mode
+ * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
+ * @throws ERR_SRV_DISCONNECTED      The server has abruptly disconnected
  */
 void CliConnMgr::cliRecvMsg()
  {
@@ -19,9 +20,11 @@ void CliConnMgr::cliRecvMsg()
    { recvMsg(); }
   catch(execErrExcp& recvExcp)
    {
-    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error
-    // code and clear its additional information (representing the name of the client
-    // associated with the connection manager, which on the client side is implicit)
+    /*
+     * Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error
+     * code and clear its additional information (representing the name of the client
+     * associated with the connection manager, which on the client side is implicit)
+     */
     if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
      {
       recvExcp.exErrcode = ERR_SRV_DISCONNECTED;
@@ -41,7 +44,7 @@ void CliConnMgr::cliRecvMsg()
  * @param csk       The connection socket associated with this manager
  * @param name      The client name associated with this connection
  * @param tmpDir    The connection's temporary directory
- * @param downDir   The client's download directory
+ * @param downDir   The client's download directory absolute path
  * @param rsaKey    The client's long-term RSA key pair
  * @param certStore The client's X.509 certificates store
  * @note The constructor also initializes the _cliSTSMMgr child object
@@ -86,18 +89,20 @@ void CliConnMgr::startCliSTSM()
   _cliSessMgr = new CliSessMgr(*this);
 
   // Switch the connection to the SESSION phase
-  _connState = SESSION;
+  _connPhase = SESSION;
  }
 
 
 /**
  * @brief  Returns a pointer to the session manager's child object
  * @return A pointer to the session manager's child object
- * @throws ERR_CONN_NO_SESSION The connection is not in the session phase
+ * @throws ERR_CONNMGR_INVALID_STATE The connection is not in the session phase
  */
 CliSessMgr* CliConnMgr::getSession()
  {
-  if(_connState != SESSION || _cliSessMgr == nullptr)
-   THROW_EXEC_EXCP(ERR_CONN_NO_SESSION);
+  if(_connPhase != SESSION || _cliSessMgr == nullptr)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,
+                   "Attempting to retrieve the child session object with "
+                   "the connection still in the STSM key exchange phase");
   return _cliSessMgr;
  }
