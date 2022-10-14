@@ -244,37 +244,45 @@ void CliSessMgr::recvCheckCliSessMsg()
  }
 
 
-
-
-
-
-
 /* -------------------------------- File Upload -------------------------------- */
 
-void CliSessMgr::sendCliSessPayloadMsg(SessMsgType sessMsgType)
+/**
+ * @brief Prepares in the connection manager's secondary buffer the 'FILE_UPLOAD_REQ' session
+ *        message associated with the contents of the '_locFileInfo' attribute, for then
+ *        wrapping  and sending the resulting session message wrapper to the SafeCloud server
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void CliSessMgr::sendFileUploadReq()
  {
-  switch(sessMsgType)
-   {
-    case FILE_UPLOAD_REQ:
+  // Interpret the contents of the connection manager's secondary buffer as a
+  // 'SessMsgFileInfo' session message, consisting in this case of a 'FILE_UPLOAD_REQ' message
+  SessMsgFileInfo* fileUpReqMsg = reinterpret_cast<SessMsgFileInfo*>(_cliConnMgr._secBuf);
 
-     // Interpret the contents of the connection manager's secondary buffer as a 'FILE_UPLOAD_REQ' session message
-     SessMsgUploadReq* fileUpPayload = reinterpret_cast<SessMsgUploadReq*>(_cliConnMgr._secBuf);
+  // Set the length of the 'FILE_UPLOAD_REQ'  message to the length of a SessMsgFileInfo struct + the file
+  // name length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
+  fileUpReqMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
 
-    // Set the session message length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
-    fileUpPayload->msgLen = sizeof(SessMsgUploadReq) + _locFileInfo->fileName.length();
+  // Set the session message type to 'FILE_UPLOAD_REQ'
+  fileUpReqMsg->msgType = FILE_UPLOAD_REQ;
 
-    // Set the session message type
-    fileUpPayload->msgType = FILE_UPLOAD_REQ;
+  // Write the metadata of the file to be uploaded into the 'FILE_UPLOAD_REQ'  message
+  fileUpReqMsg->fileSize     = _locFileInfo->fileMeta.fileSize;
+  fileUpReqMsg->creationTime = _locFileInfo->fileMeta.creationTime;
+  fileUpReqMsg->lastModTime  = _locFileInfo->fileMeta.lastModTime;
 
-    // Set the file's size
-    fileUpPayload->fileSize = _locFileInfo->fileMeta.fileSize;
+  // Write the file name, '/0' terminating character included, into the 'FILE_UPLOAD_REQ' message
+  memcpy(reinterpret_cast<char*>(&fileUpReqMsg->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
 
-    // Set the file's name, including the '/0' terminating character
-    memcpy(reinterpret_cast<char*>(&fileUpPayload->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
-
-    // Wrap the session message and send it to the SafeCloud server
-    wrapSendSessMsg();
-   }
+  // Wrap the 'FILE_UPLOAD_REQ' message into its associated
+  // session message wrapper and send it to the SafeCloud server
+  wrapSendSessMsg();
  }
 
 
@@ -314,9 +322,9 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
     // the allowed maximum upload file size (4GB - 1B)
     if(_locFileInfo->fileMeta.fileSize > FILE_UPLOAD_MAX_SIZE)
      {
-      char fileSize[7];  // Storse the file size formatted as a string
+      char fileSize[7];  // Stores the file size formatted as a string
       _locFileInfo->getFormattedSize(fileSize);
-      THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG,fileSize);
+      THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG,"it is " + std::string(fileSize) + " >= 4GB");
      }
 
     // Free the canonicalized file path as a C string
@@ -376,51 +384,93 @@ void CliSessMgr::resetCliSessState()
  }
 
 
+/* ---------------------------- Session Commands API ---------------------------- */
 
-
-void sendFileUploadReq()
- {
-
-  SessMsgFileInfo
-
- }
-
-
-
-//TODO
+// TODO
 void CliSessMgr::uploadFile(std::string& filePath)
  {
-  // Determine and initialize the canonicalized path, the descriptor,
-  // the name and metadata of the target file to be uploaded
+  // Initialize the client session manager state and substate
+  _sessMgrState       = UPLOAD;
+  _cliSessMgrSubstate = CMD_START;
+
+   /*
+    * Parse the target file to be uploaded by:
+    *    1) Writing its canonicalized path into the '_mainFileAbsPath' attribute
+    *    2) Opening its '_mainFileDscr' file descriptor in read-byte mode
+    *    3) Loading the file name and metadata into the '_locFileInfo' attribute
+    */
   parseUploadFile(filePath);
 
+  // TODO: Remove
   // LOG: Target file absolute path, descriptor and info
   std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
   std::cout << "_mainFileDscr = " << _mainFileDscr << std::endl;
   _locFileInfo->printInfo();
 
-  // Prepare and send the file upload request message
+  // Prepare the associated 'FILE_UPLOAD_REQ' session
+  // message and send it to the SafeCloud server
   sendFileUploadReq();
 
-  // Prepare and send the 'FILE_UPLOAD_REQ' message
-  sendCliSessPayloadMsg(FILE_UPLOAD_REQ);
+  // In DEBUG_MODE, log that the 'FILE_UPLOAD_REQ' has
+  // been sent along with the target file name and size
+#ifdef DEBUG_MODE
+  char fileSize[7];  // Stores the file size formatted as a string
+  _locFileInfo->getFormattedSize(fileSize);
+  LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (target file = \"" + *_mainFileAbsPath + "\", size = " + fileSize + ")")
+#endif
+
+  // Update the client session manager substate to 'WAITING_FILE_STATUS'
+  _cliSessMgrSubstate = WAITING_FILE_STATUS;
+
+  // TODO: From here ---------------------------------------------------
+/*
+  // Block until a session message is received from the SafeCloud server
+  recvCheckCliSessMsg();
+
+  // Depending on the received session message type:
+  switch(_recvSessMsgType)
+   {
+    // Empty file that was not present or had an older
+    // last modification date on the SafeCloud server
+    case COMPLETED:
+     std::cout << "Received COMPLETED session message" << std::endl;
+
+    // A file with such name already exists on
+    // the SafeCloud server, ask for user confirmation
+    case FILE_EXISTS:
+     std::cout << "Received FILE_EXISTS session message" << std::endl;
+
+    // A file with such name does not exist on the
+    // SafeCloud server, directly proceed with the upload
+    case FILE_NOT_EXISTS:
+     std::cout << "Received FILE_NOT_EXISTS session message" << std::endl;
+
+    // Unexpected session message type
+    default:
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE,abortedCmdToStr(),
+                     "Received a session message of type" + std::to_string(_recvSessMsgType) + "with"
+                     "the client session manager in the 'UPLOAD:WAITING_FILE_STATUS' state");
+
+   }
+   */
  }
 
 
-
-// TODO: STUB
+// TODO: Placeholder implementation
 void CliSessMgr::downloadFile(std::string& fileName)
  {
   std::cout << "In downloadFile() (fileName = " << fileName << ")" << std::endl;
  }
 
-// TODO: STUB
+
+// TODO: Placeholder implementation
 void CliSessMgr::listRemoteFiles()
  {
   std::cout << "In listRemoteFiles()" << std::endl;
  }
 
-// TODO: STUB
+
+// TODO: Placeholder implementation
 void CliSessMgr::renameRemFile(std::string& oldFileName,std::string& newFileName)
  {
   std::cout << "In renameRemFile() (oldFileName = " << oldFileName << ", newFileName = " << newFileName << ")" << std::endl;

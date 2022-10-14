@@ -792,15 +792,14 @@ void Client::userCmdPrompt()
 
       // Otherwise handle the recoverable session exception via its default handler
       else
-       handleSessErrException(sessErrExcp);
+       {
+        // Handle the session error exception
+        handleSessErrException(sessErrExcp);
 
-      // TODO: other to be done here?
+        // Reset the session manager state
+        _cliConnMgr->getSession()->resetCliSessState();
+       }
      }
-
-    // If the SafeCloud client is not shutting down, reset its session manager's state
-    if(!_shutdown)
-    _cliConnMgr->getSession()->resetCliSessState();
-
    } while(!_shutdown);
  }
 
