@@ -627,6 +627,10 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
    {
     // Attempt to upload the specified file to the SafeCloud storage pool
     _cliConnMgr->getSession()->uploadFile(arg1);
+
+    // Reset the client session manager state
+    _cliConnMgr->getSession()->resetCliSessState();
+
     return;
    }
 
@@ -635,6 +639,10 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
    {
     // Attempt to download the specified file from the SafeCloud storage pool
     _cliConnMgr->getSession()->downloadFile(arg1);
+
+    // Reset the client session manager state
+    _cliConnMgr->getSession()->resetCliSessState();
+
     return;
    }
 
@@ -654,13 +662,16 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
 
      // LIST remote
      if(arg1 == "storage" || arg1 == "remote")
+      {
+       // List the files in the SafeCloud storage pool
+       _cliConnMgr->getSession()->listRemoteFiles();
 
-      // List the files in the SafeCloud storage pool
-      _cliConnMgr->getSession()->listRemoteFiles();
+       // Reset the client session manager state
+       _cliConnMgr->getSession()->resetCliSessState();
+      }
 
+     // Unsupported command
      else
-
-      // Unsupported command
       THROW_SESS_EXCP(ERR_UNSUPPORTED_CMD);
 
     return;
@@ -686,6 +697,10 @@ void Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg
    {
     // Attempt to rename the "arg1" file on SafeCloud storage pool to "arg2"
     _cliConnMgr->getSession()->renameRemFile(arg1,arg2);
+
+    // Reset the client session manager state
+    _cliConnMgr->getSession()->resetCliSessState();
+
     return;
    }
 

@@ -76,10 +76,16 @@ class SessMgr
    static bool isSessSignalingMsgType(SessMsgType sessMsgType);
 
    /**
+    * @brief Converts a session manager state to string
+    * @return The session manager state as a string
+    */
+   static std::string sessMgrStateToStr(sessMgrState sesMgrState);
+
+   /**
     * @brief Converts the current session manager state to string
     * @return The current session manager state as a string
     */
-   std::string sessMgrStateToStr();
+   std::string currSessMgrStateToStr();
 
    /**
     * @brief  Returns a string outlining the current

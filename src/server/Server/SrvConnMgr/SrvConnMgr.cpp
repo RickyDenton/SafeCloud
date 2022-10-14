@@ -121,7 +121,7 @@ void SrvConnMgr::recvHandleData()
       // Otherwise if the connection is in the session phase,
       // call the child SrvSessMgr object message handler
       else
-       _srvSessMgr->SessMsgHandler();
+       _srvSessMgr->srvSessMsgHandler();
      }
 
     // Otherwise, if the connection manager is in the RECV_MSG

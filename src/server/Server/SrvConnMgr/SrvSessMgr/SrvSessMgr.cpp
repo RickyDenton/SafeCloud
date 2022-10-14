@@ -112,114 +112,178 @@ void SrvSessMgr::resetSrvSessState()
  }
 
 
+// TODO: Placeholder implementation
+void SrvSessMgr::dispatchRecvSessMsg()
+ {
+  std::cout << "In dispatchRecvSessMsg()" << std::endl;
+ }
 
-// TODO
-void SrvSessMgr::SessMsgHandler()
+
+/**
+ * @brief  Server Session message handler, which:\name
+ *            1) Unwraps a received session message wrapper from
+ *               the primary into the secondary connection buffer\n
+ *            2) Asserts the resulting session message to be allowed in
+ *               the current server session manager state and substate\n
+ *            3) Handles session-resetting or terminating signaling messages\n
+ *            4) Handles session error signaling messages\n
+ *            5) For valid session message types requiring further action,
+ *               it invokes the session message handler associated with the
+ *               session manager current state and substate
+ * @throws TODO (most session exceptions)
+ */
+void SrvSessMgr::srvSessMsgHandler()
 {
  // TODO: Remove
- std::cout << "in SessMsgHandler()" << std::endl;
+ std::cout << "in srvSessMsgHandler()" << std::endl;
 
- // unwrap the received session message into the
- // associated connection manager's secondary buffer
-  unwrapSessMsg();
+ // Unwrap the received session message wrapper stored in the connection's primary
+ // buffer into its associated session message in the connection's secondary buffer
+ unwrapSessMsg();
 
- // Interpret the contents of the associated connection
- // manager's secondary buffer as a session message
+ // Interpret the contents of associated connection
+ // manager's secondary buffer as a base session message
  SessMsg* sessMsg = reinterpret_cast<SessMsg*>(_srvConnMgr._secBuf);
 
- // Ensure that a session message valid for the current
- // command and command sub-state have been received,
+ // Copy the received session message length
+ // and type into their dedicated attributes
+ _recvSessMsgLen = sessMsg->msgLen;
+ _recvSessMsgType = sessMsg->msgType;
+
+ // If a signaling message type was received, assert the message
+ // length to be equal to the size of a base session message
+ if(isSessSignalingMsgType(_recvSessMsgType) && _recvSessMsgLen != sizeof(SessMsg))
+  sendSrvSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message of invalid"
+                                                  "length (" + std::to_string(_recvSessMsgLen) + ")");
 
  /*
   * Check whether the received session message type:
-  *   1) Is session-resetting or terminating
-  *   2) Is allowed in the current server session manager state
+  *   1) Should trigger a session state reset or termination,
+  *      directly performing the appropriate actions
+  *   2) Is valid in the current server session manager state
+  *      and substate, signaling the error to the client
+  *      and throwing the associated exception otherwise
   */
- switch(sessMsg->msgType)
+ switch(_recvSessMsgType)
   {
-   // Command-starting session messages, which can be
-   // received exclusively in the "IDLE" command state
+   /* --------------------------- Command-Starting Session Message Types --------------------------- */
+
+   // Command-starting session messages are allowed in the 'IDLE' state only
    case FILE_UPLOAD_REQ:
    case FILE_DOWNLOAD_REQ:
    case FILE_DELETE_REQ:
    case FILE_RENAME_REQ:
    case FILE_LIST_REQ:
     if(_sessMgrState != IDLE)
-     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
+                                                      "command-starting session message received in session"
+                                                      "state \"" + currSessMgrStateToStr() + "\"");
     break;
 
-   // The client is confirming an upload, download or delete commandon
+   /* -------------------------------- 'CONFIRM' Signaling Message -------------------------------- */
+
+   // A client confirmation notification is allowed only in the 'UPLOAD',
+   // 'DOWNLOAD' and 'DELETE' states with sub-state 'WAITING_CLI_CONF'
    case CONFIRM:
     if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD || _sessMgrState == DELETE)
          && _srvSessMgrSubstate == WAITING_CLI_CONF))
-     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'CONFIRM' session message received in session"
+                                                      "state \"" + currSessMgrStateToStr() + "\"");
     break;
 
-   // The client informs that it has successfully
-   // completed the current download or list operation
-   case COMPLETED:
-    if(!((_sessMgrState == DOWNLOAD || _sessMgrState == LIST)
-         && _srvSessMgrSubstate == WAITING_CLI_COMPL))
-     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
+   /* ------------------------------- 'COMPLETED' Signaling Message ------------------------------- */
 
-   // The client has requested to cancel the operation
+   // A client completion notification is allowed only in:
+   //   1) The 'DOWNLOAD' state of any sub-state
+   //   2) The 'LIST' state with sub-state 'WAITING_CLI_COMPL'
+   case COMPLETED:
+
+    // Since after sending a 'COMPLETED' message the client has supposedly
+    // reset its session state, in case the message is received in an invalid
+    // state just throw the associated exception without notifying the client
+    if(!((_sessMgrState == DOWNLOAD) || (_sessMgrState == LIST && _srvSessMgrSubstate == WAITING_CLI_COMPL)))
+     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), "'COMPLETED' session message received in"
+                                                                     "session state" "\"" + currSessMgrStateToStr() +
+                                                                     "\", sub-state " + std::to_string(_srvSessMgrSubstate));
+
+   /* --------------------------------- 'CANCEL' Signaling Message --------------------------------- */
+
+   // A client cancellation notification is allowed in any but the 'IDLE' state
    case CANCEL:
 
-    // This command should not be received with the server session manager in the IDLE state
+    // Since after sending a 'CANCEL' message the client has supposedly reset its session
+    // state, in case such a message is received in the 'IDLE' state just log the error
+    // without notifying the client that an unexpected session message was received
     if(_sessMgrState == IDLE)
-     LOG_WARNING("[" + *_srvConnMgr._name + "]: Received a session operation cancellation request with the session manager being idle")
+     LOG_WARNING("Received a 'CANCEL' session message from client \"" + *_srvConnMgr._name + "\" with an idle session manager")
     else
-     // Log the client-cancelled operation
-     LOG_INFO("[" + *_srvConnMgr._name + "]: " + sessMgrStateToStr() + " operation cancelled")
 
-    // Reset the session state and return
-    resetSrvSessState();
-    return;
+     // If the 'CANCEL' message is allowed, log the operation that was cancelled
+     LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled its " + currSessMgrStateToStr() + " operation")
 
-   // The client is gracefully disconnecting
+     // Reset the server session state and return
+     resetSrvSessState();
+     return;
+
+   /* ---------------------------------- 'BYE' Signaling Message ---------------------------------- */
+
+   // The client graceful disconnect notification is allowed in the 'IDLE' state only
    case BYE:
 
-    // Set that the client connection must be closed
+    // If such a message is not received in the 'IDLE' state, just log the
+    // error without notifying the client, as it is supposedly disconnecting
+    if(_sessMgrState != IDLE)
+     LOG_WARNING("Client \"" + *_srvConnMgr._name + "\" gracefully disconnecting with"
+                 "the session manager in the \""+ currSessMgrStateToStr() + "\" state")
+
+    // Set the associated connection manager to be terminated and return
     _srvConnMgr._keepConn = false;
     return;
 
-   /* ---------------- Recoverable Errors ---------------- */
+   /* --------------------------------- Error Signaling Messages --------------------------------- */
 
-   // The client has experienced a recoverable internal error
+   // The client reported to have experienced a recoverable internal error
    case ERR_INTERNAL_ERROR:
     THROW_SESS_EXCP(ERR_SESS_SRV_CLI_INTERNAL_ERROR,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
-   // The client has received an unexpected session message
+   // The client reported to have received an unexpected session message
    case ERR_UNEXPECTED_SESS_MESSAGE:
     THROW_SESS_EXCP(ERR_SESS_SRV_CLI_UNEXPECTED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
-   // The client has received a malformed session message
+   // The client reported to have received a malformed session message
    case ERR_MALFORMED_SESS_MESSAGE:
     THROW_SESS_EXCP(ERR_SESS_SRV_CLI_MALFORMED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
-   /* ---------------- Unrecoverable Errors ---------------- */
-
-   // The client has received a session message of unknown type, with
-   // its cause associated to a desynchronization between the server
-   // and client IV, from which the connection must be aborted
+   // The client reported to have received a session message of unknown type, an error to be attributed to
+   // a desynchronization between the connection peers' IVs and that requires the connection to be reset
    case ERR_UNKNOWN_SESSMSG_TYPE:
     THROW_EXEC_EXCP(ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
-   // Unknown Message type
+   /* ----------------------------------- Unknown Message Type ----------------------------------- */
+
+   // A session message of unknown type has been received, an error to be attributed to a
+   // desynchronization between the connection peers' IVs and that requires the connection to be reset
    default:
-    sendSrvSessSignalMsg(ERR_UNKNOWN_SESSMSG_TYPE);
+    sendSrvSessSignalMsg(ERR_UNKNOWN_SESSMSG_TYPE,std::to_string(_recvSessMsgType));
   }
 
- // At this point the received session message is
- // valid for the current server session manager state
+ /*
+  * At this point the received session message type is valid
+  * for the current server session manager state and sub-state
+  */
 
- // LOG: Session message length and msgType
- std::cout << "sessMsg->wrapLen" << sessMsg->msgLen << std::endl;
- std::cout << "sessMsg->msgType" << sessMsg->msgType << std::endl;
+ // TODO: Comment
+ // LOG: Received session message length and type
+ std::cout << "_recvSessMsgLen = " << _recvSessMsgLen << std::endl;
+ std::cout << "_recvSessMsgType = " << _recvSessMsgType << std::endl;
 
+ // Dispatch the received session message to the handler
+ // associated with the session manager current state and substate
+ dispatchRecvSessMsg();
 }
 
 
+// TODO: Placeholder implementation
 void SrvSessMgr::recvRaw(size_t recvBytes)
  {
   std::cout << "In recvRaw()" << std::endl;

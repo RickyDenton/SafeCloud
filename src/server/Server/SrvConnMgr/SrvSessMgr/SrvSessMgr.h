@@ -50,6 +50,10 @@ class SrvSessMgr : public SessMgr
    void sendSrvSessSignalMsg(SessMsgType sessMsgType);
    void sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const std::string& errReason);
 
+
+   // TODO: Placeholder implementation
+   void dispatchRecvSessMsg();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -72,7 +76,7 @@ class SrvSessMgr : public SessMgr
    void resetSrvSessState();
 
    // TODO
-   void SessMsgHandler();
+   void srvSessMsgHandler();
 
    // TODO: Placeholder implementation
    void recvRaw(size_t recvBytes);

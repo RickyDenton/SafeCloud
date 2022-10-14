@@ -31,12 +31,12 @@ bool SessMgr::isSessSignalingMsgType(SessMsgType sessMsgType)
 
 
 /**
- * @brief Converts the current session manager state to string
- * @return The current session manager state as a string
+ * @brief Converts a session manager state to string
+ * @return The session manager state as a string
  */
-std::string SessMgr::sessMgrStateToStr()
+std::string SessMgr::sessMgrStateToStr(sessMgrState sesMgrState)
  {
-  switch(_sessMgrState)
+  switch(sesMgrState)
    {
     case IDLE:
      return "idle";
@@ -55,6 +55,14 @@ std::string SessMgr::sessMgrStateToStr()
 
 
 /**
+ * @brief Converts the current session manager state to string
+ * @return The current session manager state as a string
+ */
+std::string SessMgr::currSessMgrStateToStr()
+ { return sessMgrStateToStr(_sessMgrState); }
+
+
+/**
  * @brief  Returns a string outlining the current
  *         operation that has been aborted, if any
  * @return A string outlining the current
@@ -63,7 +71,7 @@ std::string SessMgr::sessMgrStateToStr()
 std::string SessMgr::abortedCmdToStr()
  {
   if(_sessMgrState != IDLE)
-   return sessMgrStateToStr() + " operation aborted";
+   return currSessMgrStateToStr() + " operation aborted";
   else
    return "no operation was aborted";
  }

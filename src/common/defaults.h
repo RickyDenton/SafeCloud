@@ -17,8 +17,8 @@
 #define SRV_DEFAULT_PORT    51234         // The server's default listening port
 #define SRV_PORT_MIN        49152         // The minimum value for the server's listening port (IANA standard for dynamic/private applications)
 
-// File upload maximum size (4GB -1 - AES_128_GCM_TAG_SIZE)
-#define FILE_UPLOAD_MAX_SIZE 4294967279
+// File upload maximum size (4GB - 1B, 2^32 - 1)
+#define FILE_UPLOAD_MAX_SIZE 4294967295
 
 
 /* ============================= SERVER PARAMETERS ============================= */
