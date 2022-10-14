@@ -1,7 +1,7 @@
 #ifndef SAFECLOUD_CLISESSMGR_H
 #define SAFECLOUD_CLISESSMGR_H
 
-/* SafeCloud Client Session Manager */
+/* SafeCloud Client Session Manager Class Declaration */
 
 /* ================================== INCLUDES ================================== */
 #include "ConnMgr/SessMgr/SessMgr.h"
@@ -15,45 +15,36 @@ class CliSessMgr : public SessMgr
  {
   private:
 
-   // Client session manager substates
+   // Client Session Manager Sub-states
    enum cliSessMgrSubstate : uint8_t
     {
      CLI_IDLE,
-
      WAITING_FILE_STATUS,
      WAITING_SRV_CONF,
      WAITING_POOL_INFO,
      WAITING_SRV_COMPL
-
-     // Client UPLOAD command states
-
-
-     // Client DOWNLOAD command states
-
-
-     // Client DELETE command states
-
-
-     // Client RENAME command states
-
-
-     // Client LIST command states
-
     };
 
    /* ================================= ATTRIBUTES ================================= */
-   cliSessMgrSubstate _cliSessMgrSubstate;  // The current client session manager substate
-   CliConnMgr&        _cliConnMgr;    // The parent CliConnMgr instance managing this object
+   cliSessMgrSubstate _cliSessMgrSubstate;  // The current client session manager sub-state
+   CliConnMgr&        _cliConnMgr;          // The associated CliConnMgr parent object
 
-   /* ------------- Progress Bar Management ------------- */
+   /* -------------------------- Progress Bar Management -------------------------- */
+
+   // The progress bar object used for displaying a file upload or download progress on stdout
    ProgressBar  _progBar;
-   unsigned int _tProgUnit;
-   unsigned int _tProgTemp;
+
+   // The number of bytes to be transferred associated with a 1% progress in the progress bar
+   unsigned int _progBarUnitSize;
+
+   // The number of bytes in the last data transfer whose progress
+   // was not accounted for in the progress bar (< _progBarUnitSize)
+   unsigned int _progBarLeftovers;
 
    /* ============================== PRIVATE METHODS ============================== */
 
-  // TODO
-  void sendCliSessSignalMsg(SessMsgType sessMsgType);
+   // TODO
+   void sendCliSessSignalMsg(SessMsgType sessMsgType);
 
    // TODO
    void recvCheckCliSessMsg();

@@ -65,7 +65,7 @@ class AESGCMMgr
 
    /**
     * @brief AES_128_GCM object destructor, freeing its prepared cipher context
-    * @note  The class assumes the secure erase of the connection's cryptographic quantities
+    * @note  It is assumed the secure erasure of the connection's cryptographic quantities
     *        (session key, IV) to be performed by the associated connection manager object
     */
    ~AESGCMMgr();

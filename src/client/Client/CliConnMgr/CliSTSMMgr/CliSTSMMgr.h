@@ -34,6 +34,12 @@ class CliSTSMMgr : public STSMMgr
 
    /* ------------------------- Error Checking and Handling ------------------------- */
 
+   /*
+    * TODO: Rewrite the errDesc() so to be a std::string& parameter whose default
+    * TODO: value is passed by a new sendCliSTSMErrMsg() function with just the
+    * TODO: errMsgType parameter (like for the sendCliSessSignalMsg() function)
+    */
+
    /**
     * @brief  Sends a STSM error message to the server and throws the
     *         associated exception on the client, aborting the connection

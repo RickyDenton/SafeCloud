@@ -48,7 +48,7 @@ void CliSessMgr::recvCheckCliSessMsg()
 
   // unwrap the received session message into the
   // associated connection manager's secondary buffer
-  unWrapSessMsg();
+  unwrapSessMsg();
 
   // Interpret the contents of the associated connection
   // manager's secondary buffer as a session message
@@ -80,7 +80,7 @@ void CliSessMgr::recvCheckCliSessMsg()
 
     // Notification that a file with the specified target name already exists on the
     // server, which can be received only in the 'RENAME' client session manager state
-    case FILE_NAME_EXISTS:
+    case NEW_FILENAME_EXISTS:
      if(!(_sessMgrState == RENAME && _cliSessMgrSubstate == WAITING_SRV_CONF))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE);
 
@@ -148,16 +148,16 @@ void CliSessMgr::sendCliSessPayloadMsg(SessMsgType sessMsgType)
      SessMsgUploadReq* fileUpPayload = reinterpret_cast<SessMsgUploadReq*>(_cliConnMgr._secBuf);
 
      // Set the session message length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
-     fileUpPayload->msgLen = sizeof(SessMsgUploadReq) + _targFileInfo->fileName.length();
+     fileUpPayload->msgLen = sizeof(SessMsgUploadReq) + _locFileInfo->fileName.length();
 
      // Set the session message type
      fileUpPayload->msgType = FILE_UPLOAD_REQ;
 
      // Set the file's size
-     fileUpPayload->fileSize = _targFileInfo->fileMeta.fileSize;
+     fileUpPayload->fileSize = _locFileInfo->fileMeta.fileSize;
 
      // Set the file's name, including the '/0' terminating character
-     memcpy(reinterpret_cast<char*>(&fileUpPayload->fileName),_targFileInfo->fileName.c_str(),_targFileInfo->fileName.length()+1);
+     memcpy(reinterpret_cast<char*>(&fileUpPayload->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
 
      // Wrap the session message and send it to the SafeCloud server
      wrapSendSessMsg();
@@ -190,18 +190,18 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
   try
    {
     // Initialize the absolute, or canonicalized, file path
-    _targFileAbsPath = new std::string(_targFileAbsPathC);
+    _mainFileAbsPath = new std::string(_targFileAbsPathC);
 
     // Attempt to open the file
-    _targFileDscr = fopen(_targFileAbsPathC, "rb");
-    if(!_targFileDscr)
+    _mainFileDscr = fopen(_targFileAbsPathC, "rb");
+    if(!_mainFileDscr)
      THROW_SESS_EXCP(ERR_SESS_FILE_OPEN_FAILED, filePath, ERRNO_DESC);
 
     // Attempt to retrieve the file's metadata
-    _targFileInfo = new FileInfo(*_targFileAbsPath);
+    _locFileInfo = new FileInfo(*_mainFileAbsPath);
 
     // Ensure the file size to be less or equal than the maximum upload file size
-    if(_targFileInfo->fileMeta.fileSize > FILE_UPLOAD_MAX_SIZE)
+    if(_locFileInfo->fileMeta.fileSize > FILE_UPLOAD_MAX_SIZE)
      THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG);
 
     // Free the target absolute file path in C
@@ -228,7 +228,7 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
 // TODO
 CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
   : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessMgrSubstate(CLI_IDLE),
-    _cliConnMgr(cliConnMgr), _progBar(100), _tProgUnit(0), _tProgTemp(0)
+    _cliConnMgr(cliConnMgr), _progBar(100), _progBarUnitSize(0), _progBarLeftovers(0)
  {}
 
 // Same destructor of the SessMgr base class
@@ -246,14 +246,24 @@ void CliSessMgr::resetCliSessState()
 
   // Reset the manager's progress bar
   _progBar.reset();
-  _tProgUnit = 0;
-  _tProgTemp = 0;
+  _progBarUnitSize = 0;
+  _progBarLeftovers = 0;
  }
 
 
 // TODO
 void CliSessMgr::sendByeMsg()
  { sendSessSignalMsg(BYE); }
+
+
+
+void sendFileUploadReq()
+ {
+
+  SessMsgFileInfo
+
+ }
+
 
 
  //TODO
@@ -264,9 +274,12 @@ void CliSessMgr::uploadFile(std::string& filePath)
    parseUploadFile(filePath);
 
   // LOG: Target file absolute path, descriptor and info
-  std::cout << "_targFileAbsPath = " << *_targFileAbsPath << std::endl;
-  std::cout << "_targFileDscr = " << _targFileDscr << std::endl;
-  _targFileInfo->printInfo();
+  std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
+  std::cout << "_mainFileDscr = " << _mainFileDscr << std::endl;
+  _locFileInfo->printInfo();
+
+  // Prepare and send the file upload request message
+  sendFileUploadReq();
 
   // Prepare and send the 'FILE_UPLOAD_REQ' message
    sendCliSessPayloadMsg(FILE_UPLOAD_REQ);

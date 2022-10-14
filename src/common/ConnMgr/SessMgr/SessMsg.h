@@ -9,49 +9,45 @@
 /* ================ SAFECLOUD SESSION MESSAGE TYPES DEFINITIONS ================ */
 enum SessMsgType : uint8_t
  {
-  /* Session messages with a payload */
+  /* ---------------------- Payload Session Message Types ---------------------- */
+  FILE_UPLOAD_REQ,    // File upload request                       (Client -> Server)
+  FILE_DOWNLOAD_REQ,  // File download request                     (Client -> Server)
+  FILE_DELETE_REQ,    // File delete request                       (Client -> Server)
+  FILE_RENAME_REQ,    // File rename request                       (Client -> Server)
+  FILE_EXISTS,        // A file with such name already exists      (Client <- Server)
+  POOL_INFO,          // Number of files in the storage pool       (Client <- Server)
+
+  /* -------------- Signaling Session Message Types (No Payload) -------------- */
+
+  /* ---- Non-error Signaling Session Messages ---- */
+  FILE_LIST_REQ,       // Storage pool contents list request       (Client -> Server)
+  FILE_NOT_EXISTS,     // A file with such name does not exist     (Client <- Server)
+  NEW_FILENAME_EXISTS, // A file with the new name already exists  (Client <- Server)
+  CONFIRM,             // Session operation confirmation           (Client -> Server)
+  CANCEL,              // Session operation cancellation           (Client -> Server)
+  COMPLETED,           // Session operation completion             (Client <-> Server)
+  BYE,                 // Peer graceful disconnection              (Client <-> Server)
+
+  /* ------ Error Signaling Session Messages ------ */
 
   /*
-   * Session messages exchanged between the SafeCloud
-   * client and server within a nominal execution
-   */
-  FILE_UPLOAD_REQ,    // File upload request    Client -> Server
-  FILE_DOWNLOAD_REQ,  // File download request  Client -> Server
-  FILE_DELETE_REQ,    // File delete request    Client -> Server
-  FILE_RENAME_REQ,    // File rename request    Client -> Server
-  FILE_LIST_REQ,      // File list request      Client -> Server
-
-
-  CONFIRM,            // Operation confirmation Client -> Server
-  CANCEL,             // Cancel the operation   Client -> Server
-
-  FILE_EXISTS,        // A file with such name exists                               Server -> Client
-  FILE_NOT_EXISTS,    // A file with such name does not exist                       Client -> Server
-
-  FILE_NAME_EXISTS,   // A file with the target new name already exists in the pool Server -> Client
-  POOL_INFO,          // The number of files in the client's storage pool           Server -> Client
-
-  COMPLETED,          // Operation completed successfully Client <-> Server
-  BYE,                // Graceful logout
-
-  /* Signaling session messages with no payload */
-
-
-  /*
-   * Session Error messages, sent by one party to the other
-   * upon erroneous conditions in the Session messages' exchange
+   * These messages, that can be sent by both parties,
+   * cause upon reception the current session command
+   * to be aborted and the session state to be reset
    */
 
-  // Internal error, the command must be aborted (any)
+  // An internal error has occurred on the peer
   ERR_INTERNAL_ERROR,
 
-  // An unexpected session message was received, the command must be aborted (any)
+  // The peer received a session message invalid for its current state
   ERR_UNEXPECTED_SESS_MESSAGE,
 
-  // A malformed session message was received, the command must be aborted (any)
+  // The peer received a malformed session message
   ERR_MALFORMED_SESS_MESSAGE,
 
-  // A session message of unknown msgType was received, the connection must be dropped (any)
+  // The peer received a session message of unknown type, an error
+  // to be attributed to a desynchronization between the connection
+  // peers' IVs and that requires their connection to be reset
   ERR_UNKNOWN_SESSMSG_TYPE
  };
 
@@ -72,16 +68,16 @@ struct SessMsgWrapper
   char      tag[AES_128_GCM_TAG_SIZE];  // AES_128_GCM Integrity Tag (16 bytes)
  };
 
-/* ------------------------ 'FILE_UPLOAD_REQ' Message ------------------------ */
+/* ------------------------ 'FILE_INFO Session Message ------------------------ */
 
-// Implicit msgType = 'FILE_UPLOAD_REQ'
-struct __attribute__((packed)) SessMsgUploadReq : public SessMsg
+// Used with msgType = FILE_UPLOAD_REQ, FILE_EXISTS
+
+struct __attribute__((packed)) SessMsgFileInfo : public SessMsg
  {
-   // The size in bytes of the file to be uploaded
-   uint32_t fileSize;
-
-   // The name of the target file to be uploaded (placeholder, variable size)
-   unsigned char fileName;
+  long int fileSize;         // The file size in bytes
+  long int creationTime;     // The file creation time in UNIX epoch time
+  long int lastModTime;      // The file last modification time in UNIX epoch time
+  unsigned char fileName[];  // The file name (variable size)
  };
 
 #endif //SAFECLOUD_SESSMSG_H
