@@ -19,7 +19,7 @@ class SrvSessMgr : public SessMgr
     {
      SRV_IDLE,
      WAITING_CLI_CONF,
-     WAITING_CLI_DATA,
+     WAITING_CLI_RAW_DATA,
      WAITING_CLI_COMPL
     };
 
@@ -57,6 +57,29 @@ class SrvSessMgr : public SessMgr
 
    /* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
 
+   /**
+   * @brief Starts a file upload operation by:\n
+   *           1) Loading into the '_remFileInfo' attribute the name and metadata of the file to be uploaded\n
+   *           2) Checking whether a file with the same name of the one to be uploaded already exists in the client's storage pool\n
+   *              2.1) If it does, the name and metadata of such file are sent to the client, with
+   *                   their confirmation being required on whether such file should be overwritten\n
+   *              2.2) If it does not:\n
+   *                   2.2.1) If the file to be uploaded is empty, directly touch such file, set its last modified time to
+   *                          the one provided by the client and inform them that the file has been successfully uploaded \n
+   *                   2.2.2) If the file to be uploaded is NOT empty, inform the client
+   *                          that the server is ready to receive the file's raw contents
+   * @throws ERR_SESS_MALFORMED_MESSAGE   The file name in the 'SessMsgFileInfo' message is invalid
+   * @throws ERR_INTERNAL_ERROR           Session manager status or file read/write error
+   * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
+   * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+   * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+   * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+   * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+   * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+   * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+   * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+   * @throws ERR_SEND_FAILED              send() fatal error
+   */
    void srvUploadStart();
 
 

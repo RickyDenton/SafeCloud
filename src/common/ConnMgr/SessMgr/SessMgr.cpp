@@ -1,6 +1,7 @@
 /* SafeCloud Session Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
+#include <sys/time.h>
 #include "SessMgr.h"
 #include "errCodes/errCodes.h"
 #include "SessMsg.h"
@@ -12,9 +13,10 @@
 
 // TODO: Section?
 /**
- * @brief Loads the name and metadata of a remote file specified in a 'SessMsgFileInfo'
- *        session message stored in the associated connection manager's secondary
- *        buffer into a FileInfo object pointed by the '_remFileInfo' attribute
+ * @brief Loads into a FileInfo object pointed by the '_remFileInfo' attribute the name
+ *        and metadata of a remote file embedded within a 'SessMsgFileInfo' session
+ *        message stored in the associated connection manager's secondary buffer
+ * @throws ERR_SESS_MALFORMED_MESSAGE The file name in the 'SessMsgFileInfo' message is invalid
  */
 void SessMgr::loadRemFileInfo()
  {
@@ -24,21 +26,30 @@ void SessMgr::loadRemFileInfo()
   // Determine the remote file name length, '\0' character included
   unsigned char remFileNameLength = fileInfoMsg->msgLen - sizeof(SessMsgFileInfo);
 
-  // Extract the remote file name from the message
+  // Extract the remote file name from the 'SessMsgFileInfo' session message
   std::string remFileName(reinterpret_cast<char*>(fileInfoMsg->fileName),remFileNameLength);
 
-  // Delete the '_remFileInfo' attribute and re-initialize it with the remote file information
+  // Attempt to re-initialize the '_remFileInfo' attribute with the remote file information
   delete _remFileInfo;
-  _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->creationTime,fileInfoMsg->lastModTime);
+
+  try
+   { _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->creationTime,fileInfoMsg->lastModTime); }
+
+  // If the file name in the 'SessMsgFileInfo' message is invalid (ERR_SESS_INVALID_FILE_NAME)
+  catch(sessErrExcp& invalidFileNameExcp)
+   {
+    sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileInfo' message (" + remFileName + ")");
+   }
  }
 
 
 /**
  * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
- *         of the specified type containing the local file name and metadata referred by the '_locFileInfo'
+ *         of the specified type containing the name and metadata of the local file referred by the '_locFileInfo'
  *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
  * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
- * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute is not initialized
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -51,7 +62,7 @@ void SessMgr::loadRemFileInfo()
 void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
  {
   // TODO: Check if NEW_FILENAME_EXISTS is applicable (also in the function description)
-  // Ensure the session message type to be valid for a 'SessMsgFileInfo' session message
+  // Ensure the session message type to be valid for a 'SessMsgFileInfo' message
   if(!(sessMsgType == FILE_UPLOAD_REQ || sessMsgType == FILE_EXISTS || sessMsgType == NEW_FILENAME_EXISTS))
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
@@ -68,24 +79,58 @@ void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
   // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileInfo' session message
   SessMsgFileInfo* sessMsgFileInfoMsg = reinterpret_cast<SessMsgFileInfo*>(_connMgr._secBuf);
 
-  // Set the length of the 'SessMsgFileInfo' message to the length of the struct + the local file name
-  // length (+1 '/0' character, -1 placeholder 'filename' attribute in the 'SessMsgFileInfo' struct)
+  // Set the 'SessMsgFileInfo' message type to the provided argument
+  sessMsgFileInfoMsg->msgType = sessMsgType;
+
+  // Set the length of the 'SessMsgFileInfo' message to the length of its struct + the local file name
+  // length (+1 for the '/0' character, -1 for the 'filename' placeholder attribute in the struct)
   sessMsgFileInfoMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
 
-  // Write the metadata of the local file into the 'SessMsgFileInfo' message
+  // Wire the local file's metadata into the 'SessMsgFileInfo' message
   sessMsgFileInfoMsg->fileSize     = _locFileInfo->fileMeta.fileSize;
   sessMsgFileInfoMsg->creationTime = _locFileInfo->fileMeta.creationTime;
   sessMsgFileInfoMsg->lastModTime  = _locFileInfo->fileMeta.lastModTime;
 
-  // Write the file name, '/0' terminating character included, into the 'SessMsgFileInfo' message
+  // Write the local file name, '/0' character included, into the 'SessMsgFileInfo' message
   memcpy(reinterpret_cast<char*>(&sessMsgFileInfoMsg->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
-
-  // Set the 'SessMsgFileInfo' message type to the provided argument
-  sessMsgFileInfoMsg->msgType = sessMsgType;
 
   // Wrap the 'SessMsgFileInfo' message into its associated
   // session message wrapper and send it to the connection peer
   wrapSendSessMsg();
+ }
+
+
+/**
+ * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main local file
+ * @param  fileAbsPath The absolute path of the local file whose last modification time is to be changed
+ * @throws ERR_SESS_INTERNAL_ERROR NULL '_mainFileAbsPath' or '_remFileInfo' attributes,
+ *                                 or error in mirroring the last modified time
+ */
+void SessMgr::mirrorRemLastModTime()
+ {
+  // Ensure the '_mainFileAbsPath' attribute to have been initialized
+  if(_mainFileAbsPath == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification time with a NULL '_mainFileAbsPath'");
+   }
+
+  // Ensure the '_remFileInfo' attribute to have been initialized
+  if(_remFileInfo == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification time with a NULL '_remFileInfo'");
+   }
+
+  // Write the remote file last modification time in the second element of a 'timeval' array
+  timeval timesArr[] = {{}, {_remFileInfo->fileMeta.lastModTime, 0}};
+
+  // Attempt to mirror the remote file last modification time into the main local file
+  if(utimes(_mainFileAbsPath->c_str(), timesArr) == -1)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Error in mirroring a last modification time",ERRNO_DESC);
+   }
  }
 
 

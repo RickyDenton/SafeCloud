@@ -68,18 +68,18 @@ class SessMgr
 
    // TODO: Section?
    /**
-    * @brief Loads the name and metadata of a remote file specified in a 'SessMsgFileInfo'
-    *        session message stored in the associated connection manager's secondary
-    *        buffer into a FileInfo object pointed by the '_remFileInfo' attribute
+    * @brief Loads into a FileInfo object pointed by the '_remFileInfo' attribute the name
+    *        and metadata of a remote file embedded within a 'SessMsgFileInfo' session
+    *        message stored in the associated connection manager's secondary buffer
     */
    void loadRemFileInfo();
 
    /**
     * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
-    *         of the specified type containing the local file name and metadata referred by the '_locFileInfo'
+    *         of the specified type containing the name and metadata of the local file referred by the '_locFileInfo'
     *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
     * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
-    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute is not initialized
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -90,6 +90,15 @@ class SessMgr
     * @throws ERR_SEND_FAILED              send() fatal error
     */
    void sendLocalFileInfo(SessMsgType sessMsgType);
+
+
+   /**
+    * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main local file
+    * @param  fileAbsPath The absolute path of the local file whose last modification time is to be changed
+    * @throws ERR_SESS_INTERNAL_ERROR NULL '_mainFileAbsPath' or '_remFileInfo' attributes,
+    *                                 or error in mirroring the last modified time
+    */
+   void mirrorRemLastModTime();
 
    /* ------------------------------ Utility Methods ------------------------------ */
 

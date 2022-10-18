@@ -59,18 +59,28 @@ FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
 
 
 /**
- * @brief FileInfo object values constructor, initializing its attributes
- *        to the provided values
- * @param fileName_     The file's name
- * @param fileSize_     The file's size
- * @param creationTime_ The file's creation time
- * @param lastModTime_  The file's last modification time
- * @note  Conversely from the object path constructor, this constructor does
- *        not verify whether such a file exists in the local file system
+ * @brief  FileInfo object values constructor, initializing its attributes
+ *         to the provided values
+ * @param  fileName_     The file's name
+ * @param  fileSize_     The file's size
+ * @param  creationTime_ The file's creation time
+ * @param  lastModTime_  The file's last modification time
+ * @note   Conversely from the object path constructor, this constructor does
+ *         not verify whether such a file exists in the local file system
+ * @throws ERR_SESS_INVALID_FILE_NAME Invalid file name
  */
 FileInfo::FileInfo(std::string& fileName_, long int fileSize_, long int creationTime_, long int lastModTime_)
    : fileMeta(fileSize_,creationTime_,lastModTime_), fileName(std::move(fileName_))
- {}
+ {
+  // The file name cannot consist of the current or the parent's directory
+  if(fileName == "." || fileName == "..")
+   THROW_SESS_EXCP(ERR_SESS_INVALID_FILE_NAME);
+
+  // The file name cannot contain '/' or '\0' characters
+  for(auto& ch : fileName)
+   if(ch == '/' || ch == '\0')
+    THROW_SESS_EXCP(ERR_SESS_INVALID_FILE_NAME);
+ }
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
@@ -190,3 +200,5 @@ fileMetadata* FileInfo::getFileMetadata(std::string* fileAbsPath)
   // the file's metadata and return its address
   return new fileMetadata(fileInfo.st_size,fileInfo.st_ctime,fileInfo.st_mtime);
  }
+
+

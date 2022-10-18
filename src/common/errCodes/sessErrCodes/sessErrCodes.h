@@ -50,6 +50,9 @@ enum sessErrCode : unsigned char
   ERR_SESS_UNEXPECTED_MESSAGE,
   ERR_SESS_MALFORMED_MESSAGE,
 
+  // Error Checking TODO: Section?
+  ERR_SESS_INVALID_FILE_NAME,
+
   // Unknown session error
   ERR_SESS_UNKNOWN
  };
@@ -91,6 +94,11 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     { ERR_SESS_INTERNAL_ERROR,     {CRITICAL,"An internal error has occurred"}},
     { ERR_SESS_UNEXPECTED_MESSAGE, {ERROR,"An unexpected session message was received"}},
     { ERR_SESS_MALFORMED_MESSAGE,  {ERROR,"A malformed session message was received"}},
+
+
+    // Error Checking TODO: Section?
+    { ERR_SESS_INVALID_FILE_NAME,  {ERROR,"The provided file name is invalid"}},
+
 
     // Unknown session error
     {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }

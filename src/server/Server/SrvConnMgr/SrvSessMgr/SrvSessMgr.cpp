@@ -2,6 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include <fstream>
+#include <sys/time.h>
 #include "SrvSessMgr.h"
 #include "ConnMgr/SessMgr/SessMsg.h"
 #include "../SrvConnMgr.h"
@@ -131,82 +132,132 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
 /* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
 
-// TODO: Rewrite descriptions
+/**
+ * @brief Starts a file upload operation by:\n
+ *           1) Loading into the '_remFileInfo' attribute the name and metadata of the file to be uploaded\n
+ *           2) Checking whether a file with the same name of the one to be uploaded already exists in the client's storage pool\n
+ *              2.1) If it does, the name and metadata of such file are sent to the client, with
+ *                   their confirmation being required on whether such file should be overwritten\n
+ *              2.2) If it does not:\n
+ *                   2.2.1) If the file to be uploaded is empty, directly touch such file, set its last modified time to
+ *                          the one provided by the client and inform them that the file has been successfully uploaded \n
+ *                   2.2.2) If the file to be uploaded is NOT empty, inform the client
+ *                          that the server is ready to receive the file's raw contents
+ * @throws ERR_SESS_MALFORMED_MESSAGE   The file name in the 'SessMsgFileInfo' message is invalid
+ * @throws ERR_INTERNAL_ERROR           Session manager status or file read/write error
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
 void SrvSessMgr::srvUploadStart()
  {
-  // Whether the client's storage pool contains a file with the
-  // same name of the one the client is requesting to upload
-  bool fileUpExists;
+  // Whether a file with the same name of the one to be
+  // uploaded already exists in the client's storage pool
+  bool fileNameAlreadyExists;
 
-  // Load the name and metadata of the file the client is requesting to upload
+  // Load into the '_remFileInfo' attribute the name and
+  // metadata of the file the client is requesting to upload
   loadRemFileInfo();
 
-  // TODO: Remove
+  // Initialize the main and teporary absolute paths of the file to be uploaded
+  _mainFileAbsPath = new std::string(*_srvConnMgr._poolDir + _remFileInfo->fileName);
+  _tmpFileAbsPath  = new std::string(*_srvConnMgr._tmpDir + _remFileInfo->fileName + "_PART");
+
+
+  // LOG: Remote file information
   _remFileInfo->printInfo();
 
-  // Check whether a file with such name already exists in
-  // the client's storage pool by attempting to load its metadata
+  // LOG: Main and temporary files absolute paths
+  std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
+  std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
+
+
+
+  // Check whether a file with the same name of the one to be uploaded already exists in the
+  // client's storage pool, loading in such case its information into the '_locFileInfo' object
   try
    {
     _locFileInfo = new FileInfo(*_srvConnMgr._poolDir + "/" + _remFileInfo->fileName);
-    fileUpExists = true;
+    fileNameAlreadyExists = true;
    }
   catch(sessErrExcp& locFileError)
    {
     if(locFileError.sesErrCode == ERR_SESS_FILE_READ_FAILED)
-     fileUpExists = false;
+     fileNameAlreadyExists = false;
     else
      if(locFileError.sesErrCode == ERR_SESS_FILE_IS_DIR)
-      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"The file \"" + _remFileInfo->fileName + " the client is attempting"
-                                              "to upload already exists in their storage pool as a directory");
+      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"The file \"" + _remFileInfo->fileName + "\" the client is attempting"
+                                              " to upload already exists in their storage pool as a directory");
    }
 
-  // If a file with such name was found
-  if(fileUpExists)
+  // If a file with the same name of the one to be
+  // uploaded was found in the client's storage pool
+  if(fileNameAlreadyExists)
    {
     // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS'
     // containing the local file name and metadata and send it to the client
     sendLocalFileInfo(FILE_EXISTS);
 
-    // Update the server session manager 'UPLOAD' sub-state
+    // Client confirmation is required for uploading the file
     _srvSessMgrSubstate = WAITING_CLI_CONF;
 
     // TODO: Remove
     std::cout << "in srvUploadStart(), FILE_EXISTS (WAITING_CLI_CONF)" << std::endl;
    }
 
-  // Otherwise, if it was not found
+  // Otherwise, if a file with such name was not found in the client's storage pool
   else
    {
     // If the file to be uploaded is empty
     if(_remFileInfo->fileMeta.fileSize == 0)
      {
-      // Touch the file in the client's pool dir
-      std::ofstream upFile(*_srvConnMgr._poolDir + "/" + _remFileInfo->fileName);
+      // Touch the uploaded main file in the client's storage pool
+      std::ofstream upFile(*_mainFileAbsPath);
 
-      // TODO: Set file last modification time?
+      // Ensure the file to have been created successfully
+      if(!upFile)
+       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in creating the uploaded main file \""
+                                               + *_mainFileAbsPath + " \" (" + ERRNO_DESC + ")");
+
+      // Close the uploaded main file
+      upFile.close();
+
+      // Change the new file last modified time the one provided by the client
+      mirrorRemLastModTime();
 
       // TODO: Remove
       std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, empty (COMPLETED)" << std::endl;
 
-      // Send the 'COMPLETED' signaling message
+      // Inform the client that the empty file has been successfully uploaded
       sendSrvSessSignalMsg(COMPLETED);
 
       // Reset the server session manager state
       resetSrvSessState();
      }
 
-    // Otherwise, if it is not empty
+    // Otherwise, if the file to be uploaded is NOT empty
     else
      {
-      // Send the 'FILE_NOT_EXISTS' signaling message
+      // Inform the client that a file with the same name of the one to be uploaded is not
+      // present in their storage pool, and that the server now expects the file's raw contents
       sendSrvSessSignalMsg(FILE_NOT_EXISTS);
 
-      // Change the associated connection manager reception mode to 'RECV_RAW'
+      // Prepare the server session manager to receive the file's raw contents by updating the 'UPLOAD'
+      // substate and setting the associated connection manager's reception mode to 'RECV_RAW'
+      _srvSessMgrSubstate = WAITING_CLI_RAW_DATA;
       _srvConnMgr._recvMode = ConnMgr::RECV_RAW;
 
-      // Update the server session manager 'UPLOAD' sub-state
-      _srvSessMgrSubstate = WAITING_CLI_DATA;
+      // Open the uploaded temporary file descriptor in write-byte mode
+      _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
+      if(!_tmpFileDscr)
+       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
+                                               + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
 
       // TODO: Remove
       std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, non-empty (WAITING_CLI_DATA)" << std::endl;
