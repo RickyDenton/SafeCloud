@@ -65,6 +65,32 @@ class SessMgr
 
    /* ============================= PROTECTED METHODS ============================= */
 
+
+   // TODO: Section?
+   /**
+    * @brief Loads the name and metadata of a remote file specified in a 'SessMsgFileInfo'
+    *        session message stored in the associated connection manager's secondary
+    *        buffer into a FileInfo object pointed by the '_remFileInfo' attribute
+    */
+   void loadRemFileInfo();
+
+   /**
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
+    *         of the specified type containing the local file name and metadata referred by the '_locFileInfo'
+    *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
+    * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute is not initialized
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void sendLocalFileInfo(SessMsgType sessMsgType);
+
    /* ------------------------------ Utility Methods ------------------------------ */
 
    /**

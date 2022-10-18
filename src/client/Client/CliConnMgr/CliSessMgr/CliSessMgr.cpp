@@ -246,45 +246,6 @@ void CliSessMgr::recvCheckCliSessMsg()
 
 /* -------------------------------- File Upload -------------------------------- */
 
-/**
- * @brief Prepares in the connection manager's secondary buffer the 'FILE_UPLOAD_REQ' session
- *        message associated with the contents of the '_locFileInfo' attribute, for then
- *        wrapping  and sending the resulting session message wrapper to the SafeCloud server
- * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
- * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
- * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
- * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
- * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
- * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
- * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
- * @throws ERR_SEND_FAILED              send() fatal error
- */
-void CliSessMgr::sendFileUploadReq()
- {
-  // Interpret the contents of the connection manager's secondary buffer as a
-  // 'SessMsgFileInfo' session message, consisting in this case of a 'FILE_UPLOAD_REQ' message
-  SessMsgFileInfo* fileUpReqMsg = reinterpret_cast<SessMsgFileInfo*>(_cliConnMgr._secBuf);
-
-  // Set the length of the 'FILE_UPLOAD_REQ'  message to the length of a SessMsgFileInfo struct + the file
-  // name length (+1 '/0' character, -1 placeholder "filename" attribute in the SessMsgUploadReq struct)
-  fileUpReqMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
-
-  // Set the session message type to 'FILE_UPLOAD_REQ'
-  fileUpReqMsg->msgType = FILE_UPLOAD_REQ;
-
-  // Write the metadata of the file to be uploaded into the 'FILE_UPLOAD_REQ'  message
-  fileUpReqMsg->fileSize     = _locFileInfo->fileMeta.fileSize;
-  fileUpReqMsg->creationTime = _locFileInfo->fileMeta.creationTime;
-  fileUpReqMsg->lastModTime  = _locFileInfo->fileMeta.lastModTime;
-
-  // Write the file name, '/0' terminating character included, into the 'FILE_UPLOAD_REQ' message
-  memcpy(reinterpret_cast<char*>(&fileUpReqMsg->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
-
-  // Wrap the 'FILE_UPLOAD_REQ' message into its associated
-  // session message wrapper and send it to the SafeCloud server
-  wrapSendSessMsg();
- }
-
 
 /**
  * @brief  Parses a target file to be uploaded to the SafeCloud storage pool by:\n
@@ -407,9 +368,9 @@ void CliSessMgr::uploadFile(std::string& filePath)
   std::cout << "_mainFileDscr = " << _mainFileDscr << std::endl;
   _locFileInfo->printInfo();
 
-  // Prepare the associated 'FILE_UPLOAD_REQ' session
-  // message and send it to the SafeCloud server
-  sendFileUploadReq();
+  // Prepare a 'SessMsgFileInfo' session message of type 'FILE_UPLOAD_REQ' containing the
+  // name and metadata of the file to be uploaded and send it to the SafeCloud server
+  sendLocalFileInfo(FILE_UPLOAD_REQ);
 
   // In DEBUG_MODE, log that the 'FILE_UPLOAD_REQ' has
   // been sent along with the target file name and size

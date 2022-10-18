@@ -17,16 +17,17 @@ fileMetadata::fileMetadata() : fileSize(-1), creationTime(-1), lastModTime(-1)
 /**
  * @brief fileMetadata object values constructor, initializing its fields to the provided values
  */
-fileMetadata::fileMetadata(long int fileSize_, long int creationTime_, long int lastModTime_) : fileSize(fileSize_), creationTime(creationTime_), lastModTime(lastModTime_)
+fileMetadata::fileMetadata(long int fileSize_, long int creationTime_, long int lastModTime_)
+ : fileSize(fileSize_), creationTime(creationTime_), lastModTime(lastModTime_)
  {}
 
 
 /**
- * @brief  FileInfo object constructor, initializing the
+ * @brief  FileInfo object path constructor, initializing the
  *         file name and metadata from its absolute path
- * @param  fileAbsPath The file's absolute path as a string
+ * @param  fileAbsPath The file's absolute path
  * @throws ERR_SESS_FILE_READ_FAILED Error in reading the file's metadata
- * @throws ERR_SESS_FILE_IS_DIR      The file is a directory
+ * @throws ERR_SESS_FILE_IS_DIR      The file is in fact a directory
  */
 FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
 {
@@ -55,6 +56,21 @@ FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), fileMeta()
  // Extract and initialize the file's name
  fileName = basename(fileAbsPathC);
 }
+
+
+/**
+ * @brief FileInfo object values constructor, initializing its attributes
+ *        to the provided values
+ * @param fileName_     The file's name
+ * @param fileSize_     The file's size
+ * @param creationTime_ The file's creation time
+ * @param lastModTime_  The file's last modification time
+ * @note  Conversely from the object path constructor, this constructor does
+ *        not verify whether such a file exists in the local file system
+ */
+FileInfo::FileInfo(std::string& fileName_, long int fileSize_, long int creationTime_, long int lastModTime_)
+   : fileMeta(fileSize_,creationTime_,lastModTime_), fileName(std::move(fileName_))
+ {}
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */

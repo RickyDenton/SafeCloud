@@ -10,6 +10,85 @@
 
 /* ============================= PROTECTED METHODS ============================= */
 
+// TODO: Section?
+/**
+ * @brief Loads the name and metadata of a remote file specified in a 'SessMsgFileInfo'
+ *        session message stored in the associated connection manager's secondary
+ *        buffer into a FileInfo object pointed by the '_remFileInfo' attribute
+ */
+void SessMgr::loadRemFileInfo()
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileInfo' session message
+  SessMsgFileInfo* fileInfoMsg = reinterpret_cast<SessMsgFileInfo*>(_connMgr._secBuf);
+
+  // Determine the remote file name length, '\0' character included
+  unsigned char remFileNameLength = fileInfoMsg->msgLen - sizeof(SessMsgFileInfo);
+
+  // Extract the remote file name from the message
+  std::string remFileName(reinterpret_cast<char*>(fileInfoMsg->fileName),remFileNameLength);
+
+  // Delete the '_remFileInfo' attribute and re-initialize it with the remote file information
+  delete _remFileInfo;
+  _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->creationTime,fileInfoMsg->lastModTime);
+ }
+
+
+/**
+ * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
+ *         of the specified type containing the local file name and metadata referred by the '_locFileInfo'
+ *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
+ * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute is not initialized
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
+ {
+  // TODO: Check if NEW_FILENAME_EXISTS is applicable (also in the function description)
+  // Ensure the session message type to be valid for a 'SessMsgFileInfo' session message
+  if(!(sessMsgType == FILE_UPLOAD_REQ || sessMsgType == FILE_EXISTS || sessMsgType == NEW_FILENAME_EXISTS))
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileInfo' message type (" + std::to_string(sessMsgType) + ")");
+   }
+
+  // Ensure the '_locFileInfo' attribute to have been initialized
+  if(_locFileInfo == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to prepare a 'SessMsgFileInfo' message with a NULL _locFileInfo");
+   }
+
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileInfo' session message
+  SessMsgFileInfo* sessMsgFileInfoMsg = reinterpret_cast<SessMsgFileInfo*>(_connMgr._secBuf);
+
+  // Set the length of the 'SessMsgFileInfo' message to the length of the struct + the local file name
+  // length (+1 '/0' character, -1 placeholder 'filename' attribute in the 'SessMsgFileInfo' struct)
+  sessMsgFileInfoMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
+
+  // Write the metadata of the local file into the 'SessMsgFileInfo' message
+  sessMsgFileInfoMsg->fileSize     = _locFileInfo->fileMeta.fileSize;
+  sessMsgFileInfoMsg->creationTime = _locFileInfo->fileMeta.creationTime;
+  sessMsgFileInfoMsg->lastModTime  = _locFileInfo->fileMeta.lastModTime;
+
+  // Write the file name, '/0' terminating character included, into the 'SessMsgFileInfo' message
+  memcpy(reinterpret_cast<char*>(&sessMsgFileInfoMsg->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
+
+  // Set the 'SessMsgFileInfo' message type to the provided argument
+  sessMsgFileInfoMsg->msgType = sessMsgType;
+
+  // Wrap the 'SessMsgFileInfo' message into its associated
+  // session message wrapper and send it to the connection peer
+  wrapSendSessMsg();
+ }
+
+
 /* ------------------------------ Utility Methods ------------------------------ */
 
 /**

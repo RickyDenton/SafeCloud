@@ -85,21 +85,6 @@ class CliSessMgr : public SessMgr
    /* -------------------------------- File Upload -------------------------------- */
 
    /**
-    * @brief Prepares in the connection manager's secondary buffer the 'FILE_UPLOAD_REQ' session
-    *        message associated with the contents of the '_locFileInfo' attribute, for then
-    *        wrapping  and sending the resulting session message wrapper to the SafeCloud server
-    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
-    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED              send() fatal error
-    */
-   void sendFileUploadReq();
-
-   /**
     * @brief  Parses a target file to be uploaded to the SafeCloud storage pool by:\n
     *           1) Writing its canonicalized path into the '_mainFileAbsPath' attribute\n
     *           2) Opening its '_mainFileDscr' file descriptor in read-byte mode\n

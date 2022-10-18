@@ -19,6 +19,7 @@ class SrvSessMgr : public SessMgr
     {
      SRV_IDLE,
      WAITING_CLI_CONF,
+     WAITING_CLI_DATA,
      WAITING_CLI_COMPL
     };
 
@@ -51,8 +52,13 @@ class SrvSessMgr : public SessMgr
    void sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const std::string& errReason);
 
 
-   // TODO: Placeholder implementation
+   // TODO
    void dispatchRecvSessMsg();
+
+   /* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
+
+   void srvUploadStart();
+
 
   public:
 
@@ -75,8 +81,21 @@ class SrvSessMgr : public SessMgr
     */
    void resetSrvSessState();
 
-   // TODO
+   /**
+    * @brief  Server Session message handler, which:\name
+    *            1) Unwraps a received session message wrapper from
+    *               the primary into the secondary connection buffer\n
+    *            2) Asserts the resulting session message to be allowed in
+    *               the current server session manager state and substate\n
+    *            3) Handles session-resetting or terminating signaling messages\n
+    *            4) Handles session error signaling messages\n
+    *            5) Valid session messages requiring further action are
+    *               dispatched to the session callback method associated
+    *               with the session manager current state and substate
+    * @throws TODO (most session exceptions)
+    */
    void srvSessMsgHandler();
+
 
    // TODO: Placeholder implementation
    void recvRaw(size_t recvBytes);

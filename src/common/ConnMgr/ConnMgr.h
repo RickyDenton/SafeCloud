@@ -83,7 +83,8 @@ class ConnMgr
 
    /* =============================== FRIEND CLASSES =============================== */
    friend class SessMgr;
-
+   friend class CliSessMgr;
+   friend class SrvSessMgr;
 
    /* ============================== PROTECTED METHODS ============================== */
 

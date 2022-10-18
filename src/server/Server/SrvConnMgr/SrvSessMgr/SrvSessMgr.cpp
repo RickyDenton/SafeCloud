@@ -1,11 +1,14 @@
 /* SafeCloud Server Session Manager Class Implementation */
 
 /* ================================== INCLUDES ================================== */
+#include <fstream>
 #include "SrvSessMgr.h"
 #include "ConnMgr/SessMgr/SessMsg.h"
 #include "../SrvConnMgr.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 
+
+/* ============================== PRIVATE METHODS ============================== */
 
 /**
  * @brief Sends a session message signaling type to the client and performs the actions
@@ -79,6 +82,139 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  }
 
 
+void SrvSessMgr::dispatchRecvSessMsg()
+ {
+  switch(_sessMgrState)
+   {
+
+    case SessMgr::IDLE:
+     switch(_recvSessMsgType)
+      {
+       case FILE_UPLOAD_REQ:
+        _sessMgrState = UPLOAD;
+        srvUploadStart();
+        break;
+
+       case FILE_DOWNLOAD_REQ:
+        _sessMgrState = DOWNLOAD;
+        //srvDownloadStart();
+        break;
+
+       case FILE_DELETE_REQ:
+        _sessMgrState = DELETE;
+        //srvDeleteStart();
+        break;
+
+       case FILE_RENAME_REQ:
+        _sessMgrState = RENAME;
+        //srvRenameStart();
+        break;
+
+       case FILE_LIST_REQ:
+        _sessMgrState = LIST;
+        //srvListStart();
+        break;
+
+       default:
+        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
+                                                         "session message received in the 'IDLE' session state");
+      }
+     break;
+
+    // TODO
+
+    default:
+     sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Invalid server session manager state (" + std::to_string(_sessMgrState) + ")");
+   }
+ }
+
+
+/* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
+
+// TODO: Rewrite descriptions
+void SrvSessMgr::srvUploadStart()
+ {
+  // Whether the client's storage pool contains a file with the
+  // same name of the one the client is requesting to upload
+  bool fileUpExists;
+
+  // Load the name and metadata of the file the client is requesting to upload
+  loadRemFileInfo();
+
+  // TODO: Remove
+  _remFileInfo->printInfo();
+
+  // Check whether a file with such name already exists in
+  // the client's storage pool by attempting to load its metadata
+  try
+   {
+    _locFileInfo = new FileInfo(*_srvConnMgr._poolDir + "/" + _remFileInfo->fileName);
+    fileUpExists = true;
+   }
+  catch(sessErrExcp& locFileError)
+   {
+    if(locFileError.sesErrCode == ERR_SESS_FILE_READ_FAILED)
+     fileUpExists = false;
+    else
+     if(locFileError.sesErrCode == ERR_SESS_FILE_IS_DIR)
+      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"The file \"" + _remFileInfo->fileName + " the client is attempting"
+                                              "to upload already exists in their storage pool as a directory");
+   }
+
+  // If a file with such name was found
+  if(fileUpExists)
+   {
+    // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS'
+    // containing the local file name and metadata and send it to the client
+    sendLocalFileInfo(FILE_EXISTS);
+
+    // Update the server session manager 'UPLOAD' sub-state
+    _srvSessMgrSubstate = WAITING_CLI_CONF;
+
+    // TODO: Remove
+    std::cout << "in srvUploadStart(), FILE_EXISTS (WAITING_CLI_CONF)" << std::endl;
+   }
+
+  // Otherwise, if it was not found
+  else
+   {
+    // If the file to be uploaded is empty
+    if(_remFileInfo->fileMeta.fileSize == 0)
+     {
+      // Touch the file in the client's pool dir
+      std::ofstream upFile(*_srvConnMgr._poolDir + "/" + _remFileInfo->fileName);
+
+      // TODO: Set file last modification time?
+
+      // TODO: Remove
+      std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, empty (COMPLETED)" << std::endl;
+
+      // Send the 'COMPLETED' signaling message
+      sendSrvSessSignalMsg(COMPLETED);
+
+      // Reset the server session manager state
+      resetSrvSessState();
+     }
+
+    // Otherwise, if it is not empty
+    else
+     {
+      // Send the 'FILE_NOT_EXISTS' signaling message
+      sendSrvSessSignalMsg(FILE_NOT_EXISTS);
+
+      // Change the associated connection manager reception mode to 'RECV_RAW'
+      _srvConnMgr._recvMode = ConnMgr::RECV_RAW;
+
+      // Update the server session manager 'UPLOAD' sub-state
+      _srvSessMgrSubstate = WAITING_CLI_DATA;
+
+      // TODO: Remove
+      std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, non-empty (WAITING_CLI_DATA)" << std::endl;
+     }
+   }
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -112,11 +248,7 @@ void SrvSessMgr::resetSrvSessState()
  }
 
 
-// TODO: Placeholder implementation
-void SrvSessMgr::dispatchRecvSessMsg()
- {
-  std::cout << "In dispatchRecvSessMsg()" << std::endl;
- }
+
 
 
 /**
@@ -127,9 +259,9 @@ void SrvSessMgr::dispatchRecvSessMsg()
  *               the current server session manager state and substate\n
  *            3) Handles session-resetting or terminating signaling messages\n
  *            4) Handles session error signaling messages\n
- *            5) For valid session message types requiring further action,
- *               it invokes the session message handler associated with the
- *               session manager current state and substate
+ *            5) Valid session messages requiring further action are
+ *               dispatched to the session callback method associated
+ *               with the session manager current state and substate
  * @throws TODO (most session exceptions)
  */
 void SrvSessMgr::srvSessMsgHandler()
@@ -277,7 +409,7 @@ void SrvSessMgr::srvSessMsgHandler()
  std::cout << "_recvSessMsgLen = " << _recvSessMsgLen << std::endl;
  std::cout << "_recvSessMsgType = " << _recvSessMsgType << std::endl;
 
- // Dispatch the received session message to the handler
+ // Dispatch the received session message to the session callback method
  // associated with the session manager current state and substate
  dispatchRecvSessMsg();
 }
