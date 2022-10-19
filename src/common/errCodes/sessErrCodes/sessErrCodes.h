@@ -52,10 +52,13 @@ enum sessErrCode : unsigned char
 
   // Error Checking TODO: Section?
   ERR_SESS_INVALID_FILE_NAME,
+  ERR_FILEINFO_COMP_NULL,
+  ERR_FILEINFO_COMP_DIFF_NAMES,
 
   // Unknown session error
   ERR_SESS_UNKNOWN
  };
+
 
 
 /* =================== SAFECLOUD SESSION ERROR CODES INFO MAP =================== */
@@ -97,8 +100,9 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
 
 
     // Error Checking TODO: Section?
-    { ERR_SESS_INVALID_FILE_NAME,  {ERROR,"The provided file name is invalid"}},
-
+    { ERR_SESS_INVALID_FILE_NAME,   {ERROR,"The provided file name is invalid"}},
+    { ERR_FILEINFO_COMP_NULL,       {ERROR,"Attempting to compare the metadata of a a NULL FileInfo"}},
+    { ERR_FILEINFO_COMP_DIFF_NAMES, {ERROR,"Attempting to compare the metadata of two files of different names"}},
 
     // Unknown session error
     {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }

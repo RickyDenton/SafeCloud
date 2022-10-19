@@ -284,7 +284,7 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
     if(_locFileInfo->fileMeta.fileSize > FILE_UPLOAD_MAX_SIZE)
      {
       char fileSize[7];  // Stores the file size formatted as a string
-      _locFileInfo->getFormattedSize(fileSize);
+      _locFileInfo->sizeToStr(fileSize);
       THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG,"it is " + std::string(fileSize) + " >= 4GB");
      }
 
@@ -376,7 +376,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
   // been sent along with the target file name and size
 #ifdef DEBUG_MODE
   char fileSize[7];  // Stores the file size formatted as a string
-  _locFileInfo->getFormattedSize(fileSize);
+  _locFileInfo->sizeToStr(fileSize);
   LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (target file = \"" + *_mainFileAbsPath + "\", size = " + fileSize + ")")
 #endif
 

@@ -59,97 +59,37 @@ unsigned int DirInfo::numFiles()
  */
 bool DirInfo::printDirContents()
  {
-  char fileSize[7];                 // The size of a file in the directory as a string
-  unsigned char fileSizeIndBefore;  // The number of spaces to be printed before a file's size depending on its number of characters
-  unsigned char fileSizeIndAfter;   // The number of spaces to be printed after a file's size depending on its number of characters
-  char timeDate[18];                // A creation or last modified time value expressed as the string "HH:MM:SS DD/MM/YY"
-  struct tm timeCalendar{};         // Stores a creation or last modification time in a calendar-like representation
-
   // If there are no files in the directory, just return
   if(numFiles() == 0)
    return false;
 
-  // Otherwise, if the directory contains at least 1 file
+   // Otherwise, if the directory contains at least 1 file
   else
    {
     // Indentation
     printf("\n");
 
-    // Print the file attribute's legend
-    std::cout << " SIZE     CREATION TIME      LAST MODIFIED    FILE" << std::endl;
+    // Print the files attributes' legend
+    std::cout << " SIZE     LAST MODIFIED      CREATION TIME    FILE" << std::endl;
     std::cout << "---------------------------------------------------" << std::endl;
 
     // Print the attributes of each file in the directory
     for(const auto& it : dirFiles)
      {
-      // Retrieve the file formatted size
-      it.getFormattedSize(fileSize);
+      // Print the file size with padding spaces
+      it.printSize(true, false);
 
-      // Determine the number of spaces to be printed before and
-      // after the file's size depending on number of characters
-      switch(strlen(fileSize))
-       {
-        // Minimum size characters (e.g. "9B")
-        case 2:
-         fileSizeIndBefore = 3;
-         fileSizeIndAfter = 1;
-         break;
-
-        case 3:
-         fileSizeIndBefore = 2;
-         fileSizeIndAfter = 1;
-         break;
-
-        case 4:
-         fileSizeIndBefore = 1;
-         fileSizeIndAfter = 1;
-         break;
-
-        case 5:
-         fileSizeIndBefore = 0;
-         fileSizeIndAfter = 1;
-         break;
-
-        // Maximum size characters (e.g. "2467MB")
-        case 6:
-         fileSizeIndBefore = 0;
-         fileSizeIndAfter = 0;
-         break;
-
-        // Unexpected number of characters
-        default:
-         LOG_CRITICAL("Unexpected file size string length: " + std::to_string(strlen(fileSize)))
-         return true;
-       }
-
-      // Print the spaces before the file's size
-       for(int i=0; i<fileSizeIndBefore; i++)
-        printf(" ");
-
-       // Print the file size
-       printf("%s",fileSize);
-
-      // Print the spaces after the file's size
-      for(int i=0; i<fileSizeIndAfter; i++)
-       printf(" ");
-
-      // Indentation between the "SIZE" and "CREATION TIME" headers
+      // Indentation between the "SIZE" and "LAST MODIFIED" headers
       printf("  ");
 
-      // Convert the file creation time from epochs to a calendar
-      // form and print it as the string "HH:MM:SS DD/MM/YY"
-      timeCalendar = *localtime(&it.fileMeta.creationTime);
-      strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
-      printf("%s",timeDate);
+      // Print the file last modification time
+      it.printLastModTime(false);
 
-      // Indentation between the "CREATION TIME" and "LAST MODIFIED" headers
+      // Indentation between the "LAST MODIFIED and "CREATION TIME" headers
       printf("  ");
 
-      // Convert the file last modification time from epochs to a
-      // calendar form and print it as the string "HH:MM:SS DD/MM/YY"
-      timeCalendar = *localtime(&it.fileMeta.lastModTime);
-      strftime(timeDate, sizeof(timeDate), "%H:%M:%S %d/%m/%y", &timeCalendar);
-      printf("%s",timeDate);
+      // Print the file creation time
+      it.printCreationTime(false);
 
       // Indentation between the "CREATION TIME" and "FILE" headers
       printf("  ");

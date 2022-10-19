@@ -243,6 +243,12 @@ int main(int argc, char** argv)
 
   /* -------------------------------- TRIES -------------------------------- */
 
+  std::string dirPath = "/home/rickydenton/CLionProjects/SafeCloud/release/client";
+
+  DirInfo dirInf(&dirPath);
+
+  dirInf.printDirContents();
+
 
   /* -------------------------------- TRIES -------------------------------- */
 

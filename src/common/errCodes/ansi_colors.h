@@ -4,6 +4,7 @@
 /* List of ANSI colors used for severity-based error logging formatting */
 
 #define RESET "\u001b[0m"    // Reset color to terminal default
+#define BOLD  "\e[1m"        // BOLD, keep current color
 
 /* ======  STANDARD COLORS ====== */
 #define BLACK             "\e[0;30m"

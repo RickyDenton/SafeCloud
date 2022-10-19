@@ -209,6 +209,10 @@ void SrvSessMgr::srvUploadStart()
 
     // TODO: Remove
     std::cout << "in srvUploadStart(), FILE_EXISTS (WAITING_CLI_CONF)" << std::endl;
+
+    // TODO: Remove
+    _locFileInfo->compareMetadata(_remFileInfo);
+    fflush(stdout);
    }
 
   // Otherwise, if a file with such name was not found in the client's storage pool
