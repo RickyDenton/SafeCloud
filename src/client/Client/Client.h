@@ -18,7 +18,7 @@ class Client
    /* ================================= ATTRIBUTES ================================= */
 
    /* ---------------------------- General Information ---------------------------- */
-   struct sockaddr_in _srvAddr;           // The SafeCloud server listening socket msgType, IP and Port in network representation order
+   struct sockaddr_in _srvAddr;           // The SafeCloud server listening socket type, IP and Port in network representation order
    X509_STORE*        _certStore;         // The client's X.509 certificates store
    CliConnMgr*        _cliConnMgr;        // The client's connection manager object
    unsigned char      _remLoginAttempts;  // The remaining number of client's login attempts

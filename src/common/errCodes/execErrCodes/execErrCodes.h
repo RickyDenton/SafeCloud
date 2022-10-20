@@ -249,7 +249,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_SRV_CLI_AUTH_FAILED,      {ERROR, "The client has failed the STSM authentication"} },
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
     { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
-    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown msgType"} },
+    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
 
     // Client Login
     { ERR_LOGIN_PUBKEYFILE_NOT_FOUND,    {ERROR,   "The user RSA private key file was not found"} },
@@ -258,7 +258,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
 
     // Other
     { ERR_SRV_PSELECT_FAILED,                {FATAL,"Server pselect() failed"} },
-    { ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The client reported to have received a session message of unknown msgType"} },
+    { ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The client reported to have received a session message of unknown type"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
 
@@ -297,10 +297,10 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_CLI_CLI_AUTH_FAILED,      {CRITICAL,"The server reported the client failing the STSM authentication"} },
     { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,   "The server reported to have received an out-of-order STSM message"} },
     { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,   "The server reported to have received a malformed STSM message"} },
-    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown msgType"} },
+    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown type"} },
 
     // Other Errors
-    { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown msgType"} },
+    { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown type"} },
     { ERR_SESS_SRV_GRACEFUL_DISCONNECT,      {WARNING,"The server has gracefully disconnected"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
@@ -388,8 +388,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     // STSM Generic Errors
     {ERR_STSM_UNEXPECTED_MESSAGE,   {CRITICAL, "An out-of-order STSM message has been received"} },
     {ERR_STSM_MALFORMED_MESSAGE,    {CRITICAL, "A malformed STSM message has been received"} },
-    {ERR_STSM_UNKNOWN_STSMMSG_TYPE, {CRITICAL, "A STSM message of unknown msgType has been received"} },
-    {ERR_STSM_UNKNOWN_STSMMSG_ERROR,{FATAL,    "Attempting to send an STSM error message of unknown msgType"} },
+    {ERR_STSM_UNKNOWN_STSMMSG_TYPE, {CRITICAL, "A STSM message of unknown type has been received"} },
+    {ERR_STSM_UNKNOWN_STSMMSG_ERROR,{FATAL,    "Attempting to send an STSM error message of unknown type"} },
     {ERR_STSM_MY_PUBKEY_MISSING,    {FATAL,    "The local actor's ephemeral DH public key is missing"} },
     {ERR_STSM_OTHER_PUBKEY_MISSING, {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
 
@@ -400,7 +400,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     // Other errors
     {ERR_MALLOC_FAILED,              {FATAL,"malloc() failed"} },
     {ERR_NON_POSITIVE_BUFFER_SIZE,   {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
-    {ERR_SESS_UNKNOWN_SESSMSG_TYPE,  {CRITICAL,"A session message of unknown msgType has been received"} },
+    {ERR_SESS_UNKNOWN_SESSMSG_TYPE,  {CRITICAL,"A session message of unknown type has been received"} },
 
     // Unknown execution error
     {ERR_EXEC_UNKNOWN,                          {CRITICAL, "Unknown Execution Error"} }

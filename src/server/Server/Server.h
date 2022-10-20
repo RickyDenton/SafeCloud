@@ -14,7 +14,7 @@ class Server
    /* ================================= ATTRIBUTES ================================= */
 
    /* ----------------------- Server Connection Parameters ----------------------- */
-   struct sockaddr_in _srvAddr;   // The server's listening socket msgType, IP and Port in network representation order
+   struct sockaddr_in _srvAddr;   // The server's listening socket type, IP and Port in network representation order
    int                _lsk;       // The server listening socket's file descriptor
 
    /* ---------------------- Server Cryptographic Quantities ---------------------- */

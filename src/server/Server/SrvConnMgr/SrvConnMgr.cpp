@@ -123,8 +123,7 @@ void SrvConnMgr::recvHandleData()
       else
        _srvSessMgr->srvSessMsgHandler();
 
-      // TODO: CHECK, MOST PROBABLY MUST BE USED HERE
-      // Marks the contents of the primary connection buffer as consumed
+      // Mark the message in the primary connection buffer as consumed
       clearPriBuf();
      }
 

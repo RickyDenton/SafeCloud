@@ -114,6 +114,14 @@ class SessMgr
    static bool isSessSignalingMsgType(SessMsgType sessMsgType);
 
    /**
+    * @brief  Returns whether a session message type
+    *         is a signaling error session message type
+    * @return 'true' if the provided session message type is a signaling
+    *          error session message type or 'false' otherwise
+    */
+   static bool isSessErrSignalingMsgType(SessMsgType sessMsgType);
+
+   /**
     * @brief Converts a session manager state to string
     * @return The session manager state as a string
     */

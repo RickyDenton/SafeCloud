@@ -21,7 +21,7 @@
  */
 void Server::setSrvEndpoint(uint16_t& srvPort)
  {
-  // Set the server socket msgType to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
+  // Set the server socket type to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
   _srvAddr.sin_family = AF_INET;
   _srvAddr.sin_addr.s_addr = INADDR_ANY;
 
@@ -264,7 +264,7 @@ void Server::newClientData(int ski)
 void Server::newClientConnection()
  {
   /* ----------------- Client Endpoint Information ----------------- */
-  struct sockaddr_in  cliAddr{};                         // The client socket msgType, IP and Port
+  struct sockaddr_in  cliAddr{};                         // The client socket type, IP and Port
   static unsigned int cliAddrLen = sizeof(sockaddr_in);  // The (static) size of a sockaddr_in structure
   char cliIP[16];                                        // The client IP address
   int  cliPort;                                          // The client port

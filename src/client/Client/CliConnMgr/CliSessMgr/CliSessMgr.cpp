@@ -54,20 +54,32 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
    {
     // The client session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
-     THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr());
 
     // A session message invalid for the current client session manager was received
     case ERR_UNEXPECTED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr());
 
     // A malformed session message was received
     case ERR_MALFORMED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedCmdToStr());
 
     // A session message of unknown type was received, an error to be attributed to a desynchronization
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr(), errReason);
+     else
+      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
 
     // The other signaling message types require no further action
     default:
@@ -110,18 +122,18 @@ void CliSessMgr::recvCheckCliSessMsg()
   _recvSessMsgLen = sessMsg->msgLen;
   _recvSessMsgType = sessMsg->msgType;
 
-  // Receiving session messages is NOT allowed with
-  // the client session manager in the 'IDLE' state
-  if(_sessMgrState == IDLE)
-   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
-                                                    std::to_string(_recvSessMsgType) + "with"
-                                                    "the client session manager in the 'IDLE' state");
-
   // If a signaling message type was received, assert the message
   // length to be equal to the size of a base session message
   if(isSessSignalingMsgType(_recvSessMsgType) && _recvSessMsgLen != sizeof(SessMsg))
    sendCliSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message of invalid"
                                                    "length (" + std::to_string(_recvSessMsgLen) + ")");
+
+  // With the client session manager in the 'IDLE' state
+  // only session error signaling messages can be received
+  if(_sessMgrState == IDLE && !isSessErrSignalingMsgType(_recvSessMsgType))
+   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type " +
+                                                    std::to_string(_recvSessMsgType) + " with"
+                                                    "the client session manager in the 'IDLE' state");
 
   /*
    * Check whether the received session message type:

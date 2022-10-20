@@ -70,7 +70,7 @@ struct SessMsgWrapper
 
 /* ------------------------ 'FILE_INFO Session Message ------------------------ */
 
-// Used with msgType = FILE_UPLOAD_REQ, FILE_EXISTS
+// Used with type = FILE_UPLOAD_REQ, FILE_EXISTS
 
 struct __attribute__((packed)) SessMsgFileInfo : public SessMsg
  {

@@ -162,6 +162,21 @@ bool SessMgr::isSessSignalingMsgType(SessMsgType sessMsgType)
 
 
 /**
+ * @brief  Returns whether a session message type
+ *         is a signaling error session message type
+ * @return 'true' if the provided session message type is a signaling
+ *          error session message type or 'false' otherwise
+ */
+bool SessMgr::isSessErrSignalingMsgType(SessMsgType sessMsgType)
+ {
+  if(sessMsgType == ERR_INTERNAL_ERROR || sessMsgType == ERR_UNEXPECTED_SESS_MESSAGE ||
+     sessMsgType == ERR_MALFORMED_SESS_MESSAGE || sessMsgType == ERR_UNKNOWN_SESSMSG_TYPE)
+   return true;
+  return false;
+ }
+
+
+/**
  * @brief Converts a session manager state to string
  * @return The session manager state as a string
  */
@@ -397,6 +412,10 @@ void SessMgr::resetSessState()
   /* ------------------ General Session Attributes Reset ------------------ */
   // Reset the session manager state to 'IDLE'
   _sessMgrState = IDLE;
+
+  // Mark the contents of the associated connection
+  // manager's primary buffer as consumed
+  _connMgr.clearPriBuf();
 
   // Reset the associated connection manager's reception mode to 'RECV_MSG'
   _connMgr._recvMode = ConnMgr::RECV_MSG;

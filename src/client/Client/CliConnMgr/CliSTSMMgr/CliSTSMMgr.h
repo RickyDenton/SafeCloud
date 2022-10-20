@@ -43,15 +43,15 @@ class CliSTSMMgr : public STSMMgr
    /**
     * @brief  Sends a STSM error message to the server and throws the
     *         associated exception on the client, aborting the connection
-    * @param  errMsgType The STSM error message msgType to be sent to the server
+    * @param  errMsgType The STSM error message type to be sent to the server
     * @param  errDesc    An optional description of the error that has occurred
     * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
     * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
     * @throws ERR_STSM_CLI_SRV_AUTH_FAILED      Server STSM authentication failed
     * @throws ERR_STSM_UNEXPECTED_MESSAGE       Received an out-of-order STSM message
     * @throws ERR_STSM_MALFORMED_MESSAGE        Received a malformed STSM message
-    * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown msgType
-    * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown msgType
+    * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
+    * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown type
     */
    void sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc);
 
@@ -61,13 +61,13 @@ class CliSTSMMgr : public STSMMgr
     *         2) Verifies the received message to consist of the STSM handshake message
     *            appropriate for the current client's STSM state, throwing an error otherwise
     * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
-    * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message msgType and size mismatch
+    * @throws ERR_STSM_MALFORMED_MESSAGE        STSM message type and size mismatch
     * @throws ERR_STSM_CLI_CLI_INVALID_PUBKEY   The server reported that the client's ephemeral public key is invalid
     * @throws ERR_STSM_CLI_CLIENT_LOGIN_FAILED  The server did not recognize the client's username
     * @throws ERR_STSM_CLI_CLI_AUTH_FAILED      The server reported the client failing the STSM authentication
     * @throws ERR_STSM_CLI_UNEXPECTED_MESSAGE   The server reported to have received an out-of-order STSM message
     * @throws ERR_STSM_CLI_MALFORMED_MESSAGE    The server reported to have received a malformed STSM message
-    * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The server reported to have received an STSM message of unknown msgType
+    * @throws ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE The server reported to have received an STSM message of unknown type
     */
    void recvCheckCliSTSMMsg();
 

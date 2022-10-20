@@ -60,20 +60,32 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
 
     // The server session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
-     THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
     // A session message invalid for the current server session manager was received
     case ERR_UNEXPECTED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
     // A malformed session message was received
     case ERR_MALFORMED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     else
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
     // A session message of unknown type was received, an error to be attributed to a desynchronization
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+     else
+      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
     // The other signaling message types require no further action
     default:
@@ -176,7 +188,6 @@ void SrvSessMgr::srvUploadStart()
   // LOG: Main and temporary files absolute paths
   std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
   std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
-
 
 
   // Check whether a file with the same name of the one to be uploaded already exists in the
@@ -295,10 +306,6 @@ void SrvSessMgr::resetSrvSessState()
 
   // Reset the base session parameters
   resetSessState();
-
-  // TODO: Necessary? why?
-  // Set that the client connection must be maintained
-  // _srvConnMgr._keepConn = true;
  }
 
 
@@ -363,7 +370,8 @@ void SrvSessMgr::srvSessMsgHandler()
     if(_sessMgrState != IDLE)
      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
                                                       "command-starting session message received in session"
-                                                      "state \"" + currSessMgrStateToStr() + "\"");
+                                                      " state \"" + currSessMgrStateToStr() + "\", sub-state "
+                                                      + std::to_string(_srvSessMgrSubstate));
     break;
 
    /* -------------------------------- 'CONFIRM' Signaling Message -------------------------------- */
@@ -373,8 +381,9 @@ void SrvSessMgr::srvSessMsgHandler()
    case CONFIRM:
     if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD || _sessMgrState == DELETE)
          && _srvSessMgrSubstate == WAITING_CLI_CONF))
-     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'CONFIRM' session message received in session"
-                                                      "state \"" + currSessMgrStateToStr() + "\"");
+     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'CONFIRM' session message received in session state"
+                                                      " \"" + currSessMgrStateToStr() + "\", sub-state "
+                                                      + std::to_string(_srvSessMgrSubstate));
     break;
 
    /* ------------------------------- 'COMPLETED' Signaling Message ------------------------------- */
@@ -388,9 +397,9 @@ void SrvSessMgr::srvSessMsgHandler()
     // reset its session state, in case the message is received in an invalid
     // state just throw the associated exception without notifying the client
     if(!((_sessMgrState == DOWNLOAD) || (_sessMgrState == LIST && _srvSessMgrSubstate == WAITING_CLI_COMPL)))
-     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), "'COMPLETED' session message received in"
-                                                                     "session state" "\"" + currSessMgrStateToStr() +
-                                                                     "\", sub-state " + std::to_string(_srvSessMgrSubstate));
+     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), "'COMPLETED'"
+                                                 " session message received in session state \"" + currSessMgrStateToStr() +
+                                                 "\", sub-state " + std::to_string(_srvSessMgrSubstate));
      break;
 
    /* --------------------------------- 'CANCEL' Signaling Message --------------------------------- */
