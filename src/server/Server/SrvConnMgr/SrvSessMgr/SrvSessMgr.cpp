@@ -2,7 +2,6 @@
 
 /* ================================== INCLUDES ================================== */
 #include <fstream>
-#include <sys/time.h>
 #include "SrvSessMgr.h"
 #include "ConnMgr/SessMgr/SessMsg.h"
 #include "../SrvConnMgr.h"
@@ -165,13 +164,14 @@ void SrvSessMgr::srvUploadStart()
   // metadata of the file the client is requesting to upload
   loadRemFileInfo();
 
-  // Initialize the main and teporary absolute paths of the file to be uploaded
+  // Initialize the main and temporary absolute paths of the file to be uploaded
   _mainFileAbsPath = new std::string(*_srvConnMgr._poolDir + _remFileInfo->fileName);
   _tmpFileAbsPath  = new std::string(*_srvConnMgr._tmpDir + _remFileInfo->fileName + "_PART");
 
 
+  // TODO: Comment
   // LOG: Remote file information
-  _remFileInfo->printInfo();
+  _remFileInfo->printFileInfo();
 
   // LOG: Main and temporary files absolute paths
   std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
@@ -207,8 +207,8 @@ void SrvSessMgr::srvUploadStart()
     // Client confirmation is required for uploading the file
     _srvSessMgrSubstate = WAITING_CLI_CONF;
 
-    // TODO: Remove
-    std::cout << "in srvUploadStart(), FILE_EXISTS (WAITING_CLI_CONF)" << std::endl;
+    LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
+             "\" already existing in the storage pool, awaiting client confirmation")
 
     // TODO: Remove
     _locFileInfo->compareMetadata(_remFileInfo);
@@ -219,7 +219,7 @@ void SrvSessMgr::srvUploadStart()
   else
    {
     // If the file to be uploaded is empty
-    if(_remFileInfo->fileMeta.fileSize == 0)
+    if(_remFileInfo->meta->fileSizeRaw == 0)
      {
       // Touch the uploaded main file in the client's storage pool
       std::ofstream upFile(*_mainFileAbsPath);
@@ -235,8 +235,7 @@ void SrvSessMgr::srvUploadStart()
       // Change the new file last modified time the one provided by the client
       mirrorRemLastModTime();
 
-      // TODO: Remove
-      std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, empty (COMPLETED)" << std::endl;
+      LOG_INFO("[" + *_srvConnMgr._name + "] Uploaded empty file \"" + _remFileInfo->fileName + "\" in the storage pool")
 
       // Inform the client that the empty file has been successfully uploaded
       sendSrvSessSignalMsg(COMPLETED);
@@ -263,8 +262,8 @@ void SrvSessMgr::srvUploadStart()
        sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
                                                + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
 
-      // TODO: Remove
-      std::cout << "in srvUploadStart(), FILE_NOT_EXISTS, non-empty (WAITING_CLI_DATA)" << std::endl;
+      LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
+               "\" not existing in the storage pool, awaiting the file's raw data")
      }
    }
  }
@@ -392,6 +391,7 @@ void SrvSessMgr::srvSessMsgHandler()
      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), "'COMPLETED' session message received in"
                                                                      "session state" "\"" + currSessMgrStateToStr() +
                                                                      "\", sub-state " + std::to_string(_srvSessMgrSubstate));
+     break;
 
    /* --------------------------------- 'CANCEL' Signaling Message --------------------------------- */
 
@@ -411,6 +411,7 @@ void SrvSessMgr::srvSessMsgHandler()
      // Reset the server session state and return
      resetSrvSessState();
      return;
+    break;
 
    /* ---------------------------------- 'BYE' Signaling Message ---------------------------------- */
 

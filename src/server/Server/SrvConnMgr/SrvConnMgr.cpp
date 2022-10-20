@@ -122,6 +122,10 @@ void SrvConnMgr::recvHandleData()
       // call the child SrvSessMgr object message handler
       else
        _srvSessMgr->srvSessMsgHandler();
+
+      // TODO: CHECK, MOST PROBABLY MUST BE USED HERE
+      // Marks the contents of the primary connection buffer as consumed
+      clearPriBuf();
      }
 
     // Otherwise, if the connection manager is in the RECV_MSG

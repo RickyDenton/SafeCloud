@@ -20,8 +20,8 @@ class DirInfo
   public:
 
    /* ================================= ATTRIBUTES ================================= */
-   std::string* dirPath;                  // The directory's absolute path
-   std::forward_list<FileInfo> dirFiles;  // The list of files (names + metadata) within the directory
+   std::string* dirPath;                   // The directory's absolute path
+   std::forward_list<FileInfo*> dirFiles;  // The list of files (names + metadata) within the directory
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -32,6 +32,11 @@ class DirInfo
     * @throws ERR_SESS_FILE_READ_FAILED Error in reading a file's metadata
     */
    explicit DirInfo(std::string* dirAbspath);
+
+   /**
+    * @brief DirInfo object destructor, deleting the list of FileInfo objects
+    */
+   ~DirInfo();
 
    /* ============================ OTHER PUBLIC METHODS ============================ */
 

@@ -100,6 +100,9 @@ class SessMgr
     */
    void mirrorRemLastModTime();
 
+   // TODO: Placeholder implementation
+   void sendRawFile();
+
    /* ------------------------------ Utility Methods ------------------------------ */
 
    /**

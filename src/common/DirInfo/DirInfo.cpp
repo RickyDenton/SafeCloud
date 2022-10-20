@@ -33,13 +33,23 @@ DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
        continue;
 
       // Store the file's name and metadata in a FileInfo object
-      dirFiles.emplace_front(FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name)));
+      dirFiles.emplace_front(new FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name)));
      }
 
     // Close the target directory
     if(closedir(dir) == -1)
      LOG_EXEC_CODE(ERR_DIR_CLOSE_FAILED, *dirPath, ERRNO_DESC);
    }
+ }
+
+
+/**
+ * @brief DirInfo object destructor, deleting the list of FileInfo objects
+ */
+DirInfo::~DirInfo()
+ {
+  for(FileInfo* fileInfo : dirFiles)
+   delete fileInfo;
  }
 
 
@@ -77,25 +87,25 @@ bool DirInfo::printDirContents()
     for(const auto& it : dirFiles)
      {
       // Print the file size with padding spaces
-      it.printSize(true, false);
+      it->printFormattedSize(true, false);
 
       // Indentation between the "SIZE" and "LAST MODIFIED" headers
       printf("  ");
 
       // Print the file last modification time
-      it.printLastModTime(false);
+      it->printFormattedLastModTime(false);
 
       // Indentation between the "LAST MODIFIED and "CREATION TIME" headers
       printf("  ");
 
       // Print the file creation time
-      it.printCreationTime(false);
+      it->printFormattedCreationTime(false);
 
       // Indentation between the "CREATION TIME" and "FILE" headers
       printf("  ");
 
       // Print the file name and a new line
-      std::cout << it.fileName << std::endl;
+      std::cout << it->fileName << std::endl;
      }
 
     // Indentation

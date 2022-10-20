@@ -9,43 +9,26 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <cstring>
-
-/* ============================= TYPES DECLARATIONS ============================= */
-
-/*
- * The subset of file metadata of interest for the SafeCloud application
- *
- * NOTE: While inherently positive, the "stat.h" library
- *       returns file metadata on signed integers
- */
-struct fileMetadata
- {
-  /* ================================= ATTRIBUTES ================================= */
-  long int fileSize;      // The file size in bytes
-  long int creationTime;  // The file creation time in UNIX epoch time
-  long int lastModTime;   // The file last modification time in UNIX epoch time
-
-  /* ================================ CONSTRUCTORS ================================ */
-
-  /**
-   * @brief fileMetadata default constructor, initializing its fields to "-1"
-   */
-  fileMetadata();
-
-  /**
-   * @brief fileMetadata object values constructor, initializing its fields to the provided values
-   */
-  fileMetadata(long int fileSize_, long int creationTime_, long int lastModTime_);
- };
+#include "DirInfo/FileInfo/FileMeta/FileMeta.h"
 
 
 class FileInfo
  {
+  private:
+
+   /* =============================== PRIVATE METHODS =============================== */
+
+   /**
+    * @brief  Validates the 'fileName' attribute to represent a valid Linux file name
+    * @throws ERR_SESS_FILE_INVALID_NAME Invalid Linux file name
+    */
+   void validateFileName();
+
   public:
 
    /* ================================= ATTRIBUTES ================================= */
-   std::string fileName;    // File name (with no directory path)
-   fileMetadata fileMeta;   // File metadata
+   std::string fileName; // The file name (with no directory path)
+   FileMeta*   meta;     // The file metadata
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -53,38 +36,37 @@ class FileInfo
     * @brief  FileInfo object path constructor, initializing the
     *         file name and metadata from its absolute path
     * @param  fileAbsPath The file's absolute path
-    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the file's metadata
-    * @throws ERR_SESS_FILE_IS_DIR      The file is in fact a directory
+    * @throws ERR_SESS_FILE_INVALID_NAME  Invalid Linux file name
+    * @throws ERR_SESS_FILE_READ_FAILED   Error in reading the file's metadata
+    * @throws ERR_SESS_FILE_IS_DIR        The file is in fact a directory
+    * @throws ERR_SESS_FILE_META_NEGATIVE The file presents negative metadata values
+    * @throws ERR_FILE_TOO_LARGE          The file is too large (> 9999GB)
     */
    explicit FileInfo(const std::string& fileAbsPath);
 
    /**
-    * @brief FileInfo object values constructor, initializing its attributes
-    *        to the provided values
-    * @param fileName_     The file's name
-    * @param fileSize_     The file's size
-    * @param creationTime_ The file's creation time
-    * @param lastModTime_  The file's last modification time
-    * @note  Conversely from the object path constructor, this constructor does
-    *        not verify whether such a file exists in the local file system
+    * @brief  FileInfo object values constructor, initializing its attributes
+    *         to the provided values
+    * @param  fileName_     The file's name
+    * @param  fileSize_     The file's size
+    * @param  lastModTime_  The file's last modification time
+    * @param  creationTime_ The file's creation time
+    * @note   Conversely from the object path constructor, this constructor does
+    *         not verify whether such a file exists in the local file system
+    * @throws ERR_SESS_FILE_INVALID_NAME  Invalid Linux file name
+    * @throws ERR_SESS_FILE_META_NEGATIVE The file presents negative metadata values
+    * @throws ERR_FILE_TOO_LARGE          The file is too large (> 9999GB)
     */
-   FileInfo(std::string& fileName_, long int fileSize_, long int creationTime_, long int lastModTime_);
+   FileInfo(std::string& fileName_, long int fileSize_, long int lastModTime_, long int creationTime_);
+
+   /**
+    * @brief FileInfo object destructor, deleting the file's metadata
+    */
+   ~FileInfo();
 
    /* ============================ OTHER PUBLIC METHODS ============================ */
 
-   /* ----------------------------- File Size Printing ----------------------------- */
-
-   /**
-    * @brief  Writes into a buffer the file size formatted
-    *         as a "size_value||size_unit" string, with:\n
-    *          - "size_value" ranging between [0,9999]\n
-    *          - "size_unit" consisting either in "B", "KB", "MB" or "GB"
-    * @param  fileSizeStr The buffer where to write the formatted file size
-    * @note   This function assumes the 'fileSizeStr' buffer to be large
-    *         enough to contain the formatted file size (at least 7 bytes)
-    * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
-    */
-   void sizeToStr(char* fileSizeStr) const;
+   /* --------------------------- File Metadata Printing --------------------------- */
 
    /**
     * @brief Prints the file size as a "size_value||size_unit" string, with:\n
@@ -95,18 +77,8 @@ class FileInfo
     *          - Printing it in bold
     * @param addPadding Whether padding should be added to the file size
     * @param printBold  Whether the file size should be printed in bold
-    * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
     */
-   void printSize(bool addPadding, bool printBold) const;
-
-   /* ---------------------------- File Times Printing ---------------------------- */
-
-   /**
-    * @brief Prints a time in Unix Epochs as a "HH:MM:SS DD/MM/YY" string, possibly in bold
-    * @param timeEpochs The time in Unix Epochs
-    * @param printBold  Whether the "HH:MM:SS DD/MM/YY" string should be printed in bold
-    */
-   static void printTime(signed long timeEpochs, bool printBold);
+   void printFormattedSize(bool addPadding, bool printBold) const;
 
    /**
     * @brief Prints the file's last modification time as a
@@ -114,7 +86,7 @@ class FileInfo
     * @param printBold Whether to print the file's
     *                  last modification time in bold
     */
-   void printLastModTime(bool printBold) const;
+   void printFormattedLastModTime(bool printBold) const;
 
    /**
     * @brief Prints the file's creation time as a
@@ -122,34 +94,23 @@ class FileInfo
     * @param printBold Whether to print the file's
     *                  creation time in bold
     */
-   void printCreationTime(bool printBold) const;
+   void printFormattedCreationTime(bool printBold) const;
 
-   /* -------------------------- Other Printing Utilities -------------------------- */
+   /* ----------------------------- File-Wide Printing ----------------------------- */
 
    /**
     * @brief Prints the indented file's name and metadata on stdout
-    * @throws ERR_FILE_TOO_LARGE The file size is too large (> 9999GB)
     */
-   void printInfo() const;
+   void printFileInfo() const;
 
    /**
-    * @brief Prints a table comparing the metadata of the FileInfo (or 'local file') object
-    *        with another FileInfo (or 'remote file') object with the same 'fileName'
-    * @param remFileInfo The FileInfo associated with the remote file
+    * @brief  Prints a table comparing the metadata of the FileInfo (or 'local file') object
+    *         with another FileInfo (or 'remote file') object with the same 'fileName'
+    * @param  remFileInfo The FileInfo associated with the remote file
     * @throws ERR_FILEINFO_COMP_NULL       NULL 'remFileInfo' argument
     * @throws ERR_FILEINFO_COMP_DIFF_NAMES The two files have different names
     */
    void compareMetadata(FileInfo* remFileInfo) const;
-
-  // TODO: Needed? In case, section
-  /**
-   * @brief  Reads and returns a file's metadata
-   * @param  fileAbsPath The file's absolute path
-   * @return A dynamic structure containing the file's metadata, or
-   *         "nullptr" if the file does not exist or could not be opened
-   * @note   It is up to the caller to delete() the returned struct when no longer needed
-   */
-  static fileMetadata* getFileMetadata(std::string* fileAbsPath);
  };
 
 

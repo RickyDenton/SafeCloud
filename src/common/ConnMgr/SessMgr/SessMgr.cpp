@@ -16,7 +16,7 @@
  * @brief Loads into a FileInfo object pointed by the '_remFileInfo' attribute the name
  *        and metadata of a remote file embedded within a 'SessMsgFileInfo' session
  *        message stored in the associated connection manager's secondary buffer
- * @throws ERR_SESS_MALFORMED_MESSAGE The file name in the 'SessMsgFileInfo' message is invalid
+ * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
  */
 void SessMgr::loadRemFileInfo()
  {
@@ -33,13 +33,13 @@ void SessMgr::loadRemFileInfo()
   delete _remFileInfo;
 
   try
-   { _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->creationTime,fileInfoMsg->lastModTime); }
+   { _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->lastModTime,fileInfoMsg->creationTime); }
 
-  // If the file name in the 'SessMsgFileInfo' message is invalid (ERR_SESS_INVALID_FILE_NAME)
+  // An exception being raised by the FileInfo constructor implies that a malformed message was received
   catch(sessErrExcp& invalidFileNameExcp)
    {
     sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
-    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileInfo' message (" + remFileName + ")");
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file values in the 'SessMsgFileInfo' message");
    }
  }
 
@@ -86,10 +86,10 @@ void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
   // length (+1 for the '/0' character, -1 for the 'filename' placeholder attribute in the struct)
   sessMsgFileInfoMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
 
-  // Wire the local file's metadata into the 'SessMsgFileInfo' message
-  sessMsgFileInfoMsg->fileSize     = _locFileInfo->fileMeta.fileSize;
-  sessMsgFileInfoMsg->creationTime = _locFileInfo->fileMeta.creationTime;
-  sessMsgFileInfoMsg->lastModTime  = _locFileInfo->fileMeta.lastModTime;
+  // Write the local file's metadata into the 'SessMsgFileInfo' message
+  sessMsgFileInfoMsg->fileSize     = _locFileInfo->meta->fileSizeRaw;
+  sessMsgFileInfoMsg->lastModTime  = _locFileInfo->meta->lastModTimeRaw;
+  sessMsgFileInfoMsg->creationTime = _locFileInfo->meta->creationTimeRaw;
 
   // Write the local file name, '/0' character included, into the 'SessMsgFileInfo' message
   memcpy(reinterpret_cast<char*>(&sessMsgFileInfoMsg->fileName), _locFileInfo->fileName.c_str(), _locFileInfo->fileName.length() + 1);
@@ -123,7 +123,7 @@ void SessMgr::mirrorRemLastModTime()
    }
 
   // Write the remote file last modification time in the second element of a 'timeval' array
-  timeval timesArr[] = {{}, {_remFileInfo->fileMeta.lastModTime, 0}};
+  timeval timesArr[] = {{}, {_remFileInfo->meta->lastModTimeRaw, 0}};
 
   // Attempt to mirror the remote file last modification time into the main local file
   if(utimes(_mainFileAbsPath->c_str(), timesArr) == -1)
@@ -131,6 +131,13 @@ void SessMgr::mirrorRemLastModTime()
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
     THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Error in mirroring a last modification time",ERRNO_DESC);
    }
+ }
+
+
+// TODO: Placeholder implementation
+void SessMgr::sendRawFile()
+ {
+  std::cout << "In sendRawFile() (fileName = " << _locFileInfo->fileName << ", size = " << _locFileInfo->meta->fileSizeStr << ")" << std::endl;
  }
 
 

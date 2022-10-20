@@ -75,8 +75,8 @@ struct SessMsgWrapper
 struct __attribute__((packed)) SessMsgFileInfo : public SessMsg
  {
   long int fileSize;         // The file size in bytes
-  long int creationTime;     // The file creation time in UNIX epoch time
-  long int lastModTime;      // The file last modification time in UNIX epoch time
+  long int lastModTime;      // The file last modification time in UNIX epochs
+  long int creationTime;     // The file creation time in UNIX epochs
   unsigned char fileName[];  // The file name (variable size)
  };
 

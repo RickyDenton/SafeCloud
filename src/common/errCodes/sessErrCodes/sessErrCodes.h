@@ -50,10 +50,11 @@ enum sessErrCode : unsigned char
   ERR_SESS_UNEXPECTED_MESSAGE,
   ERR_SESS_MALFORMED_MESSAGE,
 
-  // Error Checking TODO: Section?
-  ERR_SESS_INVALID_FILE_NAME,
-  ERR_FILEINFO_COMP_NULL,
-  ERR_FILEINFO_COMP_DIFF_NAMES,
+  // File Names and Metadata
+  ERR_SESS_FILE_INVALID_NAME,
+  ERR_SESS_FILE_META_NEGATIVE,
+  ERR_SESS_FILE_INFO_COMP_NULL,
+  ERR_SESS_FILE_INFO_COMP_DIFF_NAMES,
 
   // Unknown session error
   ERR_SESS_UNKNOWN
@@ -91,21 +92,21 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
 
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
-    { ERR_OSSL_DECRYPT_VERIFY_FAILED, {ERROR,"AES_GCM Tag verification failed"}},
+    {ERR_OSSL_DECRYPT_VERIFY_FAILED,     {ERROR,    "AES_GCM Tag verification failed"}},
 
     // Error session messages
-    { ERR_SESS_INTERNAL_ERROR,     {CRITICAL,"An internal error has occurred"}},
-    { ERR_SESS_UNEXPECTED_MESSAGE, {ERROR,"An unexpected session message was received"}},
-    { ERR_SESS_MALFORMED_MESSAGE,  {ERROR,"A malformed session message was received"}},
+    {ERR_SESS_INTERNAL_ERROR,            {CRITICAL, "An internal error has occurred"}},
+    {ERR_SESS_UNEXPECTED_MESSAGE,        {ERROR,    "An unexpected session message was received"}},
+    {ERR_SESS_MALFORMED_MESSAGE,         {ERROR,    "A malformed session message was received"}},
 
-
-    // Error Checking TODO: Section?
-    { ERR_SESS_INVALID_FILE_NAME,   {ERROR,"The provided file name is invalid"}},
-    { ERR_FILEINFO_COMP_NULL,       {ERROR,"Attempting to compare the metadata of a a NULL FileInfo"}},
-    { ERR_FILEINFO_COMP_DIFF_NAMES, {ERROR,"Attempting to compare the metadata of two files of different names"}},
+    // File Names and Metadata
+    {ERR_SESS_FILE_INVALID_NAME,         {ERROR,    "The provided file name is invalid"}},
+    {ERR_SESS_FILE_META_NEGATIVE,        {CRITICAL, "Attempting to initialize a file's metadata to negative values"}},
+    {ERR_SESS_FILE_INFO_COMP_NULL,       {CRITICAL, "Attempting to compare the metadata of a a NULL FileInfo"}},
+    {ERR_SESS_FILE_INFO_COMP_DIFF_NAMES, {CRITICAL, "Attempting to compare the metadata of two files of different names"}},
 
     // Unknown session error
-    {ERR_SESS_UNKNOWN,      {CRITICAL, "Unknown Session Error"} }
+    {ERR_SESS_UNKNOWN,                   {CRITICAL, "Unknown Session Error"} }
   };
 
 
