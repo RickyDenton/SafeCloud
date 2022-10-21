@@ -104,6 +104,15 @@ class ConnMgr
    void clearPriBuf();
 
    /**
+    * @brief Sends bytes from the start of the primary connection buffer to the connection peer
+    * @param numBytes The number of bytes to be sent (must be <= _priBufSize)
+    * @throws ERR_SEND_OVERFLOW     Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED       send() fatal error
+    */
+  void sendData(unsigned int numBytes);
+
+   /**
     * @brief Sends a message stored in the primary communication buffer, with
     *        its first 16 bits representing its size, to the connection peer
     * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()

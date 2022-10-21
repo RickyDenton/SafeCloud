@@ -375,10 +375,15 @@ bool CliSessMgr::parseUploadResponse()
        // to be uploaded and the one in the user's storage pool
        _locFileInfo->compareMetadata(_remFileInfo);
 
-       // Ask for user confirmation on whether
-       // the upload operation should continue
+       // Ask the user if the upload operation should continue and, if it should
        if(askUser("Do you want to continue uploading the file?"))
-        return true;
+        {
+         // Confirm the upload operation to the SafeCloud server
+         sendCliSessSignalMsg(CONFIRM);
+
+         // Return that the upload operation must proceed
+         return true;
+        }
 
        // If otherwise the upload operation should be cancelled
        else
@@ -402,12 +407,17 @@ bool CliSessMgr::parseUploadResponse()
        // to be uploaded and the one in the user's storage pool
        _locFileInfo->compareMetadata(_remFileInfo);
 
-       // Ask for user confirmation on whether
-       // the upload operation should continue
+       // Ask the user if the upload operation should continue and, if it should
        if(askUser("Do you want to continue uploading the file?"))
-        return true;
+        {
+         // Confirm the upload operation to the SafeCloud server
+         sendCliSessSignalMsg(CONFIRM);
 
-        // If otherwise the upload operation should be cancelled
+         // Return that the upload operation must proceed
+         return true;
+        }
+
+       // If otherwise the upload operation should be cancelled
        else
         {
          // Notify the operation cancellation to the server
@@ -527,9 +537,6 @@ void CliSessMgr::uploadFile(std::string& filePath)
   // on whether the file upload should continue
   if(!parseUploadResponse())
    return;
-
-  // Confirm the upload operation to the SafeCloud server
-  sendCliSessSignalMsg(CONFIRM);
 
   // Upload the file to the server
   sendRawFile();

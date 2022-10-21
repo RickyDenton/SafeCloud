@@ -137,7 +137,49 @@ void SessMgr::mirrorRemLastModTime()
 // TODO: Placeholder implementation
 void SessMgr::sendRawFile()
  {
+  size_t freadRet;
+  size_t totBytesSent = 0;
+
+
   std::cout << "In sendRawFile() (fileName = " << _locFileInfo->fileName << ", size = " << _locFileInfo->meta->fileSizeStr << ")" << std::endl;
+
+  // Initialize an AES_128_GCM encryption operation
+  _aesGCMMgr.encryptInit();
+
+  do
+   {
+    freadRet = fread(_connMgr._secBuf, 1, _connMgr._secBufSize, _mainFileDscr);
+
+    // Error condition
+    if(freadRet < _connMgr._secBufSize && ferror(_mainFileDscr))
+     {
+      // TODO: Throw a execExcp
+      LOG_ERROR("fread() error!")
+     }
+
+    if(freadRet > 0)
+     {
+      // Encrypt the raw file data from the secondary into the primary connection buffer
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)freadRet, &_connMgr._priBuf[0]);
+
+      _connMgr.sendData(freadRet);
+
+      totBytesSent += freadRet;
+     }
+   } while(!feof(_mainFileDscr));
+
+  if(totBytesSent == _locFileInfo->meta->fileSizeRaw)
+   std::cout << "send() loop finished, totBytesSent == fileSizeRaw == " << totBytesSent << std::endl;
+  else
+   LOG_ERROR("send() loop finished, totBytesSent == " + std::to_string(totBytesSent) + " != fileSizeRaw == " + std::to_string(_locFileInfo->meta->fileSizeRaw))
+
+  // Finalize the encryption by writing the resulting integrity tag at the start of the primary connection buffer
+  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
+
+  // send the TAG
+  _connMgr.sendData(AES_128_GCM_TAG_SIZE);
+
+  std::cout << "sendRawFile() ended" << std::endl;
  }
 
 

@@ -72,20 +72,22 @@ void ConnMgr::clearPriBuf()
 
 
 /**
- * @brief Sends a message stored in the primary communication buffer, with
- *        its first 16 bits representing its size, to the connection peer
+ * @brief Sends bytes from the start of the primary connection buffer to the connection peer
+ * @param numBytes The number of bytes to be sent (must be <= _priBufSize)
+ * @throws ERR_SEND_OVERFLOW     Attempting to send a number of bytes > _priBufSize
  * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED       send() fatal error
  */
-void ConnMgr::sendMsg()
+void ConnMgr::sendData(unsigned int numBytes)
  {
   // Connection socket send() return, representing, if no error has occurred, the number
   // of bytes read sent from the primary connection buffer through the connection socket
   ssize_t sendRet;
 
-  // Determine the message's size as the first 16 bits of the primary communication
-  // buffer (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
-  uint16_t msgSize = ((uint16_t*)_priBuf)[0];
+  // Assert the number of bytes to be sent to be less
+  // or equal than the primary connection buffer size
+  if(numBytes > _priBufSize)
+   THROW_EXEC_EXCP(ERR_SEND_OVERFLOW,std::to_string(numBytes) + " > _priBufSize = " + std::to_string(_priBufSize));
 
   // Reset the index of the most significant byte in the primary connection buffer
   _priBufInd = 0;
@@ -93,7 +95,7 @@ void ConnMgr::sendMsg()
   do
    {
     // Attempt to send the pending message bytes through the connection socket
-    sendRet = send(_csk, (const char*)&_priBuf + _priBufInd, msgSize - _priBufInd, 0);
+    sendRet = send(_csk, (const char*)&_priBuf + _priBufInd, numBytes - _priBufInd, 0);
 
     // If any number of bytes were successfully sent, increment the index of the
     // ost significant byte in the primary connection buffer of that amount
@@ -113,21 +115,39 @@ void ConnMgr::sendMsg()
         // If the peer abruptly closed the connection while
         // data was being sent, throw the associated exception
         case ECONNRESET:
-          THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
+         THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
 
         // All other send() errors are FATAL errors
         default:
          THROW_EXEC_EXCP(ERR_SEND_FAILED, *_name,ERRNO_DESC);
        }
 
-     // Otherwise, if no error has occurred and no
-     // bytes was sent (sendRet == 0), retry sending
+      // Otherwise, if no error has occurred and no
+      // bytes was sent (sendRet == 0), retry sending
      else
-      LOG_WARNING("send() sent 0 bytes (msgSize = " + std::to_string(msgSize) + ", _priBufInd = " + std::to_string(_priBufInd) + ")")
-   } while(_priBufInd != msgSize);
+      LOG_WARNING("send() sent 0 bytes (numBytes = " + std::to_string(numBytes)
+                  + ", _priBufInd = " + std::to_string(_priBufInd) + ")")
+   } while(_priBufInd != numBytes);
+ }
 
-  // Once the full message has been sent, reset the index of the first significant byte of the primary
-  // connection buffer as well as the expected size of the data block (message or raw) to be received
+
+/**
+ * @brief Sends a message stored in the primary communication buffer, with
+ *        its first 16 bits representing its size, to the connection peer
+ * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED       send() fatal error
+ */
+void ConnMgr::sendMsg()
+ {
+  // Determine the message's size as the first 16 bits of the primary communication
+  // buffer (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
+  uint16_t msgSize = ((uint16_t*)_priBuf)[0];
+
+  // Send the message to the connection peer
+  sendData(msgSize);
+
+  // Reset the index of the first significant byte of the primary connection
+  // buffer as well as the expected size of the data block to be received
   clearPriBuf();
 
   LOG_DEBUG("Sent message of " + std::to_string(msgSize) + " bytes")

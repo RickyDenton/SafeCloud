@@ -116,6 +116,7 @@ enum execErrCode : unsigned char
   ERR_CSK_RECV_FAILED,
   ERR_PEER_DISCONNECTED,
   ERR_SEND_FAILED,
+  ERR_SEND_OVERFLOW,
 
   // Files and Directories
   ERR_DIR_OPEN_FAILED,
@@ -314,6 +315,9 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_CSK_RECV_FAILED,          {CRITICAL, "Error in receiving data from the connection socket"} },
     {ERR_PEER_DISCONNECTED,        {WARNING,  "Abrupt peer disconnection"} },
     {ERR_SEND_FAILED,              {FATAL,    "Error in sending data on the connection socket"} },
+    {ERR_SEND_OVERFLOW,            {FATAL,    "Attempting to send() more bytes than the primary connection buffer size"} },
+
+
 
     // Files and Directories
     {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },

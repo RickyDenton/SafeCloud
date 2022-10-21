@@ -519,5 +519,7 @@ void SrvSessMgr::srvSessMsgHandler()
 // TODO: Placeholder implementation
 void SrvSessMgr::recvRaw(size_t recvBytes)
  {
+  _srvConnMgr.clearPriBuf();
+
   std::cout << "In recvRaw()" << std::endl;
  }
