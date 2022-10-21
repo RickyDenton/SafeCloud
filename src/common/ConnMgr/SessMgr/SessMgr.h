@@ -39,16 +39,16 @@ class SessMgr
 
    /* ------------------------ Files Management Attributes ------------------------ */
 
-   // The file descriptor used for reading and the absolute path of a
-   // file in the connection's main folder (the "username/download"
-   // folder on the client and the "username/pool" folder on the server)
-   FILE* _mainFileDscr;
-   std::string* _mainFileAbsPath;
+  // The file descriptor used for reading and the absolute path of a
+  // file in the connection's main folder (the "username/download"
+  // folder on the client and the "username/pool" folder on the server)
+  FILE* _mainFileDscr;
+  std::string* _mainFileAbsPath;
 
-   // The file descriptor used for writing and the absolute path of a file in the
-   // connection's temporary folder ("username/temp" for both the client and server)
-   FILE* _tmpFileDscr;
-   std::string* _tmpFileAbsPath;
+  // The file descriptor used for writing and the absolute path of a file in the
+  // connection's temporary folder ("username/temp" for both the client and server)
+  FILE* _tmpFileDscr;
+  std::string* _tmpFileAbsPath;
 
    // The file name and metadata of the target local and remote file
    FileInfo*  _locFileInfo;
@@ -213,6 +213,11 @@ class SessMgr
     *        also resetting the associated connection manager's reception mode to 'RECV_MSG'
     */
    void resetSessState();
+
+
+  // TODO: Placeholder implementation
+  void recvRaw(size_t recvBytes);
+
  };
 
 

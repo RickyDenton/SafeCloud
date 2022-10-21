@@ -183,6 +183,106 @@ void SessMgr::sendRawFile()
  }
 
 
+
+
+// TODO: Placeholder implementation
+void SessMgr::recvRaw(size_t recvBytes)
+ {
+  size_t fwriteRet;
+
+  std::cout << "In recvRaw()! (recvBytes = " << recvBytes << ")" << std::endl;
+
+
+  if(_bytesRem > 0)
+   {
+    // Decrypt the wrapped session message from the primary into the secondary connection buffer
+    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[0], (int)recvBytes, &_connMgr._secBuf[0]);
+
+    fwriteRet = fwrite(_connMgr._secBuf, 1, recvBytes, _tmpFileDscr);
+
+    std::cout << "fwriteRet = " << fwriteRet << std::endl;
+
+    // Error condition
+    if(fwriteRet < recvBytes)
+     {
+      if(ferror(_tmpFileDscr))
+       LOG_ERROR("fwriteRet < recvBytes, ferror!")
+      else
+       LOG_ERROR("fwriteRet < recvBytes, NO ferror!")
+     }
+
+    _bytesRem -= recvBytes;
+
+    // Other file bytes are required
+    if(_bytesRem > 0)
+     {
+      std::cout << "_bytesRem = " << _bytesRem << std::endl;
+      _connMgr._recvBlockSize = _bytesRem;
+      _connMgr._priBufInd = 0;
+     }
+
+     // File completely transferred, need the TAG
+    else
+     {
+      std::cout << "FILE TRANSFER END" << std::endl;
+
+      _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
+      _connMgr._priBufInd = 0;
+     }
+   }
+
+  else
+
+   // TAG not ready
+   if(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
+    return;
+
+   // TAG ready
+   else
+    {
+     std::cout << "in TAG READY!" << std::endl;
+
+     // Finalize the decryption by verifying the session wrapper's integrity tag
+     _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
+
+     std::cout << "After decryptFinal()!" << std::endl;
+
+
+     fclose(_tmpFileDscr);
+     _tmpFileDscr = nullptr;
+
+     if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
+      LOG_ERROR("RENAME ERROR: " +  std::string(strerror(errno)))
+
+     mirrorRemLastModTime();
+
+     sendSessSignalMsg(COMPLETED);
+
+     // TODO: Server and Client session states?
+     resetSessState();
+    }
+
+/*
+if(maxToRead<recvBytes)
+ {
+  // Put at the start of the buffer
+  memcpy(&_connMgr._priBuf[0],&_connMgr._priBuf[maxToRead],recvBytes - maxToRead);
+
+  // Update the _priBufInd
+  _connMgr._priBufInd = recvBytes - maxToRead;
+
+  // Update the _recvBlockSize
+  _connMgr._recvBlockSize = recvBytes - maxToRead;
+ }
+*/
+
+ }
+
+
+
+
+
+
 /* ------------------------------ Utility Methods ------------------------------ */
 
 /**
@@ -492,8 +592,8 @@ void SessMgr::resetSessState()
    }
 
   // Delete the temporary file absolute path and reset it
-  delete _tmpFileDscr;
-  _tmpFileDscr = nullptr;
+  delete _tmpFileAbsPath;
+  _tmpFileAbsPath = nullptr;
 
   // Delete the file name and metadata of the target local file
   delete _locFileInfo;

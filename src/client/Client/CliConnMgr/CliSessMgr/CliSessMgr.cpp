@@ -507,12 +507,12 @@ void CliSessMgr::uploadFile(std::string& filePath)
   _sessMgrState       = UPLOAD;
   _cliSessMgrSubstate = CMD_START;
 
-   /*
-    * Parse the target file to be uploaded by:
-    *    1) Writing its canonicalized path into the '_mainFileAbsPath' attribute
-    *    2) Opening its '_mainFileDscr' file descriptor in read-byte mode
-    *    3) Loading the file name and metadata into the '_locFileInfo' attribute
-    */
+  /*
+   * Parse the target file to be uploaded by:
+   *    1) Writing its canonicalized path into the '_mainFileAbsPath' attribute
+   *    2) Opening its '_mainFileDscr' file descriptor in read-byte mode
+   *    3) Loading the file name and metadata into the '_locFileInfo' attribute
+   */
   parseUploadFile(filePath);
 
   // TODO: Remove
