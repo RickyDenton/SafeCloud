@@ -82,6 +82,20 @@ class SrvSessMgr : public SessMgr
    */
    void srvUploadStart();
 
+   /**
+    * @brief Prepares the server session manager to receive the
+    *        raw contents of a file a client wants to upload
+    * @throws ERR_INTERNAL_ERROR           Could not open the temporary file descriptor in write-byte mode
+    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
+    * @throws ERR_SEND_FAILED               send() fatal error
+    */
+   void srvUploadSetRecvRaw();
 
   public:
 

@@ -133,6 +133,24 @@ void SrvSessMgr::dispatchRecvSessMsg()
       }
      break;
 
+    // 'UPLOAD' server session manager state
+    case SessMgr::UPLOAD:
+
+     // Only the client confirmation of a pending upload can be received
+     // in the 'UPLOAD' state with 'WAITING_CLI_CONF' substate
+     if(_srvSessMgrSubstate == WAITING_CLI_CONF && _recvSessMsgType == CONFIRM)
+      {
+       // Prepare the server session manager to receive the raw file contents
+       srvUploadSetRecvRaw();
+       LOG_INFO("[" + *_srvConnMgr._name + "]  Upload of file \"" + _remFileInfo->fileName
+                    + "\" confirmed, awaiting the file's raw data")
+      }
+     else
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
+                                                       "session message received in the 'UPLOAD' session state");
+     break;
+
+
     // TODO
 
     default:
@@ -262,16 +280,8 @@ void SrvSessMgr::srvUploadStart()
       // present in their storage pool, and that the server now expects the file's raw contents
       sendSrvSessSignalMsg(FILE_NOT_EXISTS);
 
-      // Prepare the server session manager to receive the file's raw contents by updating the 'UPLOAD'
-      // substate and setting the associated connection manager's reception mode to 'RECV_RAW'
-      _srvSessMgrSubstate = WAITING_CLI_RAW_DATA;
-      _srvConnMgr._recvMode = ConnMgr::RECV_RAW;
-
-      // Open the uploaded temporary file descriptor in write-byte mode
-      _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
-      if(!_tmpFileDscr)
-       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
-                                               + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
+      // Prepare the server session manager to receive the raw file contents
+      srvUploadSetRecvRaw();
 
       LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
                "\" not existing in the storage pool, awaiting the file's raw data")
@@ -279,6 +289,32 @@ void SrvSessMgr::srvUploadStart()
    }
  }
 
+/**
+ * @brief Prepares the server session manager to receive the
+ *        raw contents of a file a client wants to upload
+ * @throws ERR_INTERNAL_ERROR           Could not open the temporary file descriptor in write-byte mode
+ * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+ * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
+ * @throws ERR_SEND_FAILED               send() fatal error
+ */
+void SrvSessMgr::srvUploadSetRecvRaw()
+ {
+  // Updating the 'UPLOAD' substate and set the associated
+  // connection manager's reception mode to 'RECV_RAW'
+  _srvSessMgrSubstate = WAITING_CLI_RAW_DATA;
+  _srvConnMgr._recvMode = ConnMgr::RECV_RAW;
+
+  // Open the uploaded temporary file descriptor in write-byte mode
+  _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
+  if(!_tmpFileDscr)
+   sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
+                                           + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
+ }
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
