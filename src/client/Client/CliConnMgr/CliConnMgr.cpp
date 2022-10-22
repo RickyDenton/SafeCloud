@@ -17,7 +17,8 @@
 void CliConnMgr::cliRecvMsg()
  {
   try
-   { recvMsg(); }
+   {
+    recvFullMsg(); }
   catch(execErrExcp& recvExcp)
    {
     /*

@@ -83,9 +83,9 @@ class SrvSessMgr : public SessMgr
    void srvUploadStart();
 
    /**
-    * @brief Prepares the server session manager to receive the
-    *        raw contents of a file a client wants to upload
-    * @throws ERR_INTERNAL_ERROR           Could not open the temporary file descriptor in write-byte mode
+    * @brief Prepares the server session manager to receive
+    *        the raw contents of a file to be uploaded
+    * @throws ERR_INTERNAL_ERROR            Could not open the temporary file descriptor in write-byte mode
     * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)

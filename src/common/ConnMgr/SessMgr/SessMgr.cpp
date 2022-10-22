@@ -2,6 +2,7 @@
 
 /* ================================== INCLUDES ================================== */
 #include <sys/time.h>
+#include <fstream>
 #include "SessMgr.h"
 #include "errCodes/errCodes.h"
 #include "SessMsg.h"
@@ -101,10 +102,10 @@ void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
 
 
 /**
- * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main local file
+ * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main file
  * @param  fileAbsPath The absolute path of the local file whose last modification time is to be changed
- * @throws ERR_SESS_INTERNAL_ERROR NULL '_mainFileAbsPath' or '_remFileInfo' attributes,
- *                                 or error in mirroring the last modified time
+ * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+ * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
  */
 void SessMgr::mirrorRemLastModTime()
  {
@@ -129,19 +130,72 @@ void SessMgr::mirrorRemLastModTime()
   if(utimes(_mainFileAbsPath->c_str(), timesArr) == -1)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Error in mirroring a last modification time",ERRNO_DESC);
+    THROW_SESS_EXCP(ERR_SESS_FILE_META_SET_FAILED,*_mainFileAbsPath,ERRNO_DESC);
    }
  }
 
 
+/**
+* @brief  Deletes if present the empty file in the main directory referred by the
+*         '_mainFileAbsPath' and '_locFileInfo' attributes, for then touching it and
+*         setting its last modified time to the one referred by the '_remFileInfo' object
+* @note   If present the file is preliminarily deleted from the main
+*         directory for the purposes of updating its creation time
+* @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+* @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the main file
+* @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the main file
+* @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the main file
+* @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
+*/
+void SessMgr::touchEmptyFile()
+ {
+  // Ensure the '_mainFileAbsPath' attribute to have been initialized
+  if(_mainFileAbsPath == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file with a NULL '_mainFileAbsPath'");
+   }
+
+  // Ensure the '_remFileInfo' attribute to have been initialized
+  if(_remFileInfo == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file with a NULL '_remFileInfo'");
+   }
+
+  // If the file already exists in the main directory, delete
+  // it for the purposes of updating its creation time
+  if(_locFileInfo != nullptr && remove(_mainFileAbsPath->c_str()) == -1)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_FILE_DELETE_FAILED,*_mainFileAbsPath,ERRNO_DESC);
+   }
+
+  // Touch the empty file in the main directory
+  std::ofstream upFile(*_mainFileAbsPath);
+  if(!upFile)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_FILE_OPEN_FAILED,*_mainFileAbsPath,ERRNO_DESC);
+   }
+
+  // Close the touched empty file
+  upFile.close();
+  if(upFile.fail())
+   LOG_SESS_CODE(ERR_SESS_FILE_CLOSE_FAILED,*_mainFileAbsPath,ERRNO_DESC);
+
+  // Change the touched file last modified time to the one specified in the '_remFileInfo' object
+  mirrorRemLastModTime();
+ }
+
 // TODO: Placeholder implementation
-void SessMgr::sendRawFile()
+void SessMgr::sendMainFile()
  {
   size_t freadRet;
   size_t totBytesSent = 0;
 
 
-  std::cout << "In sendRawFile() (fileName = " << _locFileInfo->fileName << ", size = " << _locFileInfo->meta->fileSizeStr << ")" << std::endl;
+  std::cout << "In sendMainFile() (fileName = " << _locFileInfo->fileName << ", size = " << _locFileInfo->meta->fileSizeStr << ")" << std::endl;
 
   // Initialize an AES_128_GCM encryption operation
   _aesGCMMgr.encryptInit();
@@ -179,14 +233,14 @@ void SessMgr::sendRawFile()
   // send the TAG
   _connMgr.sendData(AES_128_GCM_TAG_SIZE);
 
-  std::cout << "sendRawFile() ended" << std::endl;
+  std::cout << "sendMainFile() ended" << std::endl;
  }
 
 
 
 
 // TODO: Placeholder implementation
-void SessMgr::recvRaw(size_t recvBytes)
+void SessMgr::recvRawHandler(size_t recvBytes)
  {
   size_t fwriteRet;
 

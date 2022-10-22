@@ -96,6 +96,17 @@ class ConnMgr
 
    /* ---------------------------------- Data I/O ---------------------------------- */
 
+   unsigned int recvRaw();
+
+   bool recvMsgData();
+
+   bool recvMsgLength();
+
+
+
+
+
+
    /**
     * @brief Marks the contents of the primary connection buffer as consumed,
     *        resetting the index of its first significant byte and the
@@ -128,7 +139,7 @@ class ConnMgr
     * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
     * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
     */
-   void recvMsg();
+   void recvFullMsg();
 
    /**
     * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,

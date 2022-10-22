@@ -28,7 +28,7 @@ enum sessErrCode : unsigned char
   ERR_UNSUPPORTED_CMD,
 
   ERR_SESS_FILE_NOT_FOUND,
-  ERR_SESS_FILE_OPEN_FAILED,
+
   ERR_SESS_FILE_READ_FAILED,
   ERR_SESS_FILE_IS_DIR,
   ERR_SESS_FILE_TOO_BIG,
@@ -56,6 +56,12 @@ enum sessErrCode : unsigned char
   ERR_SESS_FILE_INFO_COMP_NULL,
   ERR_SESS_FILE_INFO_COMP_DIFF_NAMES,
 
+  ERR_SESS_FILE_OPEN_FAILED,
+  ERR_SESS_FILE_DELETE_FAILED,
+  ERR_SESS_FILE_META_SET_FAILED,
+  ERR_SESS_FILE_CLOSE_FAILED,
+
+
   // Unknown session error
   ERR_SESS_UNKNOWN
  };
@@ -78,7 +84,6 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
     { ERR_UNSUPPORTED_CMD,       {INFO,"Unsupported command"}},
     { ERR_SESS_FILE_NOT_FOUND,   {WARNING,"The file was not found"}},
-    { ERR_SESS_FILE_OPEN_FAILED, {ERROR,"The file could not be opened"}},
     { ERR_SESS_FILE_READ_FAILED, {ERROR,"Error in reading the file"}},
     { ERR_SESS_FILE_IS_DIR,      {WARNING,"The specified file is a directory"}},
     { ERR_SESS_FILE_TOO_BIG,     {WARNING,"The file is too big (> 4GB)"}},
@@ -104,6 +109,13 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     {ERR_SESS_FILE_META_NEGATIVE,        {CRITICAL, "Attempting to initialize a file's metadata to negative values"}},
     {ERR_SESS_FILE_INFO_COMP_NULL,       {CRITICAL, "Attempting to compare the metadata of a a NULL FileInfo"}},
     {ERR_SESS_FILE_INFO_COMP_DIFF_NAMES, {CRITICAL, "Attempting to compare the metadata of two files of different names"}},
+
+    {ERR_SESS_FILE_OPEN_FAILED,     {ERROR,"The file could not be opened"}},
+    {ERR_SESS_FILE_DELETE_FAILED,   {CRITICAL, "Error in deleting the file"}},
+    {ERR_SESS_FILE_META_SET_FAILED, {CRITICAL, "Error in setting the file's metadata"}},
+    {ERR_SESS_FILE_CLOSE_FAILED,    {CRITICAL, "Error in closing the file"}},
+
+
 
     // Unknown session error
     {ERR_SESS_UNKNOWN,                   {CRITICAL, "Unknown Session Error"} }

@@ -208,6 +208,7 @@ void SrvSessMgr::srvUploadStart()
   std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
 
 
+
   // Check whether a file with the same name of the one to be uploaded already exists in the
   // client's storage pool, loading in such case its information into the '_locFileInfo' object
   try
@@ -217,6 +218,7 @@ void SrvSessMgr::srvUploadStart()
    }
   catch(sessErrExcp& locFileError)
    {
+    _locFileInfo = nullptr;
     if(locFileError.sesErrCode == ERR_SESS_FILE_READ_FAILED)
      fileNameAlreadyExists = false;
     else
@@ -225,74 +227,62 @@ void SrvSessMgr::srvUploadStart()
                                               " to upload already exists in their storage pool as a directory");
    }
 
-  // If a file with the same name of the one to be
-  // uploaded was found in the client's storage pool
+  // If the file to be uploaded is empty
+  if(_remFileInfo->meta->fileSizeRaw == 0)
+   {
+    // Touch the empty file in the client's storage pool
+    touchEmptyFile();
+
+    // Inform the client that the empty file has been successfully uploaded
+    sendSrvSessSignalMsg(COMPLETED);
+
+    LOG_INFO("[" + *_srvConnMgr._name + "] Uploaded empty file \"" + _remFileInfo->fileName + "\" in the storage pool")
+
+    // Reset the server session manager state and return
+    resetSrvSessState();
+    return;
+   }
+
+  // Otherwise, if a file with the same name of the one to
+  // be uploaded was found in the client's storage pool
   if(fileNameAlreadyExists)
    {
     // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS'
     // containing the local file name and metadata and send it to the client
     sendLocalFileInfo(FILE_EXISTS);
 
-    // Client confirmation is required for uploading the file
+    // Further client confirmation is required before uploading the file
     _srvSessMgrSubstate = WAITING_CLI_CONF;
 
     LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
-             "\" already existing in the storage pool, awaiting client confirmation")
+              "\" already existing in the storage pool, awaiting client confirmation")
 
     // TODO: Remove
     _locFileInfo->compareMetadata(_remFileInfo);
     fflush(stdout);
    }
 
-  // Otherwise, if a file with such name was not found in the client's storage pool
+  // Otherwise, if a file with the same name of the one to
+  // be uploaded was not found in the client's storage pool
   else
    {
-    // If the file to be uploaded is empty
-    if(_remFileInfo->meta->fileSizeRaw == 0)
-     {
-      // Touch the uploaded main file in the client's storage pool
-      std::ofstream upFile(*_mainFileAbsPath);
+    // Inform the client that a file with such name is not present in their
+    // storage pool, and that the server is now expecting its raw contents
+    sendSrvSessSignalMsg(FILE_NOT_EXISTS);
 
-      // Ensure the file to have been created successfully
-      if(!upFile)
-       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in creating the uploaded main file \""
-                                               + *_mainFileAbsPath + " \" (" + ERRNO_DESC + ")");
+    // Prepare the server session manager to receive the raw file contents
+    srvUploadSetRecvRaw();
 
-      // Close the uploaded main file
-      upFile.close();
-
-      // Change the new file last modified time the one provided by the client
-      mirrorRemLastModTime();
-
-      LOG_INFO("[" + *_srvConnMgr._name + "] Uploaded empty file \"" + _remFileInfo->fileName + "\" in the storage pool")
-
-      // Inform the client that the empty file has been successfully uploaded
-      sendSrvSessSignalMsg(COMPLETED);
-
-      // Reset the server session manager state
-      resetSrvSessState();
-     }
-
-    // Otherwise, if the file to be uploaded is NOT empty
-    else
-     {
-      // Inform the client that a file with the same name of the one to be uploaded is not
-      // present in their storage pool, and that the server now expects the file's raw contents
-      sendSrvSessSignalMsg(FILE_NOT_EXISTS);
-
-      // Prepare the server session manager to receive the raw file contents
-      srvUploadSetRecvRaw();
-
-      LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
-               "\" not existing in the storage pool, awaiting the file's raw data")
-     }
+    LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
+             "\" not existing in the storage pool, awaiting the raw file data")
    }
  }
 
+
 /**
- * @brief Prepares the server session manager to receive the
- *        raw contents of a file a client wants to upload
- * @throws ERR_INTERNAL_ERROR           Could not open the temporary file descriptor in write-byte mode
+ * @brief Prepares the server session manager to receive
+ *        the raw contents of a file to be uploaded
+ * @throws ERR_INTERNAL_ERROR            Could not open the temporary file descriptor in write-byte mode
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
@@ -304,17 +294,29 @@ void SrvSessMgr::srvUploadStart()
  */
 void SrvSessMgr::srvUploadSetRecvRaw()
  {
-  // Updating the 'UPLOAD' substate and set the associated
-  // connection manager's reception mode to 'RECV_RAW'
+  // Update the server's 'UPLOAD' sub-state so to expect raw data
   _srvSessMgrSubstate = WAITING_CLI_RAW_DATA;
+
+  // Set the reception mode of the associated connection manager to 'RECV_RAW'
   _srvConnMgr._recvMode = ConnMgr::RECV_RAW;
 
-  // Open the uploaded temporary file descriptor in write-byte mode
+  // Set the expected data block size in the associated
+  // connection manager to the size of the file to be received
+  _srvConnMgr._recvBlockSize = _remFileInfo->meta->fileSizeRaw;
+
+  // Initialize the number of raw bytes to be received to the file size
+  _bytesRem = _remFileInfo->meta->fileSizeRaw;
+
+  // Open the temporary file descriptor in write-byte mode
   _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
   if(!_tmpFileDscr)
    sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
                                            + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
+
+  // Initialize an AES_128_GCM decryption operation
+  _aesGCMMgr.decryptInit();
  }
+
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -422,6 +424,39 @@ void SrvSessMgr::srvSessMsgHandler()
                                                       + std::to_string(_srvSessMgrSubstate));
     break;
 
+   /* --------------------------------- 'CANCEL' Signaling Message --------------------------------- */
+
+   // A client cancellation notification is allowed only in the 'UPLOAD',
+   // 'DOWNLOAD' and 'DELETE' states with sub-state 'WAITING_CLI_CONF'
+   case CANCEL:
+
+    // Since after sending a 'CANCEL' message the client has supposedly reset its session
+    // state, in case such a message is received in an invalid state just log the error
+    // without notifying the client that an unexpected session message was received
+    if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD || _sessMgrState == DELETE)
+         && _srvSessMgrSubstate == WAITING_CLI_CONF))
+     LOG_WARNING("Client \"" + *_srvConnMgr._name + "\" cancelled an operation with the session manager in "
+                 "state '"+ currSessMgrStateToStr() + "', sub-state " + std::to_string(_srvSessMgrSubstate))
+
+    // Otherwise, if the 'CANCEL' message is valid, log the operation that was cancelled
+    else
+     {
+      if(_sessMgrState == UPLOAD)
+       LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file upload (file: \""
+                + _remFileInfo->fileName + "\", size: " + _remFileInfo->meta->fileSizeStr + ")")
+      else
+       if(_sessMgrState == DOWNLOAD)
+        LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file download (file: \""
+                 + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")")
+       else
+        LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file deletion (file: \""
+                 + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")")
+     }
+
+    // Reset the server session state and return
+    resetSrvSessState();
+    return;
+
    /* ------------------------------- 'COMPLETED' Signaling Message ------------------------------- */
 
    // A client completion notification is allowed only in:
@@ -437,26 +472,6 @@ void SrvSessMgr::srvSessMsgHandler()
                                                  " session message received in session state \"" + currSessMgrStateToStr() +
                                                  "\", sub-state " + std::to_string(_srvSessMgrSubstate));
      break;
-
-   /* --------------------------------- 'CANCEL' Signaling Message --------------------------------- */
-
-   // A client cancellation notification is allowed in any but the 'IDLE' state
-   case CANCEL:
-
-    // Since after sending a 'CANCEL' message the client has supposedly reset its session
-    // state, in case such a message is received in the 'IDLE' state just log the error
-    // without notifying the client that an unexpected session message was received
-    if(_sessMgrState == IDLE)
-     LOG_WARNING("Received a 'CANCEL' session message from client \"" + *_srvConnMgr._name + "\" with an idle session manager")
-    else
-
-     // If the 'CANCEL' message is allowed, log the operation that was cancelled
-     LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled its " + currSessMgrStateToStr() + " operation")
-
-     // Reset the server session state and return
-     resetSrvSessState();
-     return;
-    break;
 
    /* ---------------------------------- 'BYE' Signaling Message ---------------------------------- */
 
@@ -516,10 +531,3 @@ void SrvSessMgr::srvSessMsgHandler()
 }
 
 
-// TODO: Placeholder implementation
-void SrvSessMgr::recvRaw(size_t recvBytes)
- {
-  _srvConnMgr.clearPriBuf();
-
-  std::cout << "In recvRaw()" << std::endl;
- }

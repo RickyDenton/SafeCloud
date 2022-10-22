@@ -110,9 +110,9 @@ class CliSessMgr : public SessMgr
     *                  2.2) If the file to be uploaded has the same size and last modified time of
     *                       the one in the storage pool, or the latter was more recently modified,
     *                       ask for user confirmation on whether the upload operation should continue
-    *            3) If the SafeCloud server has reported that the empty file to be uploaded did not exist as so was
-    *               successfully added to the user's storage pool, inform the user that the upload operation has completed
-    * @return A boolean indicating on whether the file upload operation should continue
+    *            3) If the SafeCloud server has reported that the empty file has been
+    *               uploaded successfully, inform the user of the success of the operation
+    * @return A boolean indicating whether the file raw contents should be uploaded to the SafeCloud server
     * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
     * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
     *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received

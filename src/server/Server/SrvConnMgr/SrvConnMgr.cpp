@@ -90,6 +90,82 @@ void SrvConnMgr::recvHandleData()
  {
   try
    {
+    if(_recvMode == RECV_MSG)
+     {
+      if(!recvMsgData())
+       return;
+      else
+       {
+        // If the connection is in the STSM Key establishment phase
+        if(_connPhase == KEYXCHANGE)
+         {
+          // Call the child SrvSTSMMgr object message handler and, if it returns
+          // that the key establishment protocol has completed successfully
+          if(_srvSTSMMgr->STSMMsgHandler())
+           {
+            // Delete the SrvSTSMMgr child object
+            delete _srvSTSMMgr;
+            _srvSTSMMgr = nullptr;
+
+            // Instantiate the SrvSessMgr child object
+            _srvSessMgr = new SrvSessMgr(*this);
+
+            // Switch the connection to the SESSION phase
+            _connPhase = SESSION;
+           }
+         }
+
+        // Otherwise if the connection is in the session phase,
+        // call the child SrvSessMgr object message handler
+        else
+          _srvSessMgr->srvSessMsgHandler();
+
+        // Reset the index of the most significant
+        // byte in the primary connection buffer
+        _priBufInd = 0;
+
+        // If the reception mode is still 'RECV_MSG', reset
+        // the expected size of the message  to be received
+        if(_recvMode == RECV_MSG)
+         _recvBlockSize = 0;
+       }
+      }
+
+    // Otherwise, if the connection manager is in the RECV_RAW
+    else
+     if(_recvMode == RECV_RAW)
+      {
+       // Ensure the connection to be in the session phase and the
+       // SrvSessMgr child object to have been instantiated
+       if(_connPhase != SESSION || _srvSessMgr == nullptr)
+        THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,"RECV_RAW mode set in the STSM Key establishment phase");
+
+       _srvSessMgr->recvRawHandler(recvRaw());
+
+       /*
+       // Read raw data from the connection socket
+       size_t recvBytes = recvData();
+
+       // Call the child SrvSessMgr object raw data handler passing the
+       // number of bytes that have been read from the connection socket
+       _srvSessMgr->recvRaw(recvBytes);
+       */
+
+      }
+   }
+  catch(execErrExcp& recvExcp)
+   {
+    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_CLI_DISCONNECTED error code
+    if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
+     recvExcp.exErrcode = ERR_CLI_DISCONNECTED;
+
+    // Rethrow the exception
+    throw;
+   }
+ }
+
+
+
     /*
      * If the connection manager is in the RECV_MSG mode and a
      * complete message has been read in the primary connection buffer
@@ -97,6 +173,8 @@ void SrvConnMgr::recvHandleData()
      * NOTE: In RECV_MSG mode, if the message being received
      *       is incomplete no other action is performed
      */
+
+ /*
     if(_recvMode == RECV_MSG && recvData())
      {
       // If the connection is in the STSM Key establishment phase
@@ -154,3 +232,4 @@ void SrvConnMgr::recvHandleData()
     throw;
    }
  }
+ */

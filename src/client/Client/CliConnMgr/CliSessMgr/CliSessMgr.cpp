@@ -331,9 +331,9 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
  *                  2.2) If the file to be uploaded has the same size and last modified time of
  *                       the one in the storage pool, or the latter was more recently modified,
  *                       ask for user confirmation on whether the upload operation should continue
- *            3) If the SafeCloud server has reported that the empty file to be uploaded did not exist as so was
- *               successfully added to the user's storage pool, inform the user that the upload operation has completed
- * @return A boolean indicating on whether the file upload operation should continue
+ *            3) If the SafeCloud server has reported that the empty file has been
+ *               uploaded successfully, inform the user of the success of the operation
+ * @return A boolean indicating whether the file raw contents should be uploaded to the SafeCloud server
  * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
  * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
  *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received
@@ -343,11 +343,10 @@ bool CliSessMgr::parseUploadResponse()
   // Depending on the 'FILE_UPLOAD_REQ' response message type:
   switch(_recvSessMsgType)
    {
-    // If the SafeCloud server has reported that a file with the same name of the one to be
-    // uploaded does not exist in the user's storage pool, proceed in uploading the file
+    // If the SafeCloud server has reported that a file with the same name of the one to be uploaded
+    // does not exist in the user's storage pool, return that the file raw contents should be uploaded
     case FILE_NOT_EXISTS:
      return true;
-
 
     // If the SafeCloud server has reported that a file with the same name
     // of the one to be uploaded already exists in the user's storage pool
@@ -357,8 +356,8 @@ bool CliSessMgr::parseUploadResponse()
      // in the user's storage pool with the same name of the one to be uploaded
      loadRemFileInfo();
 
-     // If the file to be uploaded was more recently modified than the
-     // one in the storage pool, directly proceed in uploading the file
+     // If the file to be uploaded was more recently modified than the one in
+     // the storage pool, return that the file raw contents should be uploaded
      if(_locFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
       return true;
 
@@ -381,7 +380,7 @@ bool CliSessMgr::parseUploadResponse()
          // Confirm the upload operation to the SafeCloud server
          sendCliSessSignalMsg(CONFIRM);
 
-         // Return that the upload operation must proceed
+         // Return that the file raw contents should be uploaded
          return true;
         }
 
@@ -391,7 +390,7 @@ bool CliSessMgr::parseUploadResponse()
          // Notify the operation cancellation to the server
          sendCliSessSignalMsg(CANCEL);
 
-         // Return that the upload operation must NOT proceed
+         // Return the file raw contents should NOT be uploaded
          return false;
         }
       }
@@ -413,7 +412,7 @@ bool CliSessMgr::parseUploadResponse()
          // Confirm the upload operation to the SafeCloud server
          sendCliSessSignalMsg(CONFIRM);
 
-         // Return that the upload operation must proceed
+         // Return that the file raw contents should be uploaded
          return true;
         }
 
@@ -423,14 +422,12 @@ bool CliSessMgr::parseUploadResponse()
          // Notify the operation cancellation to the server
          sendCliSessSignalMsg(CANCEL);
 
-         // Return that the upload operation must NOT proceed
+         // Return the file raw contents should NOT be uploaded
          return false;
         }
       }
 
-
-    // If the SafeCloud server has reported that the empty file to be uploaded
-    // did not exist as so was successfully added to the user's storage pool
+    // If the SafeCloud server has reported that the empty file has been uploaded successfully
     case COMPLETED:
 
      // Ensure the file that was uploaded to be in fact empty, where, since
@@ -442,10 +439,10 @@ bool CliSessMgr::parseUploadResponse()
                       "The server reported to have completed an upload operation of a non-empty file without actually receiving"
                       "its data (file: \"" + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")");
 
-     // Inform the user that the file has been successfully uploaded to the SafeCloud server
-     std::cout << "\nFile \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
+     // Inform the user that the file has been successfully uploaded to their storage pool
+     std::cout << "\nEmpty file \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
 
-     // Return that the upload operation must NOT proceed, as it has completed
+     // As the file was empty, return that its raw contents should NOT be uploaded
      return false;
 
 
@@ -454,7 +451,7 @@ bool CliSessMgr::parseUploadResponse()
     default:
      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
                           std::to_string(_recvSessMsgType) + "as a 'FILE_UPLOAD_REQ' response");
-     // Unnecessary, just silences a warning
+     // [Unnecessary, just silences a warning]
      return false;
    }
  }
@@ -525,21 +522,37 @@ void CliSessMgr::uploadFile(std::string& filePath)
   // name and metadata of the file to be uploaded and send it to the SafeCloud server
   sendLocalFileInfo(FILE_UPLOAD_REQ);
 
-  LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (target file = \"" + *_mainFileAbsPath + "\", size = " + _locFileInfo->meta->fileSizeStr + ")")
+  LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (target file = \""
+            + *_mainFileAbsPath + "\", size = " + _locFileInfo->meta->fileSizeStr + ")")
 
-  // Update the client session manager substate to 'WAITING_FILE_STATUS'
+  // Update the client session manager sub-state so to expect a 'FILE_UPLOAD_REQ' response
   _cliSessMgrSubstate = WAITING_FILE_STATUS;
 
   // Block until the 'FILE_UPLOAD_REQ' response is received from the SafeCloud server
   recvCheckCliSessMsg();
 
-  // Parse the received response, obtaining an indication
-  // on whether the file upload should continue
+  // Parse the 'FILE_UPLOAD_REQ' response, obtaining an indication on whether
+  // the file raw contents should be uploaded to the SafeCloud server
   if(!parseUploadResponse())
    return;
 
-  // Upload the file to the server
-  sendRawFile();
+  // Send the file raw contents to the SafeCloud server
+  sendMainFile();
+
+  // Update the client session manager sub-state so to expect the server completion notification
+  _cliSessMgrSubstate = WAITING_SRV_COMPL;
+
+  // Block until the supposed server completion notification has been received
+  recvCheckCliSessMsg();
+
+  // Ensure that the server completion notification was received
+  if(_recvSessMsgType != COMPLETED)
+   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                                                    std::to_string(_recvSessMsgType) +
+                                                    " while awaiting for the server's 'UPLOAD' completion");
+
+  // Inform the user that the file has been successfully uploaded to their storage pool
+  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
  }
 
 

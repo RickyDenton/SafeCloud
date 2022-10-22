@@ -93,15 +93,31 @@ class SessMgr
 
 
    /**
-    * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main local file
+    * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main file
     * @param  fileAbsPath The absolute path of the local file whose last modification time is to be changed
-    * @throws ERR_SESS_INTERNAL_ERROR NULL '_mainFileAbsPath' or '_remFileInfo' attributes,
-    *                                 or error in mirroring the last modified time
+    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
     */
    void mirrorRemLastModTime();
 
+   /**
+    * @brief  Deletes if present the empty file in the main directory referred by the
+    *         '_mainFileAbsPath' and '_locFileInfo' attributes, for then touching it and
+    *         setting its last modified time to the one referred by the '_remFileInfo' object
+    * @note   If present the file is preliminarily deleted from the main
+    *         directory for the purposes of updating its creation time
+    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+    * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the main file
+    * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the main file
+    * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the main file
+    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
+    */
+   void touchEmptyFile();
+
    // TODO: Placeholder implementation
-   void sendRawFile();
+   void sendMainFile();
+
+
 
    /* ------------------------------ Utility Methods ------------------------------ */
 
@@ -216,7 +232,8 @@ class SessMgr
 
 
   // TODO: Placeholder implementation
-  void recvRaw(size_t recvBytes);
+  void recvRawHandler(size_t recvBytes);
+
 
  };
 

@@ -128,6 +128,9 @@ void ConnMgr::sendData(unsigned int numBytes)
       LOG_WARNING("send() sent 0 bytes (numBytes = " + std::to_string(numBytes)
                   + ", _priBufInd = " + std::to_string(_priBufInd) + ")")
    } while(_priBufInd != numBytes);
+
+  // Reset the index of the most significant byte in the primary connection buffer
+  _priBufInd = 0;
  }
 
 
@@ -154,6 +157,118 @@ void ConnMgr::sendMsg()
  }
 
 
+
+
+bool ConnMgr::recvMsgLength()
+ {
+  // Connection socket recv() return, representing, if no error has occurred, the
+  // number of bytes read from the connection socket into the primary connection buffer
+  ssize_t recvRet;
+
+  // Ensure the connection manager to be in the RECV_MSG reception mode
+  if(_recvMode != RECV_MSG)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
+
+  clearPriBuf();
+
+  // Attempt to read 2 bytes from the connection socket into the primary connection
+  // buffer, representing the length of a received message
+  recvRet = recv(_csk, &_priBuf[0], 2, MSG_WAITALL);
+
+  // Depending on the recv() return
+  switch(recvRet)
+   {
+    // recv() FATAL error
+    case -1:
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+
+    // Abrupt peer disconnection
+    case 0:
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
+
+    // Message length read
+    case 2:
+
+     // Update the number of significant bytes in the primary connection buffer
+     _priBufInd += recvRet;
+
+     // Set message length
+     _recvBlockSize = ((uint16_t*)_priBuf)[0];
+
+     // Check message length value
+     if(_recvBlockSize < 3)
+      LOG_ERROR("_recvBlockSize == " + std::to_string(_recvBlockSize) + " < 3")
+     break;
+
+    default:
+     LOG_ERROR("UNEXPECTED recvRet() return" + std::to_string(recvRet))
+   }
+ }
+
+
+bool ConnMgr::recvMsgData()
+ {
+  // Ensure the connection manager to be in the RECV_MSG reception mode
+  if(_recvMode != RECV_MSG)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
+
+  // Message length missing
+  if(_recvBlockSize == 0)
+   recvMsgLength();
+
+  recvRaw();
+
+  if(_recvBlockSize == _priBufInd)
+   return true;
+  else
+   {
+    if(_priBufSize == _priBufInd)
+     LOG_ERROR("MESSAGE BUFFER FULL")
+    return false;
+   }
+ }
+
+
+
+unsigned int ConnMgr::recvRaw()
+ {
+  if(_recvBlockSize == 0)
+   LOG_ERROR("UNKNOWN MAX RECEIVE SIZE")
+
+  // Connection socket recv() return, representing, if no error has occurred, the
+  // number of bytes read from the connection socket into the primary connection buffer
+  ssize_t recvRet;
+
+  // Maximum number of bytes that can be read from the connection socket
+  // into the primary connection buffer in this recvData() execution
+  size_t maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
+
+  // Attempt to read raw data
+  // Attempt to read the remaining bytes from the connection socket into the primary connection buffer
+  recvRet = recv(_csk, &_priBuf[_priBufInd], maxReadBytes, 0);
+
+  // Depending on the recv() return
+  switch(recvRet)
+   {
+    // recv() FATAL error
+    case -1:
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+
+    // Abrupt peer disconnection
+    case 0:
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
+
+    // > 0 => recvRet = number of bytes read from the connection socket (<= maxReadBytes)
+    default:
+
+     // Update the number of significant bytes in the primary connection buffer
+     _priBufInd += recvRet;
+     return recvRet;
+   }
+ }
+
+
+
 /**
  * @brief Blocks until a full message has been read from the
  *        connection socket into the primary communication buffer
@@ -162,11 +277,40 @@ void ConnMgr::sendMsg()
  * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
  * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
  */
-void ConnMgr::recvMsg()
+void ConnMgr::recvFullMsg()
  {
   // Ensure the connection manager to be in the RECV_MSG reception mode
   if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,"Attempting to receive a message in RECV_RAW mode");
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
+
+  recvMsgLength();
+
+  do
+   {
+    recvRaw();
+
+    if(_recvBlockSize != _priBufInd && _priBufSize == _priBufInd)
+     LOG_ERROR("MESSAGE BUFFER FULL")
+
+   } while(_recvBlockSize != _priBufInd);
+
+ }
+
+
+
+
+
+
+
+/*
+
+  // Attempt to read 2 bytes from the connection socket into the primary connection
+  // buffer,
+
+  // Attempt to read up to the maximum allowed bytes from the connection socket
+  // into the primary connection buffer, blocking if no data is available
+  recvRet = recv(_csk, _priBuf, maxReadBytes, 0);
+
 
   // Block and read data from the connection socket into the primary
   // communication buffer until a complete message has been read
@@ -174,6 +318,7 @@ void ConnMgr::recvMsg()
    ;
  }
 
+*/
 
 /**
  * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
@@ -208,9 +353,19 @@ size_t ConnMgr::recvData()
    *    (so to prevent reading data belonging to the next data block)
    */
   if(_recvBlockSize == 0)
-   maxReadBytes = (_priBufSize - _priBufInd);
+   {
+    maxReadBytes = (_priBufSize - _priBufInd);
+    std::cout << "_recvBlockSize == 0" << std::endl;
+    std::cout << "_priBufSize = " << _priBufSize << std::endl;
+    std::cout << "_priBufInd = " << _priBufInd << std::endl;
+   }
   else
-   maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
+   {
+    maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
+    std::cout << "_recvBlockSize = " << _recvBlockSize << std::endl;
+    std::cout << "_priBufSize = " << _priBufSize << std::endl;
+    std::cout << "_priBufInd = " << _priBufInd << std::endl;
+   }
 
   // Attempt to read up to the maximum allowed bytes from the connection socket
   // into the primary connection buffer, blocking if no data is available

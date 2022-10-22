@@ -107,6 +107,15 @@ void AESGCMMgr::encryptAddAAD(unsigned char* aadAddr, int aadSize)
   if(aadSize <= 0)
    THROW_EXEC_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "aadSize = " + std::to_string(aadSize));
 
+  /*
+  // LOG: AAD Block in hexadecimal
+  char aadBlockHex[(aadSize*2)+1];
+  for(int i = 0; i < aadSize; i++)
+   sprintf(aadBlockHex + 2 * i, "%.2x",aadAddr[i]);
+  aadBlockHex[2 * aadSize] = '\0';
+  printf("aadBlockHex = %s\n",aadBlockHex);
+  */
+
   // Set the encryption AAD block
   if(EVP_EncryptUpdate(_aesGcmCTX, NULL, &_sizeTot, aadAddr, aadSize) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_UPDATE, OSSL_ERR_DESC);
@@ -265,6 +274,15 @@ void AESGCMMgr::decryptAddAAD(unsigned char* aadAddr, int aadSize)
   if(aadSize <= 0)
    THROW_EXEC_EXCP(ERR_NON_POSITIVE_BUFFER_SIZE, "aadSize = " + std::to_string(aadSize));
 
+  /*
+  // LOG: AAD Block in hexadecimal
+  char aadBlockHex[(aadSize*2)+1];
+  for(int i = 0; i < aadSize; i++)
+   sprintf(aadBlockHex + 2 * i, "%.2x",aadAddr[i]);
+  aadBlockHex[2 * aadSize] = '\0';
+  printf("aadBlockHex = %s\n",aadBlockHex);
+  */
+
   // Set the decryption AAD block
   if(EVP_DecryptUpdate(_aesGcmCTX, NULL, &_sizeTot, aadAddr, aadSize) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_UPDATE, OSSL_ERR_DESC);
@@ -366,7 +384,10 @@ int AESGCMMgr::decryptFinal(unsigned char* tagAddr)
   // Finalize the decryption operation by validating the integrity
   // of the resulting plaintext against the expected integrity tag
   if(EVP_DecryptFinal(_aesGcmCTX, NULL, &_sizePart) <= 0)
-   THROW_SESS_EXCP(ERR_OSSL_DECRYPT_VERIFY_FAILED,OSSL_ERR_DESC);
+   {
+    ERR_print_errors_fp(stderr);
+    THROW_SESS_EXCP(ERR_OSSL_DECRYPT_VERIFY_FAILED, OSSL_ERR_DESC);
+   }
 
   // Decryption operation resulting plaintext size (AAD included)
   int ptSize = _sizeTot + _sizePart;
