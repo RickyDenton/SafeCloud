@@ -347,9 +347,6 @@ void SrvSessMgr::resetSrvSessState()
  }
 
 
-
-
-
 /**
  * @brief  Server Session message handler, which:\name
  *            1) Unwraps a received session message wrapper from

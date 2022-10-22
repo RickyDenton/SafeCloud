@@ -202,7 +202,7 @@ void SessMgr::sendMainFile()
 
   do
    {
-    freadRet = fread(_connMgr._secBuf, 1, _connMgr._secBufSize, _mainFileDscr);
+    freadRet = fread(_connMgr._secBuf, sizeof(char), _connMgr._secBufSize, _mainFileDscr);
 
     // Error condition
     if(freadRet < _connMgr._secBufSize && ferror(_mainFileDscr))
@@ -252,9 +252,7 @@ void SessMgr::recvRawHandler(size_t recvBytes)
     // Decrypt the wrapped session message from the primary into the secondary connection buffer
     _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[0], (int)recvBytes, &_connMgr._secBuf[0]);
 
-    fwriteRet = fwrite(_connMgr._secBuf, 1, recvBytes, _tmpFileDscr);
-
-    std::cout << "fwriteRet = " << fwriteRet << std::endl;
+    fwriteRet = fwrite(_connMgr._secBuf, sizeof(char), recvBytes, _tmpFileDscr);
 
     // Error condition
     if(fwriteRet < recvBytes)
@@ -294,17 +292,16 @@ void SessMgr::recvRawHandler(size_t recvBytes)
    // TAG ready
    else
     {
-     std::cout << "in TAG READY!" << std::endl;
-
      // Finalize the decryption by verifying the session wrapper's integrity tag
      _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
 
-     std::cout << "After decryptFinal()!" << std::endl;
+     std::cout << "FILE TAG VERIFIED!" << std::endl;
 
-
+     // Close and reset the temporary file descriptor
      fclose(_tmpFileDscr);
      _tmpFileDscr = nullptr;
 
+     // Move the temporary file to the main file
      if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
       LOG_ERROR("RENAME ERROR: " +  std::string(strerror(errno)))
 

@@ -196,13 +196,13 @@ void FileInfo::compareMetadata(FileInfo* remFileInfo) const
   printf("\n");
 
   // Print the files' metadata legend
-  std::cout << "        SIZE    LAST MODIFIED      CREATION TIME "  << std::endl;
-  std::cout << "       -------------------------------------------" << std::endl;
+  std::cout << "        SIZE     LAST MODIFIED      CREATION TIME "  << std::endl;
+  std::cout << "       --------------------------------------------" << std::endl;
 
   /* -------------------------- Local File Metadata -------------------------- */
 
   // Print the local file table header
-  std::cout << "LOCAL ";
+  std::cout << "LOCAL  ";
 
   // Print the local file size, in bold if it is
   // greater or equal than the remote file size
@@ -227,7 +227,7 @@ void FileInfo::compareMetadata(FileInfo* remFileInfo) const
   /* ------------------------- Remote File Metadata ------------------------- */
 
   // Print the remote file table header
-  std::cout << "REMOTE";
+  std::cout << "REMOTE ";
 
   // Print the remote file size, in bold if it is
   // greater or equal than the local file size
