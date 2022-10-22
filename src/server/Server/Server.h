@@ -163,20 +163,20 @@ class Server
     * @brief  Returns whether the server has started listening on its listening socket
     * @return 'true' if it is listening, 'false' otherwise
     */
-  bool isStarted();
+  bool isStarted() const;
 
   /**
    * @brief  Returns whether the server is currently connected with at least one client
    * @return 'true' if connected with at least one client, 'false' otherwise
    */
-  bool isConnected();
+  bool isConnected() const;
 
   /**
     * @brief   Returns whether the server object has been instructed
     *          to gracefully close all connections and terminate
     * @return 'true' if the server object is shutting down, 'false' otherwise
     */
-  bool isShuttingDown();
+  bool isShuttingDown() const;
 
   // TODO
   // void serverBody();

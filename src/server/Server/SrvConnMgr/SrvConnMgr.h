@@ -33,9 +33,22 @@ class SrvConnMgr : public ConnMgr
     SrvSessMgr*        _srvSessMgr;
 
 
-   /* =============================== FRIEND CLASSES =============================== */
-   friend class SrvSTSMMgr;
-   friend class SrvSessMgr;
+    /* =============================== FRIEND CLASSES =============================== */
+    friend class SrvSTSMMgr;
+    friend class SrvSessMgr;
+
+    /* ============================== PRIVATE METHODS ============================== */
+
+    /**
+     * @brief  Reads data belonging to a SafeCloud message (STSMMsg or SessMsg)
+     *         from the connection socket into the primary connection buffer
+     * @return Whether a complete SafeCloud message has
+     *         been received in the primary connection buffer
+     * @throws ERR_CSK_RECV_FAILED    Error in receiving data from the connection socket
+     * @throws ERR_PEER_DISCONNECTED  The connection peer has abruptly disconnected
+     * @throws ERR_MSG_LENGTH_INVALID Received an invalid message length value
+     */
+    bool srvRecvMsgData();
 
   public:
 
@@ -73,19 +86,21 @@ class SrvConnMgr : public ConnMgr
   SrvSessMgr* getSession();
 
   /**
-   * @brief  Reads data from the manager's connection socket and:\n
-   *           - ConnMgr in RECV_MSG mode: If a complete message has been read, depending on the connection state the
-   *                                       message handler of the srvSTSMMgr or srvSessMgr child object is invoked\n
-   *           - ConnMgr in RECV_RAW mode: The raw data handler of the srvSessMgr child object is invoked\n
-   * @note:  In RECV_MSG mode, if the message being received is incomplete no other action is performed
-   * @throws ERR_CSK_RECV_FAILED  Error in receiving data from the connection socket
-   * @throws ERR_CLI_DISCONNECTED The client has abruptly disconnected
-   * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive raw data with the
-   *                                   connection in the STSM key establishment phase
+   * @brief  SafeCloud client data general handler, which depending on the connection manager's reception mode:\n
+   *            - RECV_MSG: Reads bytes belonging to a SafeCloud message into the primary connection
+   *                        buffer, calling, depending on the connection state, the associated
+   *                        STSMMsg or SessMsg handler if a full message has been received.\n
+   *            - RECV_RAW: Reads bytes belonging to the same data block into the primary\n
+   *                        connection buffer and passes them to the session raw reception handler
+   * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
+   * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+   * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
+   * @throws ERR_CONNMGR_INVALID_STATE The connection manager is in the 'RECV_RAW'
+   *                                   mode in the STSM Key establishment phase
    * @throws All of the STSM, session, and most of the OpenSSL exceptions
    *         (see "execErrCode.h" and "sessErrCodes.h" for more details)
    */
-  void recvHandleData();
+  void srvRecvHandleData();
  };
 
 

@@ -13,6 +13,8 @@
 
 /* ============================== PROTECTED METHODS ============================== */
 
+/* ------------------------------- Utility Methods ------------------------------- */
+
 /**
  * @brief Deletes the contents of the connection's temporary directory
  *        (called within the connection manager's destructor)
@@ -57,8 +59,6 @@ void ConnMgr::cleanTmpDir()
  }
 
 
-/* ---------------------------------- Data I/O ---------------------------------- */
-
 /**
  * @brief Marks the contents of the primary connection buffer as consumed,
  *        resetting the index of its first significant byte and the
@@ -71,6 +71,97 @@ void ConnMgr::clearPriBuf()
  }
 
 
+/* ----------------------- SafeCloud Messages Send/Receive ----------------------- */
+
+/**
+ * @brief Sends a SafeCloud message (STSMMsg or SessMsg) stored in
+ *        the primary connection buffer to the connection peer
+ * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED       send() fatal error
+ */
+void ConnMgr::sendMsg()
+ {
+  // Determine the message's length as the first 16 bits of the primary communication
+  // buffer (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
+  uint16_t msgLen = ((uint16_t*)_priBuf)[0];
+
+  // Send the message to the connection peer
+  sendRaw(msgLen);
+
+  // Reset the index of the first significant byte of the primary connection
+  // buffer as well as the expected size of the data block to be received
+  clearPriBuf();
+
+  LOG_DEBUG("Sent message of " + std::to_string(msgLen) + " bytes")
+ }
+
+
+/**
+ * @brief  Blocks until a SafeCloud message length header of MSG_LEN_HEAD_SIZE bytes (2)
+ *         is received from the connection socket into the primary connection buffer
+ * @throws ERR_CSK_RECV_FAILED    Error in receiving data from the connection socket
+ * @throws ERR_PEER_DISCONNECTED  The connection peer has abruptly disconnected
+ * @throws ERR_MSG_LENGTH_INVALID Received an invalid message length value
+ */
+void ConnMgr::recvMsgLenHeader()
+ {
+  // Connection socket recv() return, representing, if no error has occurred, the
+  // number of bytes read from the connection socket into the primary connection buffer
+  ssize_t recvRet;
+
+  // Reset the index of the first significant byte of the primary connection
+  // buffer as well as the expected size of the data block to be received
+  clearPriBuf();
+
+  // Block until a message length header is received from the
+  // connection socket into the primary connection buffer
+  recvRet = recv(_csk, &_priBuf[0], MSG_LEN_HEAD_SIZE, MSG_WAITALL);
+
+  // Depending on the recv() return
+  switch(recvRet)
+   {
+    /* ------------------ recv() error ------------------ */
+    case -1:
+
+     // If the peer abruptly disconnected
+     if(errno == ECONNRESET)
+      THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
+
+     // Otherwise it is a recv() FATAL error
+     else
+      THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+
+    /* ------------ Abrupt peer disconnection ------------ */
+    case 0:
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
+
+    /* ----------- Message length header read ----------- */
+    // Message length header read
+    case MSG_LEN_HEAD_SIZE:
+
+     // Update the number of significant bytes in the primary connection buffer
+     _priBufInd += MSG_LEN_HEAD_SIZE;
+
+     // Set the expected size of the message to be received to the message length header
+     _recvBlockSize = ((uint16_t*)_priBuf)[0];
+
+     // Assert the message length to be valid, i.e. to be larger than a message
+     // length header but not larger than the whole primary connection buffer
+     if(_recvBlockSize < MSG_LEN_HEAD_SIZE + 1 || _recvBlockSize > _priBufSize)
+      THROW_EXEC_EXCP(ERR_MSG_LENGTH_INVALID, std::to_string(_recvBlockSize));
+     break;
+
+    /* ---------- Invalid number of bytes read ---------- */
+    default:
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED,"recv() returned " + std::to_string(recvRet) +
+                                         " != " + std::to_string(MSG_LEN_HEAD_SIZE) +
+                                         " bytes in receiving a message length header");
+   }
+ }
+
+
+/* ---------------------------- Raw Data Send/Receive ---------------------------- */
+
 /**
  * @brief Sends bytes from the start of the primary connection buffer to the connection peer
  * @param numBytes The number of bytes to be sent (must be <= _priBufSize)
@@ -78,7 +169,7 @@ void ConnMgr::clearPriBuf()
  * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED       send() fatal error
  */
-void ConnMgr::sendData(unsigned int numBytes)
+void ConnMgr::sendRaw(unsigned int numBytes)
  {
   // Connection socket send() return, representing, if no error has occurred, the number
   // of bytes read sent from the primary connection buffer through the connection socket
@@ -135,280 +226,71 @@ void ConnMgr::sendData(unsigned int numBytes)
 
 
 /**
- * @brief Sends a message stored in the primary communication buffer, with
- *        its first 16 bits representing its size, to the connection peer
- * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
- * @throws ERR_SEND_FAILED       send() fatal error
+ * @brief  Blocks until any number of bytes belonging to the data block to be received (message
+ *         or raw) are read from the connection socket into the primary connection buffer
+ * @return The number of bytes read from the connection socket into the primary connection buffer
+ * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is not known
+ * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
+ * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
  */
-void ConnMgr::sendMsg()
- {
-  // Determine the message's size as the first 16 bits of the primary communication
-  // buffer (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
-  uint16_t msgSize = ((uint16_t*)_priBuf)[0];
-
-  // Send the message to the connection peer
-  sendData(msgSize);
-
-  // Reset the index of the first significant byte of the primary connection
-  // buffer as well as the expected size of the data block to be received
-  clearPriBuf();
-
-  LOG_DEBUG("Sent message of " + std::to_string(msgSize) + " bytes")
- }
-
-
-
-
-bool ConnMgr::recvMsgLength()
- {
-  // Connection socket recv() return, representing, if no error has occurred, the
-  // number of bytes read from the connection socket into the primary connection buffer
-  ssize_t recvRet;
-
-  // Ensure the connection manager to be in the RECV_MSG reception mode
-  if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
-
-  clearPriBuf();
-
-  // Attempt to read 2 bytes from the connection socket into the primary connection
-  // buffer, representing the length of a received message
-  recvRet = recv(_csk, &_priBuf[0], 2, MSG_WAITALL);
-
-  // Depending on the recv() return
-  switch(recvRet)
-   {
-    // recv() FATAL error
-    case -1:
-     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
-
-    // Abrupt peer disconnection
-    case 0:
-     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
-
-    // Message length read
-    case 2:
-
-     // Update the number of significant bytes in the primary connection buffer
-     _priBufInd += recvRet;
-
-     // Set message length
-     _recvBlockSize = ((uint16_t*)_priBuf)[0];
-
-     // Check message length value
-     if(_recvBlockSize < 3)
-      LOG_ERROR("_recvBlockSize == " + std::to_string(_recvBlockSize) + " < 3")
-     break;
-
-    default:
-     LOG_ERROR("UNEXPECTED recvRet() return" + std::to_string(recvRet))
-   }
- }
-
-
-bool ConnMgr::recvMsgData()
- {
-  // Ensure the connection manager to be in the RECV_MSG reception mode
-  if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
-
-  // Message length missing
-  if(_recvBlockSize == 0)
-   recvMsgLength();
-
-  recvRaw();
-
-  if(_recvBlockSize == _priBufInd)
-   return true;
-  else
-   {
-    if(_priBufSize == _priBufInd)
-     LOG_ERROR("MESSAGE BUFFER FULL")
-    return false;
-   }
- }
-
-
-
 unsigned int ConnMgr::recvRaw()
  {
-  if(_recvBlockSize == 0)
-   LOG_ERROR("UNKNOWN MAX RECEIVE SIZE")
-
   // Connection socket recv() return, representing, if no error has occurred, the
   // number of bytes read from the connection socket into the primary connection buffer
   ssize_t recvRet;
 
   // Maximum number of bytes that can be read from the connection socket
-  // into the primary connection buffer in this recvData() execution
-  size_t maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
+  // into the primary connection buffer in this recvRaw() execution
+  size_t maxReadBytes;
 
-  // Attempt to read raw data
-  // Attempt to read the remaining bytes from the connection socket into the primary connection buffer
+  // Assert the expected data block size be known
+  if(_recvBlockSize == 0)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Expected data block size unknown in receiving raw data");
+
+  /*
+   * Determine the maximum number of bytes that can be read from the connection socket into the primary
+   * connection buffer as the minimum between:
+   *    - The difference between the size of the primary connection buffer and
+   *      the index of its first available byte (buffer overflow prevention)
+   *    - The difference between the expected data block size and the index of the first available byte
+   *      in the primary connection buffer (so to prevent reading bytes belonging to the next data block)
+   */
+  maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
+
+  // Block until any number of bytes up to 'maxReadBytes' are received from the
+  // connection socket to the first available byte in the primary connection buffer
   recvRet = recv(_csk, &_priBuf[_priBufInd], maxReadBytes, 0);
 
   // Depending on the recv() return
   switch(recvRet)
    {
-    // recv() FATAL error
+    /* ------------------ recv() error ------------------ */
     case -1:
-     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
 
-    // Abrupt peer disconnection
-    case 0:
-     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
+     // If the peer abruptly disconnected
+     if(errno == ECONNRESET)
+      THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
 
-    // > 0 => recvRet = number of bytes read from the connection socket (<= maxReadBytes)
-    default:
-
-     // Update the number of significant bytes in the primary connection buffer
-     _priBufInd += recvRet;
-     return recvRet;
-   }
- }
-
-
-
-/**
- * @brief Blocks until a full message has been read from the
- *        connection socket into the primary communication buffer
- * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive a message while the
- *                                   connection manager is in the RECV_RAW mode
- * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
- * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
- */
-void ConnMgr::recvFullMsg()
- {
-  // Ensure the connection manager to be in the RECV_MSG reception mode
-  if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
-
-  recvMsgLength();
-
-  do
-   {
-    recvRaw();
-
-    if(_recvBlockSize != _priBufInd && _priBufSize == _priBufInd)
-     LOG_ERROR("MESSAGE BUFFER FULL")
-
-   } while(_recvBlockSize != _priBufInd);
-
- }
-
-
-
-
-
-
-
-/*
-
-  // Attempt to read 2 bytes from the connection socket into the primary connection
-  // buffer,
-
-  // Attempt to read up to the maximum allowed bytes from the connection socket
-  // into the primary connection buffer, blocking if no data is available
-  recvRet = recv(_csk, _priBuf, maxReadBytes, 0);
-
-
-  // Block and read data from the connection socket into the primary
-  // communication buffer until a complete message has been read
-  while(!recvData())
-   ;
- }
-
-*/
-
-/**
- * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
- *         updating its number of significant bytes and, with the manager in RECV_MSG mode, the expected size of the
- *         message to be received, if such quantity is not already set
- * @return - ConnMgr in RECV_MSG mode: A boolean indicating whether a complete message\n
- *                                     has been received in the primary connection buffer\n
- *         - ConnMgr in RECV_RAW mode: The number of bytes read in the primary connection buffer
- * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
- * @throws ERR_PEER_DISCONNECTED The connection peer has abruptly disconnected
- */
-size_t ConnMgr::recvData()
- {
-  // Maximum number of bytes that can be read from the connection socket
-  // into the primary connection buffer in this recvData() execution
-  size_t maxReadBytes;
-
-  // Connection socket recv() return, representing, if no error has occurred, the
-  // number of bytes read from the connection socket into the primary connection buffer
-  ssize_t recvRet;
-
-  /*
-   * Determine the maximum number of bytes that can be read from the connection
-   * socket into the primary connection buffer in this recv() data execution as:
-   *
-   *  - If the expected size of the data block (message or raw) to be received is NOT known
-   *    (_recvBlockSize == 0), as the difference between the primary connection buffer's size
-   *    and the index of its first available byte (so to prevent buffer overflows)
-   *  - If the expected size of the data block (message or raw) to be received IS instead known,
-   *    as the minimum between the previous quantity and the difference between such expected
-   *    size and the index of the first available byte in the primary connection's buffer
-   *    (so to prevent reading data belonging to the next data block)
-   */
-  if(_recvBlockSize == 0)
-   {
-    maxReadBytes = (_priBufSize - _priBufInd);
-    std::cout << "_recvBlockSize == 0" << std::endl;
-    std::cout << "_priBufSize = " << _priBufSize << std::endl;
-    std::cout << "_priBufInd = " << _priBufInd << std::endl;
-   }
-  else
-   {
-    maxReadBytes = std::min((_priBufSize - _priBufInd), (_recvBlockSize - _priBufInd));
-    std::cout << "_recvBlockSize = " << _recvBlockSize << std::endl;
-    std::cout << "_priBufSize = " << _priBufSize << std::endl;
-    std::cout << "_priBufInd = " << _priBufInd << std::endl;
-   }
-
-  // Attempt to read up to the maximum allowed bytes from the connection socket
-  // into the primary connection buffer, blocking if no data is available
-  recvRet = recv(_csk, _priBuf, maxReadBytes, 0);
-
-  LOG_DEBUG(*_name + " recv() returned " + std::to_string(recvRet) + " (maxReadBytes = " + std::to_string(recvRet) + ")")
-
-  // Depending on the recv() return
-  switch(recvRet)
-   {
-    // recv() FATAL error
-    case -1:
-     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
-
-    // Abrupt peer disconnection
-    case 0:
-     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED, *_name);
-
-    // > 0 => recvRet = number of bytes read from the connection socket (<= maxReadBytes)
-    default:
-
-     // Update the number of significant bytes in the primary connection buffer
-     _priBufInd += recvRet;
-
-     // If the connection manager is in the RECV_MSG mode
-     if(_recvMode == RECV_MSG)
-      {
-       /*
-        * if the expected size of the data block (message or raw) to be received
-        * is NOT known, set it to first 16 bytes that have been just read
-        * (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
-        */
-       if(_recvBlockSize == 0)
-        _recvBlockSize = ((uint16_t*)_priBuf)[0];
-
-       // Return whether a complete message has been received in the primary connection buffer
-       return (_recvBlockSize == _priBufInd);
-      }
-
-     // Otherwise, if the connection manager is in the RECV_RAW mode, just
-     // return the bytes that have been read in the primary connection's buffer
+      // Otherwise it is a recv() FATAL error
      else
-      return recvRet;
+      THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+
+    /* ------------ Abrupt peer disconnection ------------ */
+    case 0:
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
+
+    /* ---------------- Valid bytes read ---------------- */
+
+    // recvRet > 0 => recvRet =  number of bytes
+    // read from the connection socket (<= maxReadBytes)
+    default:
+
+     // Update the number of significant bytes
+     // in the primary connection buffer
+     _priBufInd += recvRet;
+
+     // Return the number of bytes that were read
+     return recvRet;
    }
  }
 

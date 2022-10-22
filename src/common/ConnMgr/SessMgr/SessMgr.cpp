@@ -216,7 +216,7 @@ void SessMgr::sendMainFile()
       // Encrypt the raw file data from the secondary into the primary connection buffer
       _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)freadRet, &_connMgr._priBuf[0]);
 
-      _connMgr.sendData(freadRet);
+      _connMgr.sendRaw(freadRet);
 
       totBytesSent += freadRet;
      }
@@ -231,7 +231,7 @@ void SessMgr::sendMainFile()
   _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
 
   // send the TAG
-  _connMgr.sendData(AES_128_GCM_TAG_SIZE);
+  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
 
   std::cout << "sendMainFile() ended" << std::endl;
  }

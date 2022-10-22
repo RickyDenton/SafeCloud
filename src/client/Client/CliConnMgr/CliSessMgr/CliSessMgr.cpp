@@ -107,7 +107,7 @@ void CliSessMgr::recvCheckCliSessMsg()
 
   // Block the execution until a complete session message wrapper has
   // been received in the associated connection manager's primary buffer
-  _cliConnMgr.cliRecvMsg();
+  _cliConnMgr.cliRecvFullMsg();
 
   // Unwrap the received session message wrapper stored in the connection's primary
   // buffer into its associated session message in the connection's secondary buffer

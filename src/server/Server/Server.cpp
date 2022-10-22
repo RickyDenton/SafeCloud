@@ -221,12 +221,11 @@ void Server::newClientData(int ski)
   // Retrieve the pointer to the client's connection manager
   srvConnMgr = connIt->second;
 
-  // Pass the incoming client data to the SrvConnMgr object, which
-  // returns whether to maintain or close the client's connection
   try
    {
-    // Handle the incoming client data via the associated SrvConnMgr object
-    srvConnMgr->recvHandleData();
+    // Parse the incoming data via the client data general
+    // handler of the associated SrvConnMgr object
+    srvConnMgr->srvRecvHandleData();
 
     // Determine whether the client connection should be maintained or not
     keepCliConn = srvConnMgr->keepConn();
@@ -546,7 +545,7 @@ void Server::shutdownSignal()
   * @brief  Returns whether the server has started listening on its listening socket
   * @return 'true' if it is listening, 'false' otherwise
   */
-bool Server::isStarted()
+bool Server::isStarted() const
  { return _started; }
 
 
@@ -554,7 +553,7 @@ bool Server::isStarted()
  * @brief  Returns whether the server is currently connected with at least one client
  * @return 'true' if connected with at least one client, 'false' otherwise
  */
-bool Server::isConnected()
+bool Server::isConnected() const
  { return _connected; }
 
 
@@ -563,5 +562,5 @@ bool Server::isConnected()
   *          to gracefully close all connections and terminate
   * @return 'true' if the server object is shutting down, 'false' otherwise
   */
-bool Server::isShuttingDown()
+bool Server::isShuttingDown() const
  { return _shutdown; }

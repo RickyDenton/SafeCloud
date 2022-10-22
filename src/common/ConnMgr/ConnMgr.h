@@ -10,6 +10,10 @@
 #include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include <string>
 
+// The size in bytes of SafeCloud Message
+// (STSMMsg or Session Message) length header
+#define MSG_LEN_HEAD_SIZE 2
+
 class ConnMgr
  {
   protected:
@@ -88,24 +92,13 @@ class ConnMgr
 
    /* ============================== PROTECTED METHODS ============================== */
 
+   /* ------------------------------- Utility Methods ------------------------------- */
+
    /**
     * @brief Deletes the contents of the connection's temporary directory
     *        (called within the connection manager's destructor)
     */
    void cleanTmpDir();
-
-   /* ---------------------------------- Data I/O ---------------------------------- */
-
-   unsigned int recvRaw();
-
-   bool recvMsgData();
-
-   bool recvMsgLength();
-
-
-
-
-
 
    /**
     * @brief Marks the contents of the primary connection buffer as consumed,
@@ -114,6 +107,27 @@ class ConnMgr
     */
    void clearPriBuf();
 
+   /* ----------------------- SafeCloud Messages Send/Receive ----------------------- */
+
+   /**
+    * @brief Sends a SafeCloud message (STSMMsg or SessMsg) stored in
+    *        the primary connection buffer to the connection peer
+    * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED       send() fatal error
+    */
+   void sendMsg();
+
+   /**
+    * @brief  Blocks until a SafeCloud message length header of MSG_LEN_HEAD_SIZE bytes (2)
+    *         is received from the connection socket into the primary connection buffer
+    * @throws ERR_CSK_RECV_FAILED    Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED  The connection peer has abruptly disconnected
+    * @throws ERR_MSG_LENGTH_INVALID Received an invalid message length value
+    */
+   void recvMsgLenHeader();
+
+   /* ---------------------------- Raw Data Send/Receive ---------------------------- */
+
    /**
     * @brief Sends bytes from the start of the primary connection buffer to the connection peer
     * @param numBytes The number of bytes to be sent (must be <= _priBufSize)
@@ -121,37 +135,17 @@ class ConnMgr
     * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED       send() fatal error
     */
-  void sendData(unsigned int numBytes);
+   void sendRaw(unsigned int numBytes);
 
    /**
-    * @brief Sends a message stored in the primary communication buffer, with
-    *        its first 16 bits representing its size, to the connection peer
-    * @throws ERR_PEER_DISCONNECTED The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED       send() fatal error
-    */
-   void sendMsg();
-
-   /**
-    * @brief Blocks until a full message has been read from the
-    *        connection socket into the primary communication buffer
-    * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive a message while the
-    *                                   connection manager is in the RECV_RAW mode
+    * @brief  Blocks until any number of bytes belonging to the data block to be received (message
+    *         or raw) are read from the connection socket into the primary connection buffer
+    * @return The number of bytes read from the connection socket into the primary connection buffer
+    * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is not known
     * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
     * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
     */
-   void recvFullMsg();
-
-   /**
-    * @brief  Reads bytes belonging to a same data block from the connection socket into the primary connection buffer,
-    *         updating its number of significant bytes and, with the manager in RECV_MSG mode, the expected size of the
-    *         message to be received, if such quantity is not already set
-    * @return - ConnMgr in RECV_MSG mode: A boolean indicating whether a complete message\n
-    *                                     has been received in the primary connection buffer\n
-    *         - ConnMgr in RECV_RAW mode: The number of bytes read in the primary connection buffer
-    * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
-    * @throws ERR_PEER_DISCONNECTED The connection peer has abruptly disconnected
-    */
-   size_t recvData();
+   unsigned int recvRaw();
 
   public:
 

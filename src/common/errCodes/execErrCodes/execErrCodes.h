@@ -117,6 +117,7 @@ enum execErrCode : unsigned char
   ERR_PEER_DISCONNECTED,
   ERR_SEND_FAILED,
   ERR_SEND_OVERFLOW,
+  ERR_MSG_LENGTH_INVALID,
 
   // Files and Directories
   ERR_DIR_OPEN_FAILED,
@@ -316,8 +317,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_PEER_DISCONNECTED,        {WARNING,  "Abrupt peer disconnection"} },
     {ERR_SEND_FAILED,              {FATAL,    "Error in sending data on the connection socket"} },
     {ERR_SEND_OVERFLOW,            {FATAL,    "Attempting to send() more bytes than the primary connection buffer size"} },
-
-
+    {ERR_MSG_LENGTH_INVALID,       {FATAL,    "Received an invalid message length value"} },
 
     // Files and Directories
     {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },
