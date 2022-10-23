@@ -97,6 +97,9 @@ class SrvSessMgr : public SessMgr
     */
    void srvUploadSetRecvRaw();
 
+   // TODO: Rewrite descr
+   void recvUploadFileData(size_t recvBytes);
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -134,8 +137,8 @@ class SrvSessMgr : public SessMgr
    void srvSessMsgHandler();
 
 
-   // TODO: Placeholder implementation
-   void recvRaw(size_t recvBytes);
+  // TODO: Rewrite descr
+   void srvSessRawHandler(size_t recvBytes);
  };
 
 

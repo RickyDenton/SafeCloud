@@ -101,7 +101,7 @@ SrvSessMgr* SrvConnMgr::getSession()
  *                        buffer, calling, depending on the connection state, the associated
  *                        STSMMsg or SessMsg handler if a full message has been received.\n
  *            - RECV_RAW: Reads bytes belonging to the same data block into the primary\n
- *                        connection buffer and passes them to the session raw reception handler
+ *                        connection buffer and passes them to the session raw handler
  * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
  * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
  * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
@@ -172,9 +172,9 @@ void SrvConnMgr::srvRecvHandleData()
         THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,"Connection manager in RECV_RAW mode"
                                                   "during the STSM Key establishment phase");
 
-       // Reads bytes belonging to the same data block from the connection socket into the
-       // primary connection buffer and pass them to the session raw reception handler
-       _srvSessMgr->recvRawHandler(recvRaw());
+       // Reads bytes belonging to the same data block from the connection socket into
+       // the primary connection buffer and pass them to the session raw  handler
+       _srvSessMgr->srvSessRawHandler(recvRaw());
       }
    }
   catch(execErrExcp& recvExcp)

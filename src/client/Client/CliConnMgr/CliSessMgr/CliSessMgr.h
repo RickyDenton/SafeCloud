@@ -119,6 +119,9 @@ class CliSessMgr : public SessMgr
     */
    bool parseUploadResponse();
 
+   // TODO: Rewrite descriptions
+   void uploadFileData();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

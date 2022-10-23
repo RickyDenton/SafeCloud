@@ -104,6 +104,7 @@ enum execErrCode : unsigned char
   // Other errors
   ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
   ERR_SESS_SRV_GRACEFUL_DISCONNECT,
+  ERR_SESS_UNRECOVERABLE_INTERNAL_ERROR,
 
   /* --------------------- CLIENT-SERVER COMMON ERRORS --------------------- */
 
@@ -125,9 +126,11 @@ enum execErrCode : unsigned char
 
   ERR_FILE_OPEN_FAILED,
   ERR_FILE_READ_FAILED,
+  ERR_FILE_WRITE_FAILED,
   ERR_FILE_DELETE_FAILED,
   ERR_FILE_TOO_LARGE,
   ERR_FILE_CLOSE_FAILED,
+  ERR_FILE_UNEXPECTED_SIZE,
 
 
   // Client Login
@@ -304,11 +307,12 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     // Other Errors
     { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown type"} },
     { ERR_SESS_SRV_GRACEFUL_DISCONNECT,      {WARNING,"The server has gracefully disconnected"} },
+    { ERR_SESS_UNRECOVERABLE_INTERNAL_ERROR, {CRITICAL,"Unrecoverable session internal error"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
     // Server Endpoint Parameters
-    { ERR_SRV_ADDR_INVALID,        {ERROR,"The SafeCloud Server IP address is invalid"} },
+    {ERR_SRV_ADDR_INVALID,        {ERROR,"The SafeCloud Server IP address is invalid"} },
     {ERR_SRV_PORT_INVALID,         {ERROR,    "The SafeCloud Server port is invalid"} },
 
     // Connection sockets
@@ -323,11 +327,16 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },
     {ERR_DIR_CLOSE_FAILED,   {CRITICAL, "Error in closing the directory"} },
 
-    {ERR_FILE_OPEN_FAILED,   {CRITICAL, "The file was not found"} },
-    {ERR_FILE_READ_FAILED,   {CRITICAL, "Error in reading from the file"} },
-    {ERR_FILE_DELETE_FAILED, {CRITICAL, "Error in deleting the file"} },
-    {ERR_FILE_TOO_LARGE,     {CRITICAL, "The file is too large"} },
-    {ERR_FILE_CLOSE_FAILED,  {CRITICAL, "Error in closing the file"} },
+    {ERR_FILE_OPEN_FAILED,     {CRITICAL, "The file was not found"} },
+    {ERR_FILE_READ_FAILED,     {CRITICAL, "Error in reading from the file"} },
+    {ERR_FILE_WRITE_FAILED,    {CRITICAL, "Error in writing to the file"} },
+    {ERR_FILE_DELETE_FAILED,   {CRITICAL, "Error in deleting the file"} },
+    {ERR_FILE_TOO_LARGE,       {CRITICAL, "The file is too large"} },
+    {ERR_FILE_CLOSE_FAILED,    {CRITICAL, "Error in closing the file"} },
+    {ERR_FILE_UNEXPECTED_SIZE, {CRITICAL, "An unexpected number of bytes were read from the file"} },
+
+
+
 
 
     // Client Login

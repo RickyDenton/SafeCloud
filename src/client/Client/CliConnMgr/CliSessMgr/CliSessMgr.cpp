@@ -102,9 +102,6 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  */
 void CliSessMgr::recvCheckCliSessMsg()
  {
-  // TODO: Remove
-  std::cout << "in recvCheckCliSessMsg()" << std::endl;
-
   // Block the execution until a complete session message wrapper has
   // been received in the associated connection manager's primary buffer
   _cliConnMgr.cliRecvFullMsg();
@@ -251,10 +248,11 @@ void CliSessMgr::recvCheckCliSessMsg()
    * for the current client session manager state and sub-state
    */
 
-  // TODO: Comment
+  /*
   // LOG: Received session message length and type
   std::cout << "_recvSessMsgLen = " << _recvSessMsgLen << std::endl;
   std::cout << "_recvSessMsgType = " << _recvSessMsgType << std::endl;
+  */
  }
 
 
@@ -457,8 +455,97 @@ bool CliSessMgr::parseUploadResponse()
  }
 
 
+// TODO: Rewrite descriptions
+void CliSessMgr::uploadFileData()
+ {
+  // fread() return, representing the number of
+  // bytes read from the main file descriptor
+  size_t freadRet;
 
+  // The number of file bytes
+  // sent to the SafeCloud server
+  size_t totBytesSent = 0;
 
+  // The file upload progress [0,100]%
+  unsigned char currProgress = 0;
+  unsigned char newProgress;
+
+  // TODO: REMOVE
+  unsigned int barCycles = 0;
+
+  // Whether to display the file upload progress bar
+  bool showProgBar = _locFileInfo->meta->fileSizeRaw > _connMgr._priBufSize;
+
+  // Initialize an AES_128_GCM encryption operation
+  _aesGCMMgr.encryptInit();
+
+  // If the file upload progress bar should be displayed
+  if(showProgBar)
+   {
+    std::cout << "\nUploading file \"" + _locFileInfo->fileName + "\" ("
+                 + _locFileInfo->meta->fileSizeStr + ") to the storage pool:\n" << std::endl;
+    _progBar.update();
+   }
+
+  /* -------------------------------- File Upload Loop -------------------------------- */
+  do
+   {
+    // Read a number of bytes from the file into the secondary
+    // connection buffer up to the secondary buffer size
+    freadRet = fread(_connMgr._secBuf, sizeof(char), _connMgr._secBufSize, _mainFileDscr);
+
+    // If an error occur in reading the file, abort
+    // the upload operation by throwing an exception
+    /*
+     * NOTE: Since the SafeCloud server is expecting raw data up to the file total size, the only
+     *       way of notifying him of the error is dropping the connection entirely via an execExcp
+     */
+    if(ferror(_mainFileDscr))
+     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED,_locFileInfo->fileName + ", upload operation aborted", ERRNO_DESC);
+
+    // If at least one byte was read from the file
+    if(freadRet > 0)
+     {
+      // Encrypt the raw file data from the secondary into the primary connection buffer
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)freadRet, &_connMgr._priBuf[0]);
+
+      // Send the encrypted file contents to the SafeCloud server
+      _connMgr.sendRaw(freadRet);
+
+      // Update the number of bytes that have been sent
+      totBytesSent += freadRet;
+
+      // If the file upload progress bar should be displayed
+      if(showProgBar)
+       {
+        // Determine the new progress bar level
+        newProgress = (unsigned char)((float)totBytesSent / (float)_locFileInfo->meta->fileSizeRaw * 100);
+
+        // Set the new progress bar level
+        for(unsigned char i = currProgress; i< newProgress; i++)
+         _progBar.update();
+
+        // Update the progress bar current progress
+        currProgress = newProgress;
+       }
+     }
+   } while(!feof(_mainFileDscr));
+
+  // Ensure that a number of bytes equal to the file size were sent (probably unnecessary
+  if(totBytesSent != _locFileInfo->meta->fileSizeRaw)
+   THROW_EXEC_EXCP(ERR_FILE_UNEXPECTED_SIZE,_locFileInfo->fileName + ", upload operation aborted",
+                   std::to_string(totBytesSent) + " != " + std::to_string(_locFileInfo->meta->fileSizeRaw));
+
+  // Finalize the encryption by writing the resulting integrity tag at the start of the primary connection buffer
+  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
+
+  // Send the File integrity tag
+  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
+
+  // Indentation
+  if(showProgBar)
+   printf("\n");
+ }
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -512,11 +599,10 @@ void CliSessMgr::uploadFile(std::string& filePath)
    */
   parseUploadFile(filePath);
 
-  // TODO: Remove
-  // LOG: Target file absolute path, descriptor and info
-  std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
-  std::cout << "_mainFileDscr = " << _mainFileDscr << std::endl;
+  /*
+  // LOG: Upload file info
   _locFileInfo->printFileInfo();
+  */
 
   // Prepare a 'SessMsgFileInfo' session message of type 'FILE_UPLOAD_REQ' containing the
   // name and metadata of the file to be uploaded and send it to the SafeCloud server
@@ -537,7 +623,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
    return;
 
   // Send the file raw contents to the SafeCloud server
-  sendMainFile();
+  uploadFileData();
 
   // Update the client session manager sub-state so to expect the server completion notification
   _cliSessMgrSubstate = WAITING_SRV_COMPL;
@@ -552,7 +638,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
                                                     " while awaiting for the server's 'UPLOAD' completion");
 
   // Inform the user that the file has been successfully uploaded to their storage pool
-  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
+  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" (" + _locFileInfo->meta->fileSizeStr + ") successfully uploaded to the SafeCloud storage pool\n" << std::endl;
  }
 
 

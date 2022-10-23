@@ -114,10 +114,6 @@ class SessMgr
     */
    void touchEmptyFile();
 
-   // TODO: Placeholder implementation
-   void sendMainFile();
-
-
 
    /* ------------------------------ Utility Methods ------------------------------ */
 
@@ -229,12 +225,6 @@ class SessMgr
     *        also resetting the associated connection manager's reception mode to 'RECV_MSG'
     */
    void resetSessState();
-
-
-  // TODO: Placeholder implementation
-  void recvRawHandler(size_t recvBytes);
-
-
  };
 
 

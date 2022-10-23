@@ -91,7 +91,7 @@ class SrvConnMgr : public ConnMgr
    *                        buffer, calling, depending on the connection state, the associated
    *                        STSMMsg or SessMsg handler if a full message has been received.\n
    *            - RECV_RAW: Reads bytes belonging to the same data block into the primary\n
-   *                        connection buffer and passes them to the session raw reception handler
+   *                        connection buffer and passes them to the session raw handler
    * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
    * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
    * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
