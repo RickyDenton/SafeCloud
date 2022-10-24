@@ -56,7 +56,7 @@ class SessMgr
 
    // TODO: Check description
    // The number of bytes pending to be sent or received in a raw data transmission
-   unsigned int _bytesRem;
+   unsigned int _rawBytesRem;
 
    /* -------------- Currently Received Session Message Header -------------- */
    uint16_t    _recvSessMsgLen;  // The currently received session message's length

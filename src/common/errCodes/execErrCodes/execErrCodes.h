@@ -59,7 +59,9 @@ enum execErrCode : unsigned char
 
   // Other
   ERR_SRV_PSELECT_FAILED,
-  ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE,
+
+  // Connection-aborting Session Errors
+  ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE,
 
 
   /* ------------------------ CLIENT-SPECIFIC ERRORS ------------------------ */
@@ -101,10 +103,10 @@ enum execErrCode : unsigned char
   ERR_STSM_CLI_MALFORMED_MESSAGE,
   ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,
 
-  // Other errors
-  ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
-  ERR_SESS_SRV_GRACEFUL_DISCONNECT,
-  ERR_SESS_UNRECOVERABLE_INTERNAL_ERROR,
+  // Connection-aborting Session Errors
+  ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE,
+  ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT,
+  ERR_SESSABORT_INTERNAL_ERROR,
 
   /* --------------------- CLIENT-SERVER COMMON ERRORS --------------------- */
 
@@ -126,11 +128,12 @@ enum execErrCode : unsigned char
 
   ERR_FILE_OPEN_FAILED,
   ERR_FILE_READ_FAILED,
+  ERR_FILE_READ_UNEXPECTED_SIZE,
   ERR_FILE_WRITE_FAILED,
   ERR_FILE_DELETE_FAILED,
   ERR_FILE_TOO_LARGE,
   ERR_FILE_CLOSE_FAILED,
-  ERR_FILE_UNEXPECTED_SIZE,
+
 
 
   // Client Login
@@ -208,7 +211,9 @@ enum execErrCode : unsigned char
   // Other errors
   ERR_MALLOC_FAILED,
   ERR_NON_POSITIVE_BUFFER_SIZE,
-  ERR_SESS_UNKNOWN_SESSMSG_TYPE,
+
+  // Connection-aborting Session Errors
+  ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE,
 
   // Unknown execution error
   ERR_EXEC_UNKNOWN
@@ -253,27 +258,29 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {ERROR,"Unrecognized username in the STSM protocol"} },
     { ERR_STSM_SRV_CLI_AUTH_FAILED,      {ERROR, "The client has failed the STSM authentication"} },
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
-    { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
-    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
+    { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,    "The client reported to have received a malformed STSM message"} },
+    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,    "The client reported to have received an STSM message of unknown type"} },
 
     // Client Login
-    { ERR_LOGIN_PUBKEYFILE_NOT_FOUND,    {ERROR,   "The user RSA private key file was not found"} },
-    { ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,  {CRITICAL,"Error in opening the client's RSA public key file"} },
-    { ERR_LOGIN_PUBKEY_INVALID,          {CRITICAL,"The contents of the client's RSA public key file do not represent a valid RSA public key"} },
+    {ERR_LOGIN_PUBKEYFILE_NOT_FOUND,             {ERROR,    "The user RSA private key file was not found"} },
+    {ERR_LOGIN_PUBKEYFILE_OPEN_FAILED,           {CRITICAL, "Error in opening the client's RSA public key file"} },
+    {ERR_LOGIN_PUBKEY_INVALID,                   {CRITICAL, "The contents of the client's RSA public key file do not represent a valid RSA public key"} },
 
     // Other
-    { ERR_SRV_PSELECT_FAILED,                {FATAL,"Server pselect() failed"} },
-    { ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The client reported to have received a session message of unknown type"} },
+    {ERR_SRV_PSELECT_FAILED,                     {FATAL,    "Server pselect() failed"} },
+
+    // Connection-aborting Session Errors
+    {ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "The client reported to have received a session message of unknown type"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
 
     // X.509 Store Creation
-    { ERR_CA_CERT_OPEN_FAILED,         {FATAL,"The CA certificate file could not be opened"} },
-    { ERR_CA_CERT_INVALID,             {FATAL,"The CA certificate file does not contain a valid X.509 certificate"} },
-    { ERR_CA_CRL_OPEN_FAILED,          {FATAL,"The CA CRL file could not be opened"} },
-    { ERR_CA_CRL_INVALID,              {FATAL,"The CA CRL file does not contain a valid X.509 certificate revocation list"} },
-    { ERR_STORE_INIT_FAILED,           {FATAL,"Error in initializing the X.509 certificates store"} },
-    { ERR_STORE_ADD_CACERT_FAILED,     {FATAL,"Error in adding the CA certificate to the X.509 store"} },
+    {ERR_CA_CERT_OPEN_FAILED,                    {FATAL,    "The CA certificate file could not be opened"} },
+    {ERR_CA_CERT_INVALID,                        {FATAL,    "The CA certificate file does not contain a valid X.509 certificate"} },
+    {ERR_CA_CRL_OPEN_FAILED,                     {FATAL,    "The CA CRL file could not be opened"} },
+    {ERR_CA_CRL_INVALID,                         {FATAL,    "The CA CRL file does not contain a valid X.509 certificate revocation list"} },
+    {ERR_STORE_INIT_FAILED,                      {FATAL,    "Error in initializing the X.509 certificates store"} },
+    {ERR_STORE_ADD_CACERT_FAILED,                {FATAL,    "Error in adding the CA certificate to the X.509 store"} },
     { ERR_STORE_ADD_CACRL_FAILED,      {FATAL,"Error in adding the CA CRL to the X.509 store"} },
     { ERR_STORE_REJECT_REVOKED_FAILED, {FATAL,"Error in configuring the store so to reject revoked certificates"} },
 
@@ -295,59 +302,55 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     // STSM Client Errors
     { ERR_STSM_CLI_ALREADY_STARTED,      {CRITICAL,"The client has already started the STSM key exchange protocol"} },
     { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_CLI_SRV_INVALID_PUBKEY,   {CRITICAL,"The server has provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_CLI_SRV_AUTH_FAILED,      {CRITICAL,"The server has failed the STSM authentication"} },
-    { ERR_STSM_CLI_SRV_CERT_REJECTED,    {ERROR,   "The server provided an invalid X.509 certificate"} },
-    { ERR_STSM_CLI_CLIENT_LOGIN_FAILED,  {ERROR,   "The server did not recognize the username in the STSM protocol"} },
-    { ERR_STSM_CLI_CLI_AUTH_FAILED,      {CRITICAL,"The server reported the client failing the STSM authentication"} },
-    { ERR_STSM_CLI_UNEXPECTED_MESSAGE,   {FATAL,   "The server reported to have received an out-of-order STSM message"} },
-    { ERR_STSM_CLI_MALFORMED_MESSAGE,    {FATAL,   "The server reported to have received a malformed STSM message"} },
-    { ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE, {FATAL,   "The server reported to have received an STSM message of unknown type"} },
+    { ERR_STSM_CLI_SRV_INVALID_PUBKEY,            {CRITICAL, "The server has provided an invalid ephemeral public key in the STSM protocol"} },
+    { ERR_STSM_CLI_SRV_AUTH_FAILED,               {CRITICAL, "The server has failed the STSM authentication"} },
+    {ERR_STSM_CLI_SRV_CERT_REJECTED,             {ERROR,    "The server provided an invalid X.509 certificate"} },
+    {ERR_STSM_CLI_CLIENT_LOGIN_FAILED,           {ERROR,    "The server did not recognize the username in the STSM protocol"} },
+    {ERR_STSM_CLI_CLI_AUTH_FAILED,               {CRITICAL, "The server reported the client failing the STSM authentication"} },
+    {ERR_STSM_CLI_UNEXPECTED_MESSAGE,            {FATAL,    "The server reported to have received an out-of-order STSM message"} },
+    {ERR_STSM_CLI_MALFORMED_MESSAGE,             {FATAL,    "The server reported to have received a malformed STSM message"} },
+    {ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,          {FATAL,    "The server reported to have received an STSM message of unknown type"} },
 
-    // Other Errors
-    { ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL,"The server reported to have received a session message of unknown type"} },
-    { ERR_SESS_SRV_GRACEFUL_DISCONNECT,      {WARNING,"The server has gracefully disconnected"} },
-    { ERR_SESS_UNRECOVERABLE_INTERNAL_ERROR, {CRITICAL,"Unrecoverable session internal error"} },
+    // Connection-aborting Session Errors
+    {ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "The server reported to have received a session message of unknown type"} },
+    {ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT,      {WARNING,  "The server has gracefully disconnected"} },
+    {ERR_SESSABORT_INTERNAL_ERROR,               {CRITICAL, "Unrecoverable session internal error"} },
 
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
     // Server Endpoint Parameters
-    {ERR_SRV_ADDR_INVALID,        {ERROR,"The SafeCloud Server IP address is invalid"} },
-    {ERR_SRV_PORT_INVALID,         {ERROR,    "The SafeCloud Server port is invalid"} },
+    {ERR_SRV_ADDR_INVALID,                       {ERROR,    "The SafeCloud Server IP address is invalid"} },
+    {ERR_SRV_PORT_INVALID,                       {ERROR,    "The SafeCloud Server port is invalid"} },
 
     // Connection sockets
-    {ERR_CSK_CLOSE_FAILED,         {CRITICAL, "Connection Socket Close Failed"} },
-    {ERR_CSK_RECV_FAILED,          {CRITICAL, "Error in receiving data from the connection socket"} },
+    {ERR_CSK_CLOSE_FAILED,                       {CRITICAL, "Connection Socket Close Failed"} },
+    {ERR_CSK_RECV_FAILED,                        {CRITICAL, "Error in receiving data from the connection socket"} },
     {ERR_PEER_DISCONNECTED,        {WARNING,  "Abrupt peer disconnection"} },
     {ERR_SEND_FAILED,              {FATAL,    "Error in sending data on the connection socket"} },
     {ERR_SEND_OVERFLOW,            {FATAL,    "Attempting to send() more bytes than the primary connection buffer size"} },
     {ERR_MSG_LENGTH_INVALID,       {FATAL,    "Received an invalid message length value"} },
 
     // Files and Directories
-    {ERR_DIR_OPEN_FAILED,    {CRITICAL, "The directory was not found"} },
-    {ERR_DIR_CLOSE_FAILED,   {CRITICAL, "Error in closing the directory"} },
+    {ERR_DIR_OPEN_FAILED,           {CRITICAL, "The directory was not found"} },
+    {ERR_DIR_CLOSE_FAILED,          {CRITICAL, "Error in closing the directory"} },
 
-    {ERR_FILE_OPEN_FAILED,     {CRITICAL, "The file was not found"} },
-    {ERR_FILE_READ_FAILED,     {CRITICAL, "Error in reading from the file"} },
-    {ERR_FILE_WRITE_FAILED,    {CRITICAL, "Error in writing to the file"} },
-    {ERR_FILE_DELETE_FAILED,   {CRITICAL, "Error in deleting the file"} },
-    {ERR_FILE_TOO_LARGE,       {CRITICAL, "The file is too large"} },
-    {ERR_FILE_CLOSE_FAILED,    {CRITICAL, "Error in closing the file"} },
-    {ERR_FILE_UNEXPECTED_SIZE, {CRITICAL, "An unexpected number of bytes were read from the file"} },
-
-
-
-
+    {ERR_FILE_OPEN_FAILED,          {CRITICAL, "The file was not found"} },
+    {ERR_FILE_READ_FAILED,          {CRITICAL, "Error in reading from the file"} },
+    {ERR_FILE_READ_UNEXPECTED_SIZE, {CRITICAL, "The file raw contents that were read differ from its size"} },
+    {ERR_FILE_WRITE_FAILED,         {CRITICAL, "Error in writing to the file"} },
+    {ERR_FILE_DELETE_FAILED,        {CRITICAL, "Error in deleting the file"} },
+    {ERR_FILE_TOO_LARGE,            {CRITICAL, "The file is too large"} },
+    {ERR_FILE_CLOSE_FAILED,         {CRITICAL, "Error in closing the file"} },
 
     // Client Login
-    {ERR_LOGIN_NAME_EMPTY,         {ERROR,    "The user-provided name is empty"} },
-    {ERR_LOGIN_NAME_TOO_LONG,      {ERROR,    "The user-provided name is too long"} },
-    {ERR_LOGIN_NAME_WRONG_FORMAT,  {ERROR,    "The user-provided name is of invalid format"} },
-    {ERR_LOGIN_NAME_INVALID_CHARS, {ERROR,    "The user-provided name contains invalid characters"} },
-    {ERR_LOGIN_WRONG_NAME_OR_PWD,  {ERROR,    "Wrong username or password"} },
+    {ERR_LOGIN_NAME_EMPTY,          {ERROR,    "The user-provided name is empty"} },
+    {ERR_LOGIN_NAME_TOO_LONG,       {ERROR,    "The user-provided name is too long"} },
+    {ERR_LOGIN_NAME_WRONG_FORMAT,   {ERROR,    "The user-provided name is of invalid format"} },
+    {ERR_LOGIN_NAME_INVALID_CHARS,  {ERROR,    "The user-provided name contains invalid characters"} },
+    {ERR_LOGIN_WRONG_NAME_OR_PWD,   {ERROR,    "Wrong username or password"} },
 
     // OpenSSL Errors
-    {ERR_OSSL_EVP_PKEY_NEW,        {FATAL,    "EVP_PKEY struct creation failed"} },
+    {ERR_OSSL_EVP_PKEY_NEW,         {FATAL,    "EVP_PKEY struct creation failed"} },
     { ERR_OSSL_EVP_PKEY_ASSIGN,              {FATAL,"EVP_PKEY struct assignment failure"} },
     { ERR_OSSL_EVP_PKEY_CTX_NEW,             {FATAL,"EVP_PKEY context creation failed"} },
     { ERR_OSSL_EVP_PKEY_KEYGEN_INIT,         {FATAL,"EVP_PKEY key generation initialization failed"} },
@@ -403,20 +406,22 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_STSM_MALFORMED_MESSAGE,    {CRITICAL, "A malformed STSM message has been received"} },
     {ERR_STSM_UNKNOWN_STSMMSG_TYPE, {CRITICAL, "A STSM message of unknown type has been received"} },
     {ERR_STSM_UNKNOWN_STSMMSG_ERROR,{FATAL,    "Attempting to send an STSM error message of unknown type"} },
-    {ERR_STSM_MY_PUBKEY_MISSING,    {FATAL,    "The local actor's ephemeral DH public key is missing"} },
-    {ERR_STSM_OTHER_PUBKEY_MISSING, {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
+    {ERR_STSM_MY_PUBKEY_MISSING,         {FATAL,    "The local actor's ephemeral DH public key is missing"} },
+    {ERR_STSM_OTHER_PUBKEY_MISSING,      {FATAL,    "The remote actor's ephemeral DH public key is missing"} },
 
     // Objects Invalid States
-    {ERR_CONNMGR_INVALID_STATE,     {CRITICAL, "Invalid ConnMgr state"} },
-    {ERR_AESGCMMGR_INVALID_STATE,   {CRITICAL, "Invalid AES_128_GCM manager state"} },
+    {ERR_CONNMGR_INVALID_STATE,          {CRITICAL, "Invalid ConnMgr state"} },
+    {ERR_AESGCMMGR_INVALID_STATE,        {CRITICAL, "Invalid AES_128_GCM manager state"} },
 
     // Other errors
-    {ERR_MALLOC_FAILED,              {FATAL,"malloc() failed"} },
-    {ERR_NON_POSITIVE_BUFFER_SIZE,   {FATAL,"A non-positive buffer size was passed (probable overflow)"} },
-    {ERR_SESS_UNKNOWN_SESSMSG_TYPE,  {CRITICAL,"A session message of unknown type has been received"} },
+    {ERR_MALLOC_FAILED,                  {FATAL,    "malloc() failed"} },
+    {ERR_NON_POSITIVE_BUFFER_SIZE,       {FATAL,    "A non-positive buffer size was passed (probable overflow)"} },
+
+    // Connection-aborting Session Errors
+    {ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "A session message of unknown type has been received"} },
 
     // Unknown execution error
-    {ERR_EXEC_UNKNOWN,                          {CRITICAL, "Unknown Execution Error"} }
+    {ERR_EXEC_UNKNOWN,                   {CRITICAL, "Unknown Execution Error"} }
   };
 
 

@@ -30,18 +30,6 @@ class CliSessMgr : public SessMgr
    cliSessMgrSubstate _cliSessMgrSubstate;  // The current client session manager sub-state
    CliConnMgr&        _cliConnMgr;          // The associated CliConnMgr parent object
 
-   /* -------------------------- Progress Bar Management -------------------------- */
-
-   // The progress bar object used for displaying a file upload or download progress on stdout
-   ProgressBar  _progBar;
-
-   // The number of bytes to be transferred associated with a 1% progress in the progress bar
-   unsigned int _progBarUnitSize;
-
-   // The number of bytes in the last data transfer whose progress
-   // was not accounted for in the progress bar (< _progBarUnitSize)
-   unsigned int _progBarLeftovers;
-
    /* ============================== PRIVATE METHODS ============================== */
 
    /**
@@ -77,7 +65,8 @@ class CliSessMgr : public SessMgr
     *               the current client session manager state and substate\n
     *            4) Handles session-resetting or terminating signaling messages\n
     *            5) Handles session error signaling messages\n
-    * @throws TODO (most session exceptions)
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
     */
    void recvCheckCliSessMsg();
 
@@ -85,19 +74,18 @@ class CliSessMgr : public SessMgr
    /* -------------------------------- File Upload -------------------------------- */
 
    /**
-    * @brief  Parses a target file to be uploaded to the SafeCloud storage pool by:\n
+    * @brief  Parses a file to be uploaded to the SafeCloud storage pool by:\n
     *           1) Writing its canonicalized path into the '_mainFileAbsPath' attribute\n
     *           2) Opening its '_mainFileDscr' file descriptor in read-byte mode\n
     *           3) Loading the file name and metadata into the '_locFileInfo' attribute\n
     * @param  filePath The relative or absolute path of the file to be uploaded
-    * @throws ERR_SESS_FILE_NOT_FOUND   The target file was not found
-    * @throws ERR_SESS_FILE_OPEN_FAILED The target file could not be opened in read mode
-    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the target file's metadata
-    * @throws ERR_SESS_UPLOAD_DIR       The target file is a directory
-    * @throws ERR_SESS_UPLOAD_TOO_BIG   The target file is too large (>= 4GB)
+    * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
+    * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
+    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the metadata of the file to be uploaded
+    * @throws ERR_SESS_UPLOAD_DIR       The file to be uploaded is in fact a directory
+    * @throws ERR_SESS_UPLOAD_TOO_BIG   The file to be uploaded is too large (>= 4GB)
     */
    void parseUploadFile(std::string& filePath);
-
 
    /**
     * @brief  Parses the 'FILE_UPLOAD_REQ' session response message returned by the SafeCloud server, where:
@@ -119,7 +107,21 @@ class CliSessMgr : public SessMgr
     */
    bool parseUploadResponse();
 
-   // TODO: Rewrite descriptions
+   /**
+    * @brief  Uploads the main file's raw contents and the
+    *         resulting integrity tag to the SafeCloud server
+    * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
+    * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
+    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The plaintext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW             Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED               send() fatal error
+    */
    void uploadFileData();
 
   public:
@@ -145,7 +147,17 @@ class CliSessMgr : public SessMgr
 
    /* ---------------------------- Session Commands API ---------------------------- */
 
-   // TODO
+   /**
+    * @brief  Uploads a file to the user's storage pool within the SafeCloud server
+    * @param  filePath The relative or absolute path of the file to be uploaded
+    * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
+    * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
+    * @throws ERR_SESS_FILE_READ_FAILED Error in reading the metadata of the file to be uploaded
+    * @throws ERR_SESS_UPLOAD_DIR       The file to be uploaded is in fact a directory
+    * @throws ERR_SESS_UPLOAD_TOO_BIG   The file to be uploaded is too large (>= 4GB)
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
+    */
    void uploadFile(std::string& filePath);
 
    // TODO: STUB

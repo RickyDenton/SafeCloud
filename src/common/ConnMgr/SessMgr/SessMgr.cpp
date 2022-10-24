@@ -410,7 +410,7 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType)
 SessMgr::SessMgr(ConnMgr& connMgr)
   : _sessMgrState(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey, _connMgr._iv),
     _mainFileDscr(nullptr), _mainFileAbsPath(nullptr), _tmpFileDscr(nullptr),
-    _tmpFileAbsPath(nullptr), _locFileInfo(nullptr), _remFileInfo(nullptr), _bytesRem(0),
+    _tmpFileAbsPath(nullptr), _locFileInfo(nullptr), _remFileInfo(nullptr), _rawBytesRem(0),
     _recvSessMsgLen(0), _recvSessMsgType(ERR_UNKNOWN_SESSMSG_TYPE)
  {}
 
@@ -511,7 +511,7 @@ void SessMgr::resetSessState()
 
   // Reset the number of bytes pending to be sent
   // or received in a raw data transmission
-  _bytesRem = 0;
+  _rawBytesRem = 0;
 
   /* -------------- Currently Received Session Message Header -------------- */
 

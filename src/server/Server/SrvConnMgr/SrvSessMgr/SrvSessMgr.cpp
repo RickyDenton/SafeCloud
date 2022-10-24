@@ -83,9 +83,9 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
      if(!errReason.empty())
-      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_srvConnMgr._name + "\", " + abortedCmdToStr(), errReason);
      else
-      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
     // The other signaling message types require no further action
     default:
@@ -93,7 +93,7 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
    }
  }
 
-
+// TODO
 void SrvSessMgr::dispatchRecvSessMsg()
  {
   switch(_sessMgrState)
@@ -142,8 +142,8 @@ void SrvSessMgr::dispatchRecvSessMsg()
       {
        // Prepare the server session manager to receive the raw file contents
        srvUploadSetRecvRaw();
-       LOG_INFO("[" + *_srvConnMgr._name + "]  Upload of file \"" + _remFileInfo->fileName
-                    + "\" confirmed, awaiting the file's raw data")
+       LOG_INFO("[" + *_srvConnMgr._name + "] Upload of file \"" + _remFileInfo->fileName
+                    + "\" confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr +")")
       }
      else
       sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
@@ -173,7 +173,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
  *                   2.2.2) If the file to be uploaded is NOT empty, inform the client
  *                          that the server is ready to receive the file's raw contents
  * @throws ERR_SESS_MALFORMED_MESSAGE   The file name in the 'SessMsgFileInfo' message is invalid
- * @throws ERR_INTERNAL_ERROR           Session manager status or file read/write error
+ * @throws ERR_SESS_INTERNAL_ERROR      Session manager status or file read/write error
  * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -234,8 +234,8 @@ void SrvSessMgr::srvUploadStart()
     // Inform the client that the empty file has been successfully uploaded
     sendSrvSessSignalMsg(COMPLETED);
 
-    LOG_INFO("[" + *_srvConnMgr._name + "] Uploaded empty file \""
-             + _remFileInfo->fileName + "\" into the storage pool")
+    LOG_INFO("[" + *_srvConnMgr._name + "] Empty file \"" +
+             _remFileInfo->fileName + "\" uploaded into the storage pool")
 
     // Reset the server session manager state and return
     resetSrvSessState();
@@ -253,8 +253,8 @@ void SrvSessMgr::srvUploadStart()
     // Further client confirmation is required before uploading the file
     _srvSessMgrSubstate = WAITING_CLI_CONF;
 
-    LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
-              "\" already existing in the storage pool, awaiting client confirmation")
+    LOG_INFO("[" + *_srvConnMgr._name + "] Received upload request of already-existing \""
+             + _remFileInfo->fileName + "\" file, awaiting client confirmation")
    }
 
   // Otherwise, if a file with the same name of the one to
@@ -277,7 +277,7 @@ void SrvSessMgr::srvUploadStart()
 /**
  * @brief Prepares the server session manager to receive
  *        the raw contents of a file to be uploaded
- * @throws ERR_INTERNAL_ERROR            Could not open the temporary file descriptor in write-byte mode
+ * @throws ERR_SESS_INTERNAL_ERROR       Could not open the temporary file descriptor in write-byte mode
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
@@ -300,7 +300,7 @@ void SrvSessMgr::srvUploadSetRecvRaw()
   _srvConnMgr._recvBlockSize = _remFileInfo->meta->fileSizeRaw;
 
   // Initialize the number of raw bytes to be received to the file size
-  _bytesRem = _remFileInfo->meta->fileSizeRaw;
+  _rawBytesRem = _remFileInfo->meta->fileSizeRaw;
 
   // Open the temporary file descriptor in write-byte mode
   _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
@@ -313,47 +313,78 @@ void SrvSessMgr::srvUploadSetRecvRaw()
  }
 
 
-// TODO: Rewrite descr
+/**
+ * @brief  Server file upload raw data handler, which:\n
+ *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
+ *               contents and writes them into the session's temporary file in the user's temporary directory\n
+ *            2) If the file being uploaded has been completely received, verifies its trailing integrity tag,
+ *               moves the temporary into the associated main file in the user's storage pool, notifies the
+ *               client the success of the upload operation and resets the server session manager state\n
+ * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
+ * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
+ * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+ * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+ * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                send() fatal error
+ * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
+ *                                        file or NULL session attributes
+ */
 void SrvSessMgr::recvUploadFileData(size_t recvBytes)
  {
-  // fwrite() return, representing the number of bytes
-  // written from to the temporary file descriptor
+  // fwrite() return, representing the number of bytes written
+  // from the secondary connection buffer into the temporary file
   size_t fwriteRet;
 
-  // The file upload progress
-  float progress;
+#ifdef DEBUG_MODE
+  // The file's current upload progress discretized between 0-100%
+  unsigned char currUploadProg;
+#endif
 
-  // If additional file bytes must be received
-  if(_bytesRem > 0)
+  /* -------------------------------- File Upload Loop -------------------------------- */
+
+  // If the file being uploaded has not been completely received yet
+  if(_rawBytesRem > 0)
    {
-    // Decrypt the wrapped session message from the primary into the secondary connection buffer
+    // Decrypted the received file raw contents from the primary into the secondary connection buffer
     _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[0], (int)recvBytes, &_connMgr._secBuf[0]);
 
-    // Write the decrypted file bytes from the secondary
-    // connection buffer into the temporary file descriptor
+    // Write the decrypted file contents from the secondary buffer into the temporary file
     fwriteRet = fwrite(_connMgr._secBuf, sizeof(char), recvBytes, _tmpFileDscr);
 
-    // If lesser than the number of received bytes were written
+    // Writing into the temporary file less bytes than the ones received into the
+    // primary connection buffer is a critical error that in the current session state
+    // cannot be notified to the client and so require its connection to be dropped
     if(fwriteRet < recvBytes)
-     THROW_EXEC_EXCP(ERR_FILE_WRITE_FAILED,*_tmpFileAbsPath,"written " + std::to_string(fwriteRet)
-                                           + " < recvBytes = " + std::to_string(recvBytes) + " bytes");
+     THROW_EXEC_EXCP(ERR_FILE_WRITE_FAILED,"file: " + *_tmpFileAbsPath + "\", " + *_connMgr._name + "\" upload operation aborted","written "
+                                           + std::to_string(fwriteRet) + " < recvBytes = " + std::to_string(recvBytes) + " bytes");
 
-    // Update the remaining number of bytes
-    _bytesRem -= recvBytes;
+    // Update the number of remaining file of the file being uploaded
+    _rawBytesRem -= recvBytes;
 
-    // The current file upload progress
-    progress = (float)(_remFileInfo->meta->fileSizeRaw - _bytesRem) / (float)_remFileInfo->meta->fileSizeRaw * 100;
+    // In DEBUG_MODE, compute and log the file's current upload progress
+#ifdef DEBUG_MODE
+    currUploadProg = (unsigned char)((float)(_remFileInfo->meta->fileSizeRaw - _rawBytesRem) /
+                                     (float)_remFileInfo->meta->fileSizeRaw * 100);
 
-    LOG_DEBUG("[" + *_srvConnMgr._name + "] File \"" + _remFileInfo->fileName + "\" ("
-              + _remFileInfo->meta->fileSizeStr + ") upload progress: " + std::to_string((int)progress) + "%")
+    LOG_DEBUG("[" + *_srvConnMgr._name + "] File \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
+              ") upload currUploadProg: " + std::to_string((int)currUploadProg) + "%")
+#endif
 
-    // If other file bytes are required, update the expected
-    // size of the data block to be received to their number
-    if(_bytesRem > 0)
-     _connMgr._recvBlockSize = _bytesRem;
+    // If the file being uploaded has not been completely received yet, update the associated
+    // connection manager's expected data block size to its number of remaining bytes
+    if(_rawBytesRem > 0)
+     _connMgr._recvBlockSize = _rawBytesRem;
 
-    // Otherwise, if the file was completely received, set the expected size of
-    // the data block to be received to the size of the expected integrity tag
+    // Otherwise, if the file has been completely received, set the associated connection
+    // manager's expected data block size to the size of an AES_128_GCM integrity tag
     else
      _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
 
@@ -361,39 +392,45 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
     _connMgr._priBufInd = 0;
    }
 
-  // Otherwise, if the file integrity tag must be received
+  /* ------------------------ File Integrity Tag Verification ------------------------ */
+
+  // Otherwise, if the file being uploaded has been fully received and so its
+  // integrity must be verified via the trailing AES_128_GCM integrity tag
   else
 
-   // Wait for the file integrity tag to have been
-   // fully received in the primary connection buffer
+   // If the complete integrity tag has not yet been received in
+   // the primary connection buffer, wait for its additional bytes
    if(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
     return;
 
-   // If the file integrity tag has been fully received
+   // Otherwise, if the file integrity tag has been fully received
    else
     {
-     // Finalize the file upload decryption by verifying its integrity tag
+     // Finalize the upload decryption by verifying the file's integrity tag
      _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
 
      // Close and reset the temporary file descriptor
-     fclose(_tmpFileDscr);
+     if(fclose(_tmpFileDscr) != 0)
+      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to close the uploaded temporary file "
+                                              "(" + *_tmpFileAbsPath + ") (reason = " + ERRNO_DESC + ")");
      _tmpFileDscr = nullptr;
 
-     // Move and rename the uploaded file from the user's
-     // temporary directory to their storage pool
+     // Move the temporary file from the user's temporary directory into the associated main file in their storage pool
      if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
-      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the uploaded file from the client's temporary"
+      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the uploaded temporary file from the client's temporary"
                                               "directory to their storage pool (" + *_tmpFileAbsPath + ")");
 
-     // Change the uploaded file last modified time to
-     // the one specified in the '_remFileInfo' object
+     // Change the uploaded main file last modified time
+     // to the one specified in the '_remFileInfo' object
      mirrorRemLastModTime();
 
-     // Signal the client that the upload operation has completed successfully
+     // Inform the client that the file upload has been completed
+     // successfully by sending a 'COMPLETED' session signaling message
      sendSessSignalMsg(COMPLETED);
 
-     LOG_INFO("[" + *_srvConnMgr._name + "] Uploaded file \"" + _remFileInfo->fileName +
-              "\" (" + _remFileInfo->meta->fileSizeStr + ") into the storage pool")
+     // Log the successful upload operation
+     LOG_INFO("[" + *_srvConnMgr._name + "] File \"" + _remFileInfo->fileName + "\" ("
+              + _remFileInfo->meta->fileSizeStr + ") uploaded into the storage pool")
 
      // Reset the server session state
      resetSrvSessState();
@@ -522,14 +559,14 @@ void SrvSessMgr::srvSessMsgHandler()
     else
      {
       if(_sessMgrState == UPLOAD)
-       LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file upload (file: \""
+       LOG_INFO("[" + *_srvConnMgr._name + "] File upload cancelled (file: \""
                 + _remFileInfo->fileName + "\", size: " + _remFileInfo->meta->fileSizeStr + ")")
       else
        if(_sessMgrState == DOWNLOAD)
-        LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file download (file: \""
+        LOG_INFO("[" + *_srvConnMgr._name + "] File download cancelled (file: \""
                  + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")")
        else
-        LOG_INFO("Client \"" + *_srvConnMgr._name + "\" cancelled a file deletion (file: \""
+        LOG_INFO("[" + *_srvConnMgr._name + "] File deletion cancelled (file: \""
                  + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")")
      }
 
@@ -585,7 +622,7 @@ void SrvSessMgr::srvSessMsgHandler()
    // The client reported to have received a session message of unknown type, an error to be attributed to
    // a desynchronization between the connection peers' IVs and that requires the connection to be reset
    case ERR_UNKNOWN_SESSMSG_TYPE:
-    THROW_EXEC_EXCP(ERR_SESS_SRV_CLI_UNKNOWN_SESSMSG_TYPE,"Client: \""+ *_srvConnMgr._name + "\", " + abortedCmdToStr());
+    THROW_EXEC_EXCP(ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_srvConnMgr._name + "\", " + abortedCmdToStr());
 
    /* ----------------------------------- Unknown Message Type ----------------------------------- */
 
@@ -601,7 +638,6 @@ void SrvSessMgr::srvSessMsgHandler()
   */
 
  /*
- // TODO: Comment
  // LOG: Received session message length and type
  std::cout << "_recvSessMsgLen = " << _recvSessMsgLen << std::endl;
  std::cout << "_recvSessMsgType = " << _recvSessMsgType << std::endl;
@@ -613,22 +649,38 @@ void SrvSessMgr::srvSessMsgHandler()
 }
 
 
-
-// TODO: Rewrite descr
+/**
+ * @brief  Server session raw handler, passing the raw data received from the socket to
+ *         the appropriate handler depending on the session manager's state and substate
+ * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
+ * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid AES_128_GCM manager state
+ * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+ * @throws ERR_FILE_WRITE_FAILED          Failed to write into the temporary file
+ * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+ * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
+ *                                        file or NULL session attributes
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                send() fatal error
+ */
 void SrvSessMgr::srvSessRawHandler(size_t recvBytes)
  {
-  // The server can receive raw data only in an 'UPLOAD' operation
-
-  /*
-   * NOTE: Since the client may be sending raw data and so being unable to
-   *       receive an error signaling message, the connection is dropped
-   */
+  // In its current implementation the only raw data the SafeCloud server
+  // may receive consist of the raw contents of a file being uploaded
   if(_sessMgrState != UPLOAD || _srvSessMgrSubstate != WAITING_CLI_RAW_DATA)
-   THROW_EXEC_EXCP(ERR_SESS_UNRECOVERABLE_INTERNAL_ERROR,"Receiving raw data with the server session manager"
-                                                         " in state \"" + currSessMgrStateToStr() + "\", "
-                                                         "sub-state " + std::to_string(_srvSessMgrSubstate));
+   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Receiving raw data with the server session manager"
+                                                 " in state \"" + currSessMgrStateToStr() + "\", "
+                                                 "sub-state " + std::to_string(_srvSessMgrSubstate));
 
-  // Pass the number of bytes to the upload file data handler
+  // Call the file 'UPLOAD' raw data handler passing it the number of
+  // bytes received in the associated connection manager's primary buffer
   recvUploadFileData(recvBytes);
  }
 

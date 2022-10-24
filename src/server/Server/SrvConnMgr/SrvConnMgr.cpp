@@ -179,9 +179,13 @@ void SrvConnMgr::srvRecvHandleData()
    }
   catch(execErrExcp& recvExcp)
    {
-    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_CLI_DISCONNECTED error code
+    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_CLI_DISCONNECTED error
+    // code and add the client's name into the exception's additional description
     if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
-     recvExcp.exErrcode = ERR_CLI_DISCONNECTED;
+     {
+      recvExcp.exErrcode = ERR_CLI_DISCONNECTED;
+      recvExcp.addDscr = new std::string(*_name);
+     }
 
     // Rethrow the exception
     throw;

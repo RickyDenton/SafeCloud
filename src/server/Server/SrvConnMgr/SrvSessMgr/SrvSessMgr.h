@@ -97,7 +97,30 @@ class SrvSessMgr : public SessMgr
     */
    void srvUploadSetRecvRaw();
 
-   // TODO: Rewrite descr
+   /**
+    * @brief  Server file upload raw data handler, which:\n
+    *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
+    *               contents and writes them into the session's temporary file in the user's temporary directory\n
+    *            2) If the file being uploaded has been completely received, verifies its trailing integrity tag,
+    *               moves the temporary into the associated main file in the user's storage pool, notifies the
+    *               client the success of the upload operation and resets the server session manager state\n
+    * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
+    * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
+    * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+    * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+    * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                send() fatal error
+    * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
+    *                                        file or NULL session attributes
+    */
    void recvUploadFileData(size_t recvBytes);
 
   public:
@@ -136,8 +159,27 @@ class SrvSessMgr : public SessMgr
     */
    void srvSessMsgHandler();
 
-
-  // TODO: Rewrite descr
+   /**
+    * @brief  Server session raw handler, passing the raw data received from the socket to
+    *         the appropriate handler depending on the session manager's state and substate
+    * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
+    * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid AES_128_GCM manager state
+    * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
+    * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+    * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+    * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                send() fatal error
+    * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
+    *                                        file or NULL session attributes
+    */
    void srvSessRawHandler(size_t recvBytes);
  };
 

@@ -77,9 +77,9 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
      if(!errReason.empty())
-      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr(), errReason);
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr(), errReason);
      else
-      THROW_EXEC_EXCP(ERR_SESS_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
 
     // The other signaling message types require no further action
     default:
@@ -98,7 +98,8 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  *               the current client session manager state and substate\n
  *            4) Handles session-resetting or terminating signaling messages\n
  *            5) Handles session error signaling messages\n
- * @throws TODO (most session exceptions)
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
  */
 void CliSessMgr::recvCheckCliSessMsg()
  {
@@ -212,9 +213,9 @@ void CliSessMgr::recvCheckCliSessMsg()
      // If such a message is not received in the 'IDLE' state, just throw the associated
      // exception without notifying the server, as it is supposedly disconnecting
      if(_sessMgrState != IDLE)
-      THROW_EXEC_EXCP(ERR_SESS_SRV_GRACEFUL_DISCONNECT,abortedCmdToStr());
+      THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT, abortedCmdToStr());
      else
-      THROW_EXEC_EXCP(ERR_SESS_SRV_GRACEFUL_DISCONNECT);
+      THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT);
 
     /* --------------------------------- Error Signaling Messages --------------------------------- */
 
@@ -233,7 +234,7 @@ void CliSessMgr::recvCheckCliSessMsg()
     // The server reported to have received a session message of unknown type, an error to be attributed to
     // a desynchronization between the connection peers' IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_SESS_CLI_SRV_UNKNOWN_SESSMSG_TYPE,abortedCmdToStr());
+     THROW_EXEC_EXCP(ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
 
     /* ----------------------------------- Unknown Message Type ----------------------------------- */
 
@@ -260,48 +261,49 @@ void CliSessMgr::recvCheckCliSessMsg()
 
 
 /**
- * @brief  Parses a target file to be uploaded to the SafeCloud storage pool by:\n
+ * @brief  Parses a file to be uploaded to the SafeCloud storage pool by:\n
  *           1) Writing its canonicalized path into the '_mainFileAbsPath' attribute\n
  *           2) Opening its '_mainFileDscr' file descriptor in read-byte mode\n
  *           3) Loading the file name and metadata into the '_locFileInfo' attribute\n
  * @param  filePath The relative or absolute path of the file to be uploaded
- * @throws ERR_SESS_FILE_NOT_FOUND   The target file was not found
- * @throws ERR_SESS_FILE_OPEN_FAILED The target file could not be opened in read mode
- * @throws ERR_SESS_FILE_READ_FAILED Error in reading the target file's metadata
- * @throws ERR_SESS_UPLOAD_DIR       The target file is a directory
- * @throws ERR_SESS_UPLOAD_TOO_BIG   The target file is too large (>= 4GB)
+ * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
+ * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
+ * @throws ERR_SESS_FILE_READ_FAILED Error in reading the metadata of the file to be uploaded
+ * @throws ERR_SESS_UPLOAD_DIR       The file to be uploaded is in fact a directory
+ * @throws ERR_SESS_UPLOAD_TOO_BIG   The file to be uploaded is too large (>= 4GB)
  */
 void CliSessMgr::parseUploadFile(std::string& filePath)
  {
-  // Determine the canonicalized file path as a C string
+  // Determine the canonicalized path of the file to be uploaded as a C string
   char* _targFileAbsPathC = realpath(filePath.c_str(),NULL);
   if(!_targFileAbsPathC)
    THROW_SESS_EXCP(ERR_SESS_FILE_NOT_FOUND);
 
   try
    {
-    // Write the canonicalized file path into the '_mainFileAbsPath' attribute
+    // Write the canonicalized file path of the file to
+    // be uploaded into the '_mainFileAbsPath' attribute
     _mainFileAbsPath = new std::string(_targFileAbsPathC);
 
-    // Attempt to open the file in read-byte mode
+    // Attempt to open the file to be uploaded in read-byte mode
     _mainFileDscr = fopen(_targFileAbsPathC, "rb");
     if(!_mainFileDscr)
      THROW_SESS_EXCP(ERR_SESS_FILE_OPEN_FAILED, filePath, ERRNO_DESC);
 
-    // Attempt to load the file name and metadata
+    // Attempt to load the name and metadata of the file to be uploaded
     _locFileInfo = new FileInfo(*_mainFileAbsPath);
 
-    // Ensure the file size to be less or equal than
-    // the allowed maximum upload file size (4GB - 1B)
+    // Assert the size of the file to be uploaded to be less or
+    // equal than the allowed maximum upload file size (4GB - 1B)
     if(_locFileInfo->meta->fileSizeRaw > FILE_UPLOAD_MAX_SIZE)
      THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG,"it is " + std::string(_locFileInfo->meta->fileSizeStr) + " >= 4GB");
 
-    // Free the canonicalized file path as a C string
+    // Free the canonicalized path as a C string of the file to be uploaded
     free(_targFileAbsPathC);
    }
   catch(sessErrExcp& fileExcp)
    {
-    // Free the canonicalized file path as a C string
+    // Free the canonicalized path as a C string of the file to be uploaded
     free(_targFileAbsPathC);
 
     // Change a ERR_SESS_FILE_IS_DIR or a ERR_SESS_FILE_TOO_BIG error in the more
@@ -455,97 +457,114 @@ bool CliSessMgr::parseUploadResponse()
  }
 
 
-// TODO: Rewrite descriptions
+/**
+ * @brief  Uploads the main file's raw contents and the
+ *         resulting integrity tag to the SafeCloud server
+ * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
+ * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
+ * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The plaintext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+ * @throws ERR_SEND_OVERFLOW             Attempting to send a number of bytes > _priBufSize
+ * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED               send() fatal error
+ */
 void CliSessMgr::uploadFileData()
  {
-  // fread() return, representing the number of
-  // bytes read from the main file descriptor
+  // fread() return, representing the number of bytes read
+  // from main file into the secondary connection buffer
   size_t freadRet;
 
-  // The number of file bytes
-  // sent to the SafeCloud server
+  // The total number of file bytes sent to the SafeCloud server
   size_t totBytesSent = 0;
 
-  // The file upload progress [0,100]%
-  unsigned char currProgress = 0;
-  unsigned char newProgress;
+  // A progress bar possibly used for displaying the
+  // file's upload progress discretized between 0-100%
+  ProgressBar uploadProgBar(100);
 
-  // TODO: REMOVE
-  unsigned int barCycles = 0;
+  // The previous and current upload progress discretized between 0-100%
+  unsigned char prevUploadProg = 0;
+  unsigned char currUploadProg;
 
-  // Whether to display the file upload progress bar
-  bool showProgBar = _locFileInfo->meta->fileSizeRaw > _connMgr._priBufSize;
+  // If the file to be uploaded is large enough, display
+  // the upload progress to the user via a progress bar
+  bool showProgBar = _locFileInfo->meta->fileSizeRaw > (_connMgr._priBufSize * 5);
 
-  // Initialize an AES_128_GCM encryption operation
+  // Initialize the file encryption operation
   _aesGCMMgr.encryptInit();
 
-  // If the file upload progress bar should be displayed
+  // If the upload progress bar should be displayed
   if(showProgBar)
    {
+    // Print an introductory uploaded message
     std::cout << "\nUploading file \"" + _locFileInfo->fileName + "\" ("
                  + _locFileInfo->meta->fileSizeStr + ") to the storage pool:\n" << std::endl;
-    _progBar.update();
+
+    // Display the progress bar with 0% completion
+    uploadProgBar.update();
    }
 
   /* -------------------------------- File Upload Loop -------------------------------- */
   do
    {
-    // Read a number of bytes from the file into the secondary
-    // connection buffer up to the secondary buffer size
+    // Read the file raw contents into the secondary buffer size (possibly filling it)
     freadRet = fread(_connMgr._secBuf, sizeof(char), _connMgr._secBufSize, _mainFileDscr);
 
-    // If an error occur in reading the file, abort
-    // the upload operation by throwing an exception
-    /*
-     * NOTE: Since the SafeCloud server is expecting raw data up to the file total size, the only
-     *       way of notifying him of the error is dropping the connection entirely via an execExcp
-     */
+    // An error occurred in reading the file raw contents is a critical error that in the current
+    // session state cannot be notified to the server and so require the connection to be dropped
     if(ferror(_mainFileDscr))
-     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED,_locFileInfo->fileName + ", upload operation aborted", ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED, _locFileInfo->fileName + ", upload operation aborted", ERRNO_DESC);
 
-    // If at least one byte was read from the file
+    // If bytes were read from the file into the secondary connection buffer
     if(freadRet > 0)
      {
-      // Encrypt the raw file data from the secondary into the primary connection buffer
+      // Encrypt the file raw contents from the secondary into the primary connection buffer
       _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)freadRet, &_connMgr._priBuf[0]);
 
       // Send the encrypted file contents to the SafeCloud server
       _connMgr.sendRaw(freadRet);
 
-      // Update the number of bytes that have been sent
+      // Update the total number of bytes sent to the SafeCloud server
       totBytesSent += freadRet;
 
-      // If the file upload progress bar should be displayed
+      // If the upload progress bar should be displayed
       if(showProgBar)
        {
-        // Determine the new progress bar level
-        newProgress = (unsigned char)((float)totBytesSent / (float)_locFileInfo->meta->fileSizeRaw * 100);
+        // Compute the current upload progress discretized between 0-100%
+        currUploadProg = (unsigned char)((float)totBytesSent / (float)_locFileInfo->meta->fileSizeRaw * 100);
 
-        // Set the new progress bar level
-        for(unsigned char i = currProgress; i< newProgress; i++)
-         _progBar.update();
+        // Update the progress bar to the current upload progress
+        for(unsigned char i = prevUploadProg; i < currUploadProg; i++)
+         uploadProgBar.update();
 
-        // Update the progress bar current progress
-        currProgress = newProgress;
+        // Update the previous upload progress
+        prevUploadProg = currUploadProg;
        }
      }
-   } while(!feof(_mainFileDscr));
+   } while(!feof(_mainFileDscr)); // While the main file has not been completely read
 
-  // Ensure that a number of bytes equal to the file size were sent (probably unnecessary
+  // Having sent to the SafeCloud server a number of bytes different from the
+  // file size is a critical error that in the current session state cannot
+  // be notified to the server and so require the connection to be dropped
   if(totBytesSent != _locFileInfo->meta->fileSizeRaw)
-   THROW_EXEC_EXCP(ERR_FILE_UNEXPECTED_SIZE,_locFileInfo->fileName + ", upload operation aborted",
+   THROW_EXEC_EXCP(ERR_FILE_READ_UNEXPECTED_SIZE, _locFileInfo->fileName + ", upload operation aborted",
                    std::to_string(totBytesSent) + " != " + std::to_string(_locFileInfo->meta->fileSizeRaw));
 
-  // Finalize the encryption by writing the resulting integrity tag at the start of the primary connection buffer
+  // Finalize the file encryption operation by writing the resulting
+  // integrity tag at the start of the primary connection buffer
   _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
 
-  // Send the File integrity tag
+  // Send the file integrity tag to the SafeCloud server
   _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
 
   // Indentation
   if(showProgBar)
    printf("\n");
  }
+
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -555,8 +574,7 @@ void CliSessMgr::uploadFileData()
  * @param cliConnMgr A reference to the client connection manager parent object
  */
 CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessMgrSubstate(CLI_IDLE),
-    _cliConnMgr(cliConnMgr), _progBar(100), _progBarUnitSize(0), _progBarLeftovers(0)
+  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessMgrSubstate(CLI_IDLE), _cliConnMgr(cliConnMgr)
  {}
 
 /* Same destructor of the SessMgr base class */
@@ -574,17 +592,22 @@ void CliSessMgr::resetCliSessState()
 
   // Reset the base session parameters
   resetSessState();
-
-  // Reset the progress bar status
-  _progBar.reset();
-  _progBarUnitSize = 0;
-  _progBarLeftovers = 0;
  }
 
 
 /* ---------------------------- Session Commands API ---------------------------- */
 
-// TODO
+/**
+ * @brief  Uploads a file to the user's storage pool within the SafeCloud server
+ * @param  filePath The relative or absolute path of the file to be uploaded
+ * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
+ * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
+ * @throws ERR_SESS_FILE_READ_FAILED Error in reading the metadata of the file to be uploaded
+ * @throws ERR_SESS_UPLOAD_DIR       The file to be uploaded is in fact a directory
+ * @throws ERR_SESS_UPLOAD_TOO_BIG   The file to be uploaded is too large (>= 4GB)
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
+ */
 void CliSessMgr::uploadFile(std::string& filePath)
  {
   // Initialize the client session manager state and substate
