@@ -160,9 +160,8 @@ void SrvSessMgr::dispatchRecvSessMsg()
        case CONFIRM:
 
         // TODO Remove
-        LOG_INFO("[" + *_srvConnMgr._name + "] File Download in progress...")
-       resetSrvSessState();
-       return;
+        sendDownloadFileData();
+        return;
 
        case COMPLETED:
         if(_locFileInfo->meta->fileSizeRaw == 0)
@@ -170,7 +169,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
                   + _locFileInfo->fileName + "\" downloaded from the storage pool")
         else
          LOG_INFO("[" + *_srvConnMgr._name + "] File \"" + _locFileInfo->fileName + "\" ("
-                  + _remFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
+                  + _locFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
 
         resetSrvSessState();
         return;
@@ -292,6 +291,8 @@ void SrvSessMgr::srvUploadStart()
  }
 
 
+// TODO: Move in a "SessMgr::setRecvRaw() method after moving the sub-state into the 'SessMgr' class -----
+
 /**
  * @brief Prepares the server session manager to receive
  *        the raw contents of a file to be uploaded
@@ -329,6 +330,8 @@ void SrvSessMgr::srvUploadSetRecvRaw()
   // Initialize an AES_128_GCM decryption operation
   _aesGCMMgr.decryptInit();
  }
+
+// TODO: -------------------------------------------------------------------------------------------------
 
 
 /**
@@ -393,7 +396,7 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
                                      (float)_remFileInfo->meta->fileSizeRaw * 100);
 
     LOG_DEBUG("[" + *_srvConnMgr._name + "] File \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
-              ") upload currUploadProg: " + std::to_string((int)currUploadProg) + "%")
+              ") upload progress: " + std::to_string((int)currUploadProg) + "%")
 #endif
 
     // If the file being uploaded has not been completely received yet, update the associated
@@ -464,8 +467,9 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
  *            1) If such a file does not exist, notify the client and reset the session state
  *            2) If such a file exists, send its information to the client and set\n
  *               the session manager to expect the download operation confirmation
- * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
- * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
+ * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file name in the 'SessMsgFileName' message
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be downloaded was found to be a directory (!)
+ * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be downloaded
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -502,29 +506,109 @@ void SrvSessMgr::srvDownloadStart()
   // Otherwise, if the file the client wants to download was found in their storage pool
   else
    {
-    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
-    // the information on the file to be downloaded and send it to the client
-    sendSessMsgFileInfo(FILE_EXISTS);
-
-    // Set the server session manager to expect the download operation completion or
-    // confirmation notification depending on whether the file to be downloaded is empty or not
+    // If the file to be downloaded is empty
     if(_locFileInfo->meta->fileSizeRaw == 0)
      {
+      // Set the server session manager to expect the client completion notification
       _srvSessMgrSubstate = WAITING_CLI_COMPL;
 
       LOG_INFO("[" + *_srvConnMgr._name + "] Received download request of empty"
                " file \"" + _locFileInfo->fileName + "\", awaiting client completion")
      }
+
+    // Otherwise, if the file to be downloaded is NOT empty
     else
      {
+      // Attempt to open the file to be downloaded in read-byte mode
+      _mainFileDscr = fopen(_mainFileAbsPath->c_str(), "rb");
+      if(!_mainFileDscr)
+       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to open the file descriptor of the"
+                            " main file to be downloaded (" + *_mainFileAbsPath + ")");
+
+
+      // Set the server session manager to expect the client confirmation notification
       _srvSessMgrSubstate = WAITING_CLI_CONF;
 
       LOG_INFO("[" + *_srvConnMgr._name + "] Received download request of file \"" + _locFileInfo->fileName
                + "\" (" + _locFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
      }
+
+    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
+    // the information on the file to be downloaded and send it to the client
+    sendSessMsgFileInfo(FILE_EXISTS);
    }
  }
 
+
+// TODO
+void SrvSessMgr::sendDownloadFileData()
+ {
+  // fread() return, representing the number of bytes read
+  // from main file into the secondary connection buffer
+  size_t freadRet;
+
+  // The total number of file bytes sent to the client
+  size_t totBytesSent = 0;
+
+#ifdef DEBUG_MODE
+  // The file's current download progress discretized between 0-100%
+  unsigned char currDownloadProg;
+#endif
+
+  // Initialize the file encryption operation
+  _aesGCMMgr.encryptInit();
+
+  /* ------------------------------- File Download Loop ------------------------------- */
+  do
+   {
+    // Read the file raw contents into the secondary buffer size (possibly filling it)
+    freadRet = fread(_connMgr._secBuf, sizeof(char), _connMgr._secBufSize, _mainFileDscr);
+
+    // An error occurred in reading the file raw contents is a critical error that in the current
+    // session state cannot be notified to the client and so require their connection to be dropped
+    if(ferror(_mainFileDscr))
+     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED,"file: " + *_mainFileAbsPath + "\", "
+                     + *_connMgr._name + "\" upload operation aborted", ERRNO_DESC);
+
+    // If bytes were read from the file into the secondary connection buffer
+    if(freadRet > 0)
+     {
+      // Encrypt the file raw contents from the secondary into the primary connection buffer
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)freadRet, &_connMgr._priBuf[0]);
+
+      // Send the encrypted file contents to the client
+      _connMgr.sendRaw(freadRet);
+
+      // Update the total number of bytes sent to the client
+      totBytesSent += freadRet;
+
+      // In DEBUG_MODE, compute and log the file's current download progress
+#ifdef DEBUG_MODE
+      currDownloadProg = (unsigned char)((float)totBytesSent / (float)_locFileInfo->meta->fileSizeRaw * 100);
+
+      LOG_DEBUG("[" + *_srvConnMgr._name + "] File \"" + _locFileInfo->fileName + "\" (" + _locFileInfo->meta->fileSizeStr +
+                ") download progress: " + std::to_string((int)currDownloadProg) + "%")
+#endif
+     }
+   } while(!feof(_mainFileDscr)); // While the main file has not been completely read
+
+  // Having sent to the client server a number of bytes different from the
+  // file size is a critical error that in the current session state cannot
+  // be notified to the client and so require their connection to be dropped
+  if(totBytesSent != _locFileInfo->meta->fileSizeRaw)
+   THROW_EXEC_EXCP(ERR_FILE_READ_UNEXPECTED_SIZE, "file: " + _locFileInfo->fileName + "\", " + *_connMgr._name + "\" upload "
+                   "operation aborted", std::to_string(totBytesSent) + " != " + std::to_string(_locFileInfo->meta->fileSizeRaw));
+
+  // Finalize the file encryption operation by writing the resulting
+  // integrity tag at the start of the primary connection buffer
+  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
+
+  // Send the file integrity tag to the client
+  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
+
+  // Set the server connection manager to expect the client download's completion
+  _srvSessMgrSubstate = WAITING_CLI_COMPL;
+ }
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 

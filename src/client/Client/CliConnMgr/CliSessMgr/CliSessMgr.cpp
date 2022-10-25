@@ -706,6 +706,151 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
  }
 
 
+// TODO
+void CliSessMgr::downloadFileData()
+ {
+  // TODO: Move in a "SessMgr::setRecvRaw() method after moving the sub-state into the 'SessMgr' class -----
+
+  // Update the client session manager sub-state so to expect raw data
+  _cliSessMgrSubstate = WAITING_SRV_RAW_DATA;
+
+  // Set the reception mode of the associated connection manager to 'RECV_RAW'
+  _connMgr._recvMode = ConnMgr::RECV_RAW;
+
+  // Set the expected data block size in the associated
+  // connection manager to the size of the file to be received
+  _connMgr._recvBlockSize = _remFileInfo->meta->fileSizeRaw;
+
+  // Initialize the number of raw bytes to be received to the file size
+  _rawBytesRem = _remFileInfo->meta->fileSizeRaw;
+
+  // Open the temporary file descriptor in write-byte mode
+  _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
+  if(!_tmpFileDscr)
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
+                                           + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
+
+  // Initialize an AES_128_GCM decryption operation
+  _aesGCMMgr.decryptInit();
+
+  // TODO: -------------------------------------------------------------------------------------------------
+
+  // The number of raw file bytes read from the
+  // connection socket into the primary connection buffer
+  size_t recvBytes;
+
+  // fwrite() return, representing the number of bytes written
+  // from the secondary connection buffer into the temporary file
+  size_t fwriteRet;
+
+  // A progress bar possibly used for displaying the
+  // file's download progress discretized between 0-100%
+  ProgressBar downloadProgBar(100);
+
+  // The previous and current download progress discretized between 0-100%
+  unsigned char prevDownloadProg = 0;
+  unsigned char currDownloadProg;
+
+  // If the file to be downloaded is large enough, display
+  // the download progress to the user via a progress bar
+  bool showProgBar = _remFileInfo->meta->fileSizeRaw > (_connMgr._priBufSize * 5);
+
+  // If the download progress bar should be displayed
+  if(showProgBar)
+   {
+    // Print an introductory downloaded message
+    std::cout << "\nDownloading file \"" + _remFileInfo->fileName + "\" ("
+                 + _remFileInfo->meta->fileSizeStr + ") from the storage pool:\n" << std::endl;
+
+    // Display the progress bar with 0% completion
+    downloadProgBar.update();
+   }
+
+  /* ------------------------------- File Download Loop ------------------------------- */
+  do
+   {
+    // Receive any number of raw file bytes
+    recvBytes = _connMgr.recvRaw();
+
+    // Decrypted the received file raw bytes from the primary into the secondary connection buffer
+    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[0], (int)recvBytes, &_connMgr._secBuf[0]);
+
+    // Write the decrypted file bytes from the secondary buffer into the temporary file
+    fwriteRet = fwrite(_connMgr._secBuf, sizeof(char), recvBytes, _tmpFileDscr);
+
+    // Writing into the temporary file less bytes than the ones received into the
+    // primary connection buffer is a critical error that in the current session state
+    // cannot be notified to the server and so require the connection to be dropped
+    if(fwriteRet < recvBytes)
+     THROW_EXEC_EXCP(ERR_FILE_WRITE_FAILED,"file: " + *_tmpFileAbsPath + ", download operation aborted","written " +
+                     std::to_string(fwriteRet) + " < recvBytes = " + std::to_string(recvBytes) + " bytes");
+
+    // Update the number of remaining file of the file being uploaded
+    _rawBytesRem -= recvBytes;
+
+    // If the download progress bar should be displayed
+    if(showProgBar)
+     {
+      // Compute the current download progress discretized between 0-100%
+      currDownloadProg = (unsigned char)((float)(_remFileInfo->meta->fileSizeRaw - _rawBytesRem) /
+                                         (float)_remFileInfo->meta->fileSizeRaw * 100);
+
+      // Update the progress bar to the current download progress
+      for(unsigned char i = prevDownloadProg; i < currDownloadProg; i++)
+       downloadProgBar.update();
+
+      // Update the previous download progress
+      prevDownloadProg = currDownloadProg;
+     }
+
+    // If the file being downloaded has not been completely received yet, update the associated
+    // connection manager's expected data block size to its number of remaining bytes
+    if(_rawBytesRem > 0)
+     _connMgr._recvBlockSize = _rawBytesRem;
+
+     // Otherwise, if the file has been completely received, set the associated connection
+     // manager's expected data block size to the size of an AES_128_GCM integrity tag
+    else
+     _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
+
+    // Reset the index of the most significant byte in the primary connection buffer
+    _connMgr._priBufInd = 0;
+   } while(_rawBytesRem != 0);
+
+  // Indentation
+  if(showProgBar)
+   printf("\n");
+
+  /* ------------------------ File Integrity Tag Verification ------------------------ */
+
+  // Block until the complete file integrity TAG has been received
+  while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
+   _connMgr.recvRaw();
+
+  // Finalize the upload decryption by verifying the file's integrity tag
+  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
+
+  // Close and reset the temporary file descriptor
+  if(fclose(_tmpFileDscr) != 0)
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to close the downloaded temporary file "
+                                           "(" + *_tmpFileAbsPath + ") (reason = " + ERRNO_DESC + ")");
+  _tmpFileDscr = nullptr;
+
+  // Move the temporary file from the user's temporary directory into the associated main file in their storage pool
+  if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the downloaded temporary file from the client's temporary"
+                                              "directory to their downloads directory (" + *_tmpFileAbsPath + ")");
+
+  // Change the download file last modified time to
+  // the one specified in the '_remFileInfo' object
+  mirrorRemLastModTime();
+
+  // Inform the client that the file upload has been completed
+  // successfully by sending a 'COMPLETED' session signaling message
+  sendSessSignalMsg(COMPLETED);
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -807,7 +952,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
  }
 
 
-// TODO: Placeholder implementation
+// TODO
 void CliSessMgr::downloadFile(std::string& fileName)
  {
   // Initialize the client session manager state and substate
@@ -843,7 +988,12 @@ void CliSessMgr::downloadFile(std::string& fileName)
   if(!parseDownloadResponse(fileName))
    return;
 
-  std::cout << "Downloading file from the SafeCloud server... " << std::endl;
+  // Receive the raw file contents
+  downloadFileData();
+
+  // Inform the user that the file has been successfully downloaded to their downloads directory
+  std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
+               ") successfully downloaded into the downloads directory\n" << std::endl;
  }
 
 

@@ -21,6 +21,7 @@ class CliSessMgr : public SessMgr
      CLI_IDLE,
      CMD_START,
      WAITING_FILE_STATUS,
+     WAITING_SRV_RAW_DATA,
      WAITING_SRV_CONF,
      WAITING_POOL_INFO,
      WAITING_SRV_COMPL
@@ -143,8 +144,11 @@ class CliSessMgr : public SessMgr
 
    /* ----------------------------- 'DOWNLOAD' Operation Methods ----------------------------- */
 
+   // TODO
    bool parseDownloadResponse(std::string& fileName);
 
+   // TODO
+   void downloadFileData();
 
   public:
 

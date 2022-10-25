@@ -137,6 +137,7 @@ class SrvSessMgr : public SessMgr
     *               the session manager to expect the download operation confirmation
     * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
     * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
+    * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be downloaded
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -147,6 +148,9 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_SEND_FAILED              send() fatal error
     */
    void srvDownloadStart();
+
+   // TODO
+   void sendDownloadFileData();
 
   public:
 
