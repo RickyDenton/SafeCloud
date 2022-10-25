@@ -24,19 +24,6 @@ class CliConnMgr : public ConnMgr
    friend class CliSTSMMgr;
    friend class CliSessMgr;
 
-   /* ============================== PRIVATE METHODS ============================== */
-
-   /**
-    * @brief  Blocks until a full SafeCloud message (STSMMsg or SessMsg) has been
-    *         received from the connection socket into the primary communication buffer
-    * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive a message with
-    *                                   the connection manager in RECV_RAW mode
-    * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
-    * @throws ERR_SRV_DISCONNECTED      The server has abruptly disconnected
-    * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
-    */
-   void cliRecvFullMsg();
-
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

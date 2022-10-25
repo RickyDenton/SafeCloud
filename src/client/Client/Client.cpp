@@ -464,6 +464,11 @@ void Client::connError(execErrExcp& connExcp)
   _cliConnMgr = nullptr;
   _connected = false;
 
+  // Change a ERR_PEER_DISCONNECTED into the more
+  // specific ERR_SRV_DISCONNECTED error code
+  if(connExcp.exErrcode == ERR_PEER_DISCONNECTED)
+   connExcp.exErrcode = ERR_SRV_DISCONNECTED;
+
   // The special ERR_STSM_CLI_CLIENT_LOGIN_FAILED execErrCode (which as for the
   // current application's version should NEVER happen) requires the user to
   // log-in again, and must be handled in catch clause of the login loop
@@ -629,7 +634,7 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
     _cliConnMgr->getSession()->uploadFile(arg1);
 
     // Reset the client session manager state
-    _cliConnMgr->getSession()->resetCliSessState();
+    _cliConnMgr->getSession()->resetSessState();
 
     return;
    }
@@ -641,7 +646,7 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
     _cliConnMgr->getSession()->downloadFile(arg1);
 
     // Reset the client session manager state
-    _cliConnMgr->getSession()->resetCliSessState();
+    _cliConnMgr->getSession()->resetSessState();
 
     return;
    }
@@ -667,7 +672,7 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
        _cliConnMgr->getSession()->listRemoteFiles();
 
        // Reset the client session manager state
-       _cliConnMgr->getSession()->resetCliSessState();
+       _cliConnMgr->getSession()->resetSessState();
       }
 
      // Unsupported command
@@ -699,7 +704,7 @@ void Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg
     _cliConnMgr->getSession()->renameRemFile(arg1,arg2);
 
     // Reset the client session manager state
-    _cliConnMgr->getSession()->resetCliSessState();
+    _cliConnMgr->getSession()->resetSessState();
 
     return;
    }
@@ -797,7 +802,7 @@ void Client::userCmdPrompt()
         handleSessErrException(sessErrExcp);
 
         // Reset the session manager state
-        _cliConnMgr->getSession()->resetCliSessState();
+        _cliConnMgr->getSession()->resetSessState();
        }
      }
    } while(!_shutdown);

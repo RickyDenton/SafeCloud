@@ -3,7 +3,20 @@
 
 /* SafeCloud Session Manager */
 
-// TODO: Rewrite descriptions, attributes included
+/*
+ * Session Manager Glossary:
+ * ========================
+ * - Main Directory: A user's storage pool on the SafeCloud server or
+ *                   their downloads folder in the client application
+ * - Main File:      A file in the user's storage pool on the SafeCloud server
+ *                   or in their download folder in the client application
+ * - Temporary File: A file in the user's temporary folder on the
+ *                   SafeCloud server or in the client application
+ *
+ * NOTE: In the context of an 'UPLOAD' operation the main file is the file
+ *       the user wants to upload, whether it is in its main directory or not
+ */
+
 
 /* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
@@ -14,149 +27,91 @@
 #include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include "ConnMgr/ConnMgr.h"
 #include "SessMsg.h"
+#include "DirInfo/DirInfo.h"
 
 class SessMgr
  {
   protected:
 
-   // Session manager states
-   enum sessMgrState : uint8_t
+   // Session manager operations
+   enum sessMgrOp : uint8_t
     {
-     IDLE,      // Ready to execute commands
-     UPLOAD,    // File upload to the SafeCloud storage pool in progress
-     DOWNLOAD,  // File download from the SafeCloud storage pool in progress
-     DELETE,    // File deletion from the SafeCloud storage pool in progress
-     RENAME,    // File renaming within the SafeCloud storage pool in progress
-     LIST       // Contents' listing of the SafeCloud storage pool in progress
+     IDLE,      // Idle session manager
+     UPLOAD,    // File upload to the user's SafeCloud storage pool
+     DOWNLOAD,  // File download from the user's SafeCloud storage pool
+     DELETE,    // File deletion from the user's SafeCloud storage pool
+     RENAME,    // File renaming in the user's SafeCloud storage pool
+     LIST       // Listing the user's SafeCloud storage pool contents
     };
+
+  // Session manager operations steps
+  enum sessMgrOpStep : uint8_t
+   {
+    OP_START,      // Default starting step                                                   (both)
+    WAITING_RESP,  // Awaiting the server's response to an operation-starting session message (client only)
+    WAITING_CONF,  // Awaiting the client confirmation notification                           (server only)
+    WAITING_RAW,   // Awaiting raw data                                                       (both)
+    WAITING_COMPL  // Awaiting the operation completion notification                          (both)
+   };
 
    /* ================================= ATTRIBUTES ================================= */
 
-   /* ------------------------- General Session Attributes ------------------------- */
-   sessMgrState   _sessMgrState;  // The current session manager state
-   ConnMgr&       _connMgr;       // The associated connection manager parent object
-   AESGCMMgr      _aesGCMMgr;     // The associated AES_128_GCM manager child object
+   /* ------------------------ Constant Session Attributes ------------------------ */
 
-   // TODO: Section
+   /*
+    * These attributes are constant across the entire Session Manager execution
+    */
 
-  // The session's main directory, consisting in the user's storage
-  // pool on the server or their downloads folder on the client
-   std::string* _mainDir;
+   // The associated connection manager parent object
+   ConnMgr&       _connMgr;
 
-   // The session's temporary directory
-   std::string* _tmpDir;
+   // The absolute path of the session's main directory
+   std::string* _mainDirAbsPath;
 
-   /* ------------------------ Files Management Attributes ------------------------ */
+   // The absolute path of the session's temporary directory
+   std::string* _tmpDirAbsPath;
 
-  // The file descriptor used for reading and the absolute path of a
-  // file in the connection's main folder (the "username/download"
-  // folder on the client and the "username/pool" folder on the server)
-  FILE* _mainFileDscr;
-  std::string* _mainFileAbsPath;
+   /* -------------------------- Session State Attributes -------------------------- */
 
-  // The file descriptor used for writing and the absolute path of a file in the
-  // connection's temporary folder ("username/temp" for both the client and server)
-  FILE* _tmpFileDscr;
-  std::string* _tmpFileAbsPath;
+   /*
+    * These attributes are reset, possibly to a degree,
+    * across different session manager operations
+    */
 
-   // The file name and metadata of the target local and remote file
-   FileInfo*  _locFileInfo;
+   // The session manager current operation and operation step
+   sessMgrOp     _sessMgrOp;
+   sessMgrOpStep _sessMgrOpStep;
+
+   // The associated AES_128_GCM manager child object
+   AESGCMMgr     _aesGCMMgr;
+
+   // The contents of the session's main directory
+   DirInfo* _mainDirInfo;
+
+   // The absolute path, information and file descriptor
+   // of a same file in the session's main directory
+   std::string* _mainFileAbsPath;
+   FileInfo*    _mainFileInfo;
+   FILE*        _mainFileDscr;
+
+   // The absolute path and file descriptor
+   // of a same file in the session's temporary directory
+   std::string* _tmpFileAbsPath;
+   FILE* _tmpFileDscr;
+
+   // Information on a remote file
    FileInfo*  _remFileInfo;
 
-   // TODO: Check description
-   // The number of bytes pending to be sent or received in a raw data transmission
+   // The number of remaining raw bytes to be
+   // sent or received in a raw data transmission
    unsigned int _rawBytesRem;
 
-   /* -------------- Currently Received Session Message Header -------------- */
-   uint16_t    _recvSessMsgLen;  // The currently received session message's length
-   SessMsgType _recvSessMsgType; // The currently received session message's type
+   // The length and type of the last received session message
+   uint16_t    _recvSessMsgLen;
+   SessMsgType _recvSessMsgType;
 
 
    /* ============================= PROTECTED METHODS ============================= */
-
-
-   // TODO: Section?
-   /**
-    * @brief Validates and loads into a FileInfo object pointed by the '_remFileInfo' attribute
-    *        the name and metadata of a remote file embedded within a 'SessMsgFileInfo'
-    *        session message stored in the associated connection manager's secondary buffer
-    * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
-    */
-   void loadRemFileInfo();
-
-   /**
-    * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
-    *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
-    *         attribute to the concatenation of the session's main directory with such file name
-    * @return The file name embedded in the 'SessMsgFileName' session message
-    * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
-    */
-   std::string loadMainFileName();
-
-   /**
-    * @brief Attempts to load into the '_locFileInfo' attribute the information
-    *        of the main file referred by the '_mainFileAbsPath' attribute
-    * @throws ERR_SESS_INTERNAL_ERROR   The '_mainFileAbsPath' attribute has not been initialized
-    * @throws ERR_SESS_MAIN_FILE_IS_DIR The main file was found to be a directory (!)
-    */
-   void checkLoadMainFile();
-
-   /**
-    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
-    *         of the specified type containing the name and metadata of the local file referred by the '_locFileInfo'
-    *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
-    * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
-    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
-    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
-    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED              send() fatal error
-    */
-   void sendSessMsgFileInfo(SessMsgType sessMsgType);
-
-   /**
-    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
-    *        session message of the specified type and fileName value, for then wrapping
-    *        and sending the resulting session message wrapper to the connection peer
-    * @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
-    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
-    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
-    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED              send() fatal error
-    */
-   void sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName);
-
-   /**
-    * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main file
-    * @param  fileAbsPath The absolute path of the local file whose last modification time is to be changed
-    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
-    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
-    */
-   void mirrorRemLastModTime();
-
-   /**
-    * @brief  Deletes if present the empty file in the main directory referred by the
-    *         '_mainFileAbsPath' and '_locFileInfo' attributes, for then touching it and
-    *         setting its last modified time to the one referred by the '_remFileInfo' object
-    * @note   If present the file is preliminarily deleted from the main
-    *         directory for the purposes of updating its creation time
-    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
-    * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the main file
-    * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the main file
-    * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the main file
-    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
-    */
-   void touchEmptyFile();
-
 
    /* ------------------------------ Utility Methods ------------------------------ */
 
@@ -169,24 +124,30 @@ class SessMgr
    static bool isSessSignalingMsgType(SessMsgType sessMsgType);
 
    /**
-    * @brief  Returns whether a session message type
-    *         is a signaling error session message type
+    * @brief   Returns whether a session message type
+    *          is a signaling error session message type
     * @return 'true' if the provided session message type is a signaling
     *          error session message type or 'false' otherwise
     */
    static bool isSessErrSignalingMsgType(SessMsgType sessMsgType);
 
    /**
-    * @brief Converts a session manager state to string
-    * @return The session manager state as a string
+    * @brief  Converts the current session manager operation to a lowercase string
+    * @return The current session manager operation as a lowercase string
     */
-   static std::string sessMgrStateToStr(sessMgrState sesMgrState);
+   std::string sessMgrOpToStrLowCase();
 
    /**
-    * @brief Converts the current session manager state to string
-    * @return The current session manager state as a string
+    * @brief  Converts the current session manager operation to a uppercase string
+    * @return The current session manager operation as a uppercase string
     */
-   std::string currSessMgrStateToStr();
+   std::string sessMgrOpToStrUpCase();
+
+   /**
+    * @brief  Converts the current session manager operation step to a uppercase string
+    * @return The current session manager operation step as a uppercase string
+    */
+   std::string sessMgrOpStepToStrUpCase();
 
    /**
     * @brief  Returns a string outlining the current
@@ -194,7 +155,37 @@ class SessMgr
     * @return A string outlining the current
     *         operation that has been aborted
     */
-   std::string abortedCmdToStr();
+   std::string abortedOpToStr();
+
+   /* --------------------------- Session Files Methods --------------------------- */
+
+   /**
+    * @brief Attempts to load into the '_mainFileInfo' attribute the information
+    *        of the main file referred by the '_mainFileAbsPath' attribute
+    * @throws ERR_SESS_INTERNAL_ERROR   The '_mainFileAbsPath' attribute has not been initialized
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR The main file was found to be a directory (!)
+    */
+   void checkLoadMainFileInfo();
+
+   /**
+    * @brief  Sets the main file last modification time to the one specified in the '_remFileInfo' attribute
+    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
+    */
+   void mainToRemLastModTime();
+
+   /**
+    * @brief  If present deletes the main empty file for then touching it and setting its
+    *         last modified time to the one specified in the '_remFileInfo' attribute
+    * @note   If present the main file is preliminarily deleted
+    *         for the purposes of updating its creation time
+    * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
+    * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the main file
+    * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the main file
+    * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the main file
+    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
+    */
+   void touchEmptyFile();
 
    /* -------------------- Session Messages Wrapping/Unwrapping -------------------- */
 
@@ -215,7 +206,7 @@ class SessMgr
 
    /**
     * @brief  Unwraps a session message wrapper stored in the associated connection's primary
-    *         buffer into its associated session message in the connection's secondary buffer
+    *         buffer into its resulting session message in the connection's secondary buffer
     * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_DECRYPT_INIT      EVP_CIPHER decrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The AAD size is non-positive (probable overflow)
@@ -225,12 +216,12 @@ class SessMgr
     */
    void unwrapSessMsg();
 
-   /* --------------------- Session Signaling Messages Sending --------------------- */
+   /* -------------------------- Session Messages Sending -------------------------- */
 
    /**
-    * @brief Wraps and sends a session signaling message, i.e. a session
-    *        session message with no payload, to the connection peer
-    * @param sessMsgSignalingType          The session signaling message type to be sent
+    * @brief  Wraps and sends a session signaling message, i.e. a session
+    *         session message with no payload, to the connection peer
+    * @param  sessMsgSignalingType         The session signaling message type to be sent
     * @throws ERR_SESS_INTERNAL_ERROR      Attempting to send a non-signaling session message
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -243,31 +234,92 @@ class SessMgr
     */
    void sendSessSignalMsg(SessMsgType sessMsgSignalingType);
 
+   /**
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
+    *         of the specified type containing the name and metadata of the main file referred by the '_mainFileInfo'
+    *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
+    * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or uninitialized '_mainFileInfo' attribute
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void sendSessMsgFileInfo(SessMsgType sessMsgType);
+
+   /**
+    * @brief Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
+    *        session message of the specified type and fileName value, for then wrapping
+    *        and sending the resulting session message wrapper to the connection peer
+    * @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName);
+
+   /* ------------------------- Session Messages Reception ------------------------- */
+
+   /**
+    * @brief Validates and loads into a FileInfo object pointed by the '_remFileInfo' attribute
+    *        the name and metadata of a remote file embedded within a 'SessMsgFileInfo'
+    *        session message stored in the associated connection manager's secondary buffer
+    * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
+    */
+   void loadRemSessMsgFileInfo();
+
+   /**
+    * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
+    *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
+    *         attribute to the concatenation of the session's main directory with such file name
+    * @return The file name embedded in the 'SessMsgFileName' session message
+    * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
+    */
+   std::string loadMainSessMsgFileName();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
-    * @brief Session manager object constructor, initializing
-    *        session parameters and its child AESGCMMgr object
-    * @param connMgr A reference to the connection manager parent object
-    * @param connMgr The session's main directory, consisting in the user's storage
-    *                pool on the server or their downloads folder on the client
+    * @brief Client session manager object constructor, initializing the session attributes
+    *         of the authenticated user associated with the CliConnMgr parent object
+    * @param cliConnMgr A reference to the CliConnMgr parent object
     */
    SessMgr(ConnMgr& connMgr, std::string* mainDir);
 
    /**
-    * @brief Session manager object destructor, performing cleanup operation
-    * @note  It is assumed the secure erasure of the connection's cryptographic quantities
-    *        (session key, IV) to be performed by the associated connection manager object
+    * @brief Session manager object destructor,  performing cleanup operations on the session's
+    *        state attributes and resetting the associated connection manager's reception mode
+    *        to 'RECV_MSG' and marking the contents of its primary connection buffer as consumed
+    * @note  It is assumed the connection's cryptographic quantities (session key, IV)
+    *        to be securely erased by the associated connection manager parent object
     */
    ~SessMgr();
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
    /**
-    * @brief Resets all session parameters in preparation to the next session command to be executed,
-    *        also resetting the associated connection manager's reception mode to 'RECV_MSG'
+    * @brief  Returns whether the session manager is idle
+    * @return A boolean indicating whether the connection manager is idle
+    */
+   bool isIdle();
+
+   /**
+    * @brief Reset the session manager state in preparation to the next session operation by
+    *        resetting and performing cleanup operation on all its session state attributes
+    *        and by resetting the associated connection manager's reception mode to 'RECV_MSG'
+    *        and by marking the contents of its primary connection buffer as consumed
     */
    void resetSessState();
  };

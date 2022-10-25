@@ -10,12 +10,12 @@
 enum SessMsgType : uint8_t
  {
   /* ---------------------- Payload Session Message Types ---------------------- */
-  FILE_UPLOAD_REQ,    // File upload request                       (Client -> Server)
-  FILE_DOWNLOAD_REQ,  // File download request                     (Client -> Server)
-  FILE_DELETE_REQ,    // File delete request                       (Client -> Server)
-  FILE_RENAME_REQ,    // File rename request                       (Client -> Server)
-  FILE_EXISTS,        // A file with such name already exists      (Client <- Server)
-  POOL_INFO,          // Number of files in the storage pool       (Client <- Server)
+  FILE_UPLOAD_REQ,    // File upload request                      (Client -> Server)
+  FILE_DOWNLOAD_REQ,  // File download request                    (Client -> Server)
+  FILE_DELETE_REQ,    // File delete request                      (Client -> Server)
+  FILE_RENAME_REQ,    // File rename request                      (Client -> Server)
+  FILE_EXISTS,        // A file with such name already exists     (Client <- Server)
+  POOL_SIZE,          // Client storage pool information raw size (Client <- Server)
 
   /* -------------- Signaling Session Message Types (No Payload) -------------- */
 

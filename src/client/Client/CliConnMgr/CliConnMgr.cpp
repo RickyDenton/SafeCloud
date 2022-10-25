@@ -4,46 +4,6 @@
 #include "CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 
-/* =============================== PRIVATE METHODS =============================== */
-
-/**
- * @brief  Blocks until a full SafeCloud message (STSMMsg or SessMsg) has been
- *         received from the connection socket into the primary communication buffer
- * @throws ERR_CONNMGR_INVALID_STATE Attempting to receive a message with
- *                                   the connection manager in RECV_RAW mode
- * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
- * @throws ERR_SRV_DISCONNECTED      The server has abruptly disconnected
- * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
- */
-void CliConnMgr::cliRecvFullMsg()
- {
-  // Ensure the connection manager to be in the 'RECV_MSG' reception mode
-  if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a message in RECV_RAW mode");
-
-  try
-   {
-    // Block until a SafeCloud message length header of MSG_LEN_HEAD_SIZE bytes (2)
-    // is received from the connection socket into the primary connection buffer
-    recvMsgLenHeader();
-
-    // Blocks until a full SafeCloud message has been read from
-    // the connection socket into the primary connection buffer
-    while(_recvBlockSize != _priBufInd)
-     recvRaw();
-   }
-  catch(execErrExcp& recvExcp)
-   {
-    // Change a ERR_PEER_DISCONNECTED into the more
-    // specific ERR_SRV_DISCONNECTED error code
-    if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
-     recvExcp.exErrcode = ERR_SRV_DISCONNECTED;
-
-    // Rethrow the exception
-    throw;
-   }
- }
-
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 

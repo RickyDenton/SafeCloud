@@ -98,7 +98,7 @@ void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
 void CliSTSMMgr::recvCheckCliSTSMMsg()
  {
   // Receive a full message via the associated connection manager
-  _cliConnMgr.cliRecvFullMsg();
+  _cliConnMgr.recvFullMsg();
 
   // Interpret the associated connection manager's primary buffer as a STSM message
   STSMMsg* stsmMsg = reinterpret_cast<STSMMsg*>(_cliConnMgr._priBuf);

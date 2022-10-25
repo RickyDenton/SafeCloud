@@ -37,17 +37,7 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType)
 void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const std::string& errReason)
  {
   // Attempt to send the signaling session message
-  try
-   { sendSessSignalMsg(sessMsgSignalingType); }
-  catch(execErrExcp& sendSessSignExcp)
-   {
-    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_SRV_DISCONNECTED error code
-    if(sendSessSignExcp.exErrcode == ERR_PEER_DISCONNECTED)
-     sendSessSignExcp.exErrcode = ERR_SRV_DISCONNECTED;
-
-    // Rethrow the exception
-    throw;
-   }
+  sendSessSignalMsg(sessMsgSignalingType);
 
   // In case of signaling messages resetting or terminating the session,
   // perform their associated actions or raise their associated exceptions
@@ -56,31 +46,31 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
     // The client session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedCmdToStr());
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedOpToStr());
 
-    // A session message invalid for the current client session manager was received
+    // A session message invalid for the current client session manager state was received
     case ERR_UNEXPECTED_SESS_MESSAGE:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr());
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr());
 
     // A malformed session message was received
     case ERR_MALFORMED_SESS_MESSAGE:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedCmdToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedCmdToStr());
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, abortedOpToStr());
 
     // A session message of unknown type was received, an error to be attributed to a desynchronization
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
      if(!errReason.empty())
-      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr(), errReason);
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedOpToStr(), errReason);
      else
-      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedOpToStr());
 
     // The other signaling message types require no further action
     default:
@@ -96,7 +86,7 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  *            2) Unwraps the received session message wrapper from
  *               the primary into the secondary connection buffer\n
  *            3) Asserts the resulting session message to be allowed in
- *               the current client session manager state and substate\n
+ *               the current client session manager operation and step\n
  *            4) Handles session-resetting or terminating signaling messages\n
  *            5) Handles session error signaling messages\n
  * @throws Most of the session and OpenSSL exceptions (see
@@ -106,7 +96,7 @@ void CliSessMgr::recvCheckCliSessMsg()
  {
   // Block the execution until a complete session message wrapper has
   // been received in the associated connection manager's primary buffer
-  _cliConnMgr.cliRecvFullMsg();
+  _connMgr.recvFullMsg();
 
   // Unwrap the received session message wrapper stored in the connection's primary
   // buffer into its associated session message in the connection's secondary buffer
@@ -114,7 +104,7 @@ void CliSessMgr::recvCheckCliSessMsg()
 
   // Interpret the contents of associated connection
   // manager's secondary buffer as a base session message
-  SessMsg* sessMsg = reinterpret_cast<SessMsg*>(_cliConnMgr._secBuf);
+  SessMsg* sessMsg = reinterpret_cast<SessMsg*>(_connMgr._secBuf);
 
   // Copy the received session message length
   // and type into their dedicated attributes
@@ -124,130 +114,134 @@ void CliSessMgr::recvCheckCliSessMsg()
   // If a signaling message type was received, assert the message
   // length to be equal to the size of a base session message
   if(isSessSignalingMsgType(_recvSessMsgType) && _recvSessMsgLen != sizeof(SessMsg))
-   sendCliSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message of invalid"
+   sendCliSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message of invalid "
                                                    "length (" + std::to_string(_recvSessMsgLen) + ")");
 
-  // With the client session manager in the 'IDLE' state
+  // With the client session manager in the 'IDLE' operation
   // only session error signaling messages can be received
-  if(_sessMgrState == IDLE && !isSessErrSignalingMsgType(_recvSessMsgType))
+  if(_sessMgrOp == IDLE && !isSessErrSignalingMsgType(_recvSessMsgType))
    sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type " +
                                                     std::to_string(_recvSessMsgType) + " with"
-                                                    "the client session manager in the 'IDLE' state");
+                                                    " an IDLE client session manager");
 
   /*
    * Check whether the received session message type:
    *   1) Should trigger a session state reset or termination,
    *      directly performing the appropriate actions
-   *   2) Is valid in the current client session manager state
-   *      and substate, signaling the error to the server
-   *      and throwing the associated exception otherwise
+   *   2) Is valid in the current client session manager
+   *      state, signaling the error to the server and
+   *      throwing the associated exception otherwise
    */
   switch(_recvSessMsgType)
    {
-    /* ------------------------------- 'FILE_EXISTS' Payload Message ------------------------------- */
+    /* ---------------------------- 'FILE_EXISTS' Payload Message Type ---------------------------- */
 
-    // A file existence notification is allowed only in the 'UPLOAD',
-    // 'DOWNLOAD' and 'DELETE' states with sub-state 'WAITING_FILE_STATUS'
+    // A 'FILE_EXISTS' payload message type is allowed only with the client session
+    // manager in the 'UPLOAD', 'DOWNLOAD' and 'DELETE' commands with step 'WAITING_RESP'
     case FILE_EXISTS:
-     if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD || _sessMgrState == DELETE)
-          && _cliSessMgrSubstate == WAITING_FILE_STATUS))
+     if(!((_sessMgrOp == UPLOAD || _sessMgrOp == DOWNLOAD || _sessMgrOp == DELETE)
+          && _sessMgrOpStep == WAITING_RESP))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_EXISTS' session message received in"
-                                                       "session state" "\"" + currSessMgrStateToStr() +
-                                                       "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       "\", step " + sessMgrOpStepToStrUpCase());
       break;
 
-    /* -------------------------------- 'POOL_INFO' Payload Message -------------------------------- */
+    /* ----------------------------- 'POOL_SIZE' Payload Message Type ----------------------------- */
 
-    // Client storage pool information is allowed only in
-    // the 'LIST' state with sub-state 'WAITING_POOL_INFO'
-    case POOL_INFO:
-     if(!(_sessMgrState == LIST && _cliSessMgrSubstate == WAITING_POOL_INFO))
-      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'POOL_INFO' session message received in"
-                                                       "session state" "\"" + currSessMgrStateToStr() +
-                                                       "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+    // A 'POOL_SIZE' payload message type is allowed in the 'LIST' operation with step 'WAITING_RESP'
+    case POOL_SIZE:
+     if(!(_sessMgrOp == LIST && _sessMgrOpStep == WAITING_RESP))
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'POOL_SIZE' session message received in"
+                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
-    /* ---------------------------- 'FILE_NOT_EXISTS' Signaling Message ---------------------------- */
+    /* -------------------------- 'FILE_NOT_EXISTS' Payload Message Type -------------------------- */
 
-    // A file non-existence notification is allowed in ALL but
-    // the 'LIST' state with sub-state 'WAITING_FILE_STATUS'
+    // A 'FILE_NOT_EXISTS' payload message type is allowed
+    // in all operations but 'LIST' with step 'WAITING_RESP'
     case FILE_NOT_EXISTS:
-     if(!(_sessMgrState != LIST && _cliSessMgrSubstate == WAITING_FILE_STATUS))
+     if(!(_sessMgrOp != LIST && _sessMgrOpStep == WAITING_RESP))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_NOT_EXISTS' session message received in"
-                                                       "session state" "\"" + currSessMgrStateToStr() +
-                                                       "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
-    /* -------------------------- 'NEW_FILENAME_EXISTS' Signaling Message -------------------------- */
+    /* ------------------------ 'NEW_FILENAME_EXISTS' Payload Message Type ------------------------ */
 
-    // A notification that a file with the specified new name already exists in the client's
-    // storage pool is allowed only in the 'RENAME' state with sub-state 'WAITING_SRV_CONF'
+    // A 'NEW_FILENAME_EXISTS' payload message type is allowed
+    // only in the 'RENAME' operation with step 'WAITING_CONF'
     case NEW_FILENAME_EXISTS:
-     if(!(_sessMgrState == RENAME && _cliSessMgrSubstate == WAITING_SRV_CONF))
+     if(!(_sessMgrOp == RENAME && _sessMgrOpStep == WAITING_CONF))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'NEW_FILENAME_EXISTS' session message received in"
-                                                       "session state" "\"" + currSessMgrStateToStr() +
-                                                       "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
-    /* ------------------------------- 'COMPLETED' Signaling Message ------------------------------- */
+    /* ---------------------------- 'COMPLETED' Signaling Message Type ---------------------------- */
 
-    // A server completion notification is allowed only in
-    //   1) The 'DOWNLOAD' state of any sub-state
-    //   2) The 'DELETE' and 'RENAME' states with sub-state 'WAITING_SRV_COMPL'
+    /*
+     * A 'COMPLETED' signaling message type is allowed only in:
+     *   1) The 'UPLOAD' operation of any step
+     *   2) The 'DELETE' and 'RENAME' operations with step 'WAITING_COMPL'
+     */
     case COMPLETED:
 
      // Since after sending a 'COMPLETED' message the SafeCloud server has supposedly
-     // reset its session state, in case the message is received in an invalid
+     // reset its session state, if such a message type is received in an invalid
      // state just throw the associated exception without notifying the server
-     if(!((_sessMgrState == UPLOAD) || ((_sessMgrState == DELETE || _sessMgrState == RENAME) &&
-                                         _cliSessMgrSubstate == WAITING_SRV_COMPL)))
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(), "'COMPLETED' session message received in"
-                                                                      "session state" "\"" + currSessMgrStateToStr() +
-                                                                      "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+     if(!((_sessMgrOp == UPLOAD) || ((_sessMgrOp == DELETE || _sessMgrOp == RENAME) &&
+                                     _sessMgrOpStep == WAITING_COMPL)))
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), "'COMPLETED' session message received in"
+                                                                     " session state \"" + sessMgrOpToStrUpCase() +
+                                                                     "\", step " + sessMgrOpStepToStrUpCase());
       break;
 
-    /* ---------------------------------- 'BYE' Signaling Message ---------------------------------- */
+    /* ------------------------------- 'BYE' Signaling Message Type ------------------------------- */
 
-    // The server graceful disconnect notification is allowed in the 'IDLE' state only
+    // A 'BYE' signaling message type is allowed in the 'IDLE' operation only
     case BYE:
 
-     // If such a message is not received in the 'IDLE' state, just throw the associated
-     // exception without notifying the server, as it is supposedly disconnecting
-     if(_sessMgrState != IDLE)
-      THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT, abortedCmdToStr());
+     // Since after sending a 'BYE' message the SafeCloud server is supposedly
+     // shutting down the connection, if such a message type is received in an invalid
+     // state just throw the associated exception without notifying the server
+     if(_sessMgrOp != IDLE)
+      THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT, abortedOpToStr());
      else
       THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT);
 
-    /* --------------------------------- Error Signaling Messages --------------------------------- */
+    /* ------------------------------ Error Signaling Message Types ------------------------------ */
+
+    /* Error Signaling Message Types are allowed in all operations and steps */
 
     // The server reported to have experienced a recoverable internal error
     case ERR_INTERNAL_ERROR:
-     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_INTERNAL_ERROR,abortedCmdToStr());
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_INTERNAL_ERROR, abortedOpToStr());
 
     // The server reported to have received an unexpected session message
     case ERR_UNEXPECTED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE,abortedCmdToStr());
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE, abortedOpToStr());
 
     // The server reported to have received a malformed session message
     case ERR_MALFORMED_SESS_MESSAGE:
-     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_MALFORMED_MESSAGE,abortedCmdToStr());
+     THROW_SESS_EXCP(ERR_SESS_CLI_SRV_MALFORMED_MESSAGE, abortedOpToStr());
 
     // The server reported to have received a session message of unknown type, an error to be attributed to
     // a desynchronization between the connection peers' IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE, abortedCmdToStr());
+     THROW_EXEC_EXCP(ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE, abortedOpToStr());
 
     /* ----------------------------------- Unknown Message Type ----------------------------------- */
 
-    // A session message of unknown type has been received, an error to be attributed to a
+    // The error of receiving a session message of unknown type is to be attributed to a
     // desynchronization between the connection peers' IVs and that requires the connection to be reset
     default:
      sendCliSessSignalMsg(ERR_UNKNOWN_SESSMSG_TYPE,std::to_string(_recvSessMsgType));
    }
 
   /*
-   * At this point the received session message type is valid
-   * for the current client session manager state and sub-state
+   * At this point the received session message type is VALID
+   * for the current client session manager operation and step
    */
 
   /*
@@ -259,12 +253,12 @@ void CliSessMgr::recvCheckCliSessMsg()
 
 
 /**
- * @brief  Prints a table comparing the metadata of the local and remote file and asks the user
+ * @brief  Prints a table comparing the metadata of the main and remote file and asks the user
  *         whether to continue the current file upload or download operation, confirming or
  *         cancelling the operation on the SafeCloud server depending on the user's response
  * @return A boolean indicating whether the file upload or download operation should continue
- * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state  or the '_locFileInfo' or the
- *                                      '_remFileInfo' attribute have not been initialized
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state or uninitialized
+ *                                      '_mainFileInfo' or '_remFileInfo' attributes
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -276,26 +270,28 @@ void CliSessMgr::recvCheckCliSessMsg()
  */
 bool CliSessMgr::askFileOpConf()
  {
-  // Assert the client session manager state and substate to be valid to ask for a user's file operation confirmation
-  if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD) && _cliSessMgrSubstate == WAITING_FILE_STATUS))
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation in session state" "\""
-                                           + currSessMgrStateToStr() + "\", sub-state " + std::to_string(_cliSessMgrSubstate));
+  // Assert the client session manager command and step to be valid to ask for a user's file operation confirmation
+  if(!((_sessMgrOp == UPLOAD || _sessMgrOp == DOWNLOAD) && _sessMgrOpStep == WAITING_RESP))
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file " + sessMgrOpToStrLowCase() + " confirmation in "
+                                           "command \"" + sessMgrOpToStrUpCase() + "\", sub-state " + sessMgrOpStepToStrUpCase());
 
-  // Ensure the '_locFileInfo' attribute to have been initialized
-  if(_locFileInfo == nullptr)
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation with a NULL '_locFileInfo'");
+  // Ensure the '_mainFileInfo' attribute to have been initialized
+  if(_mainFileInfo == nullptr)
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file \"" + sessMgrOpToStrLowCase() +
+                                           "\" confirmation with a NULL '_mainFileInfo'");
 
   // Ensure the '_remFileInfo' attribute to have been initialized
   if(_remFileInfo == nullptr)
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation with a NULL '_remFileInfo'");
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file \"" + sessMgrOpToStrLowCase() +
+                                           "\" confirmation with a NULL '_remFileInfo'");
 
-  // Print a table comparing the metadata of the local and remote file
-  _locFileInfo->compareMetadata(_remFileInfo);
+  // Print a table comparing the metadata of the main and remote file
+  _mainFileInfo->compareMetadata(_remFileInfo);
 
-  // Assemble the question asking for user confirmation on whether the file operation should continue
-  std::string fileOpContinueQuestion("Do you want to continue " + currSessMgrStateToStr() + "ing the file?");
+  // Assemble the file operation confirmation question
+  std::string fileOpContinueQuestion("Do you want to continue " + sessMgrOpToStrLowCase() + "ing the file?");
 
-  // Ask the user whether the file operation should continue and, if it should
+  // Ask the user the file operation confirmation question and, if they confirm
   if(askUser(fileOpContinueQuestion.c_str()))
    {
     // Confirm the file operation to the SafeCloud server
@@ -320,10 +316,11 @@ bool CliSessMgr::askFileOpConf()
 /* ------------------------------ 'UPLOAD' Operation Methods ------------------------------ */
 
 /**
- * @brief  Parses a file to be uploaded to the SafeCloud storage pool by:\n
+ * @brief  Loads and sanitizes the information of the file to\n
+ *         be uploaded to the SafeCloud storage pool by:\n
  *           1) Writing its canonicalized path into the '_mainFileAbsPath' attribute\n
  *           2) Opening its '_mainFileDscr' file descriptor in read-byte mode\n
- *           3) Loading the file name and metadata into the '_locFileInfo' attribute\n
+ *           3) Loading the file name and metadata into the '_mainFileInfo' attribute\n
  * @param  filePath The relative or absolute path of the file to be uploaded
  * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
  * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
@@ -331,7 +328,7 @@ bool CliSessMgr::askFileOpConf()
  * @throws ERR_SESS_UPLOAD_DIR       The file to be uploaded is in fact a directory
  * @throws ERR_SESS_UPLOAD_TOO_BIG   The file to be uploaded is too large (>= 4GB)
  */
-void CliSessMgr::parseUploadFile(std::string& filePath)
+void CliSessMgr::checkLoadUploadFile(std::string& filePath)
  {
   // Determine the canonicalized path of the file to be uploaded as a C string
   char* _targFileAbsPathC = realpath(filePath.c_str(),NULL);
@@ -350,12 +347,12 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
      THROW_SESS_EXCP(ERR_SESS_FILE_OPEN_FAILED, filePath, ERRNO_DESC);
 
     // Attempt to load the name and metadata of the file to be uploaded
-    _locFileInfo = new FileInfo(*_mainFileAbsPath);
+    _mainFileInfo = new FileInfo(*_mainFileAbsPath);
 
     // Assert the size of the file to be uploaded to be less or
     // equal than the allowed maximum upload file size (4GB - 1B)
-    if(_locFileInfo->meta->fileSizeRaw > FILE_UPLOAD_MAX_SIZE)
-     THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG,"it is " + std::string(_locFileInfo->meta->fileSizeStr) + " >= 4GB");
+    if(_mainFileInfo->meta->fileSizeRaw > FILE_UPLOAD_MAX_SIZE)
+     THROW_SESS_EXCP(ERR_SESS_FILE_TOO_BIG, "it is " + std::string(_mainFileInfo->meta->fileSizeStr) + " >= 4GB");
 
     // Free the canonicalized path as a C string of the file to be uploaded
     free(_targFileAbsPathC);
@@ -380,19 +377,19 @@ void CliSessMgr::parseUploadFile(std::string& filePath)
 
 
 /**
- * @brief  Parses the 'FILE_UPLOAD_REQ' session response message returned by the SafeCloud server, where:
- *            1) If the SafeCloud server has reported that a file with the same name of the one to be
- *               uploaded does not exist in the user's storage pool, the file upload operation should continue
- *            2) If the SafeCloud server has reported that a file with the same name of the one to be uploaded
- *               already exists in the user's storage pool:
- *                  2.1) If the file to be uploaded was more recently modified than the
- *                       one in the storage pool the file upload operation should continue
- *                  2.2) If the file to be uploaded has the same size and last modified time of
+ * @brief  Parses the 'FILE_UPLOAD_REQ' session response message returned by the SafeCloud server, where:\n
+ *            1) If the SafeCloud server has reported to have successfully uploaded
+ *               the empty file, inform the user of the success of the operation.\n
+ *            2) If the SafeCloud server has reported that a file with the same name of the one to be
+ *               uploaded does not exist in the user's storage pool, the file upload operation should continue\n
+ *            3) If the SafeCloud server has reported that a file with the same name of the one to be uploaded
+ *               already exists in the user's storage pool:\n
+ *                  3.1) If the file to be uploaded was more recently modified than the
+ *                       one in the storage pool the file upload operation should continue\n
+ *                  3.2) If the file to be uploaded has the same size and last modified time of
  *                       the one in the storage pool, or the latter was more recently modified,
- *                       ask for user confirmation on whether the upload operation should continue
- *            3) If the SafeCloud server has reported that the empty file has been
- *               uploaded successfully, inform the user of the success of the operation
- * @return A boolean indicating whether the file raw contents should be uploaded to the SafeCloud server
+ *                       ask for user confirmation on whether the upload operation should continue\n
+ * @return A boolean indicating whether the upload operation should continue
  * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
  * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
  *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received
@@ -402,6 +399,24 @@ bool CliSessMgr::parseUploadResponse()
   // Depending on the 'FILE_UPLOAD_REQ' response message type:
   switch(_recvSessMsgType)
    {
+    // If the SafeCloud server has reported that the empty file has been uploaded successfully
+    case COMPLETED:
+
+     // Ensure the file that was uploaded to be in fact empty, where, since
+     // after sending a 'COMPLETED' message the server has supposedly reset
+     // its session state, in case such a file is in fact NOT empty just throw
+     // the associated exception without notifying the server of the error
+     if(_mainFileInfo->meta->fileSizeRaw != 0)
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(),
+                      "The server reported to have completed an upload operation of a non-empty file without actually receiving"
+                      "its data (file: \"" + _mainFileInfo->fileName + "\", size: " + _mainFileInfo->meta->fileSizeStr + ")");
+
+     // Inform the user that the empty file has been successfully uploaded to their storage pool
+     std::cout << "\nEmpty file \"" + _mainFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
+
+     // As it has just completed, return that the upload operation should not proceed
+     return false;
+
     // If the SafeCloud server has reported that a file with the same name of the one to be uploaded
     // does not exist in the user's storage pool, return that the file raw contents should be uploaded
     case FILE_NOT_EXISTS:
@@ -411,22 +426,22 @@ bool CliSessMgr::parseUploadResponse()
     // of the one to be uploaded already exists in the user's storage pool
     case FILE_EXISTS:
 
-     // Load into the 'remFileInfo' attribute the name and metadata of the file
+     // Load into the '_remFileInfo' attribute the name and metadata of the file
      // in the user's storage pool with the same name of the one to be uploaded
-     loadRemFileInfo();
+     loadRemSessMsgFileInfo();
 
      // If the file to be uploaded was more recently modified than the one in
      // the storage pool, return that the file raw contents should be uploaded
-     if(_locFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
+     if(_mainFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
       return true;
 
      // Otherwise, if the file to be uploaded and the one on the
      // storage pool have the same size and last modified time
-     if(_locFileInfo->meta->lastModTimeRaw == _remFileInfo->meta->lastModTimeRaw
-        && _locFileInfo->meta->fileSizeRaw == _remFileInfo->meta->fileSizeRaw)
+     if(_mainFileInfo->meta->lastModTimeRaw == _remFileInfo->meta->lastModTimeRaw
+        && _mainFileInfo->meta->fileSizeRaw == _remFileInfo->meta->fileSizeRaw)
       {
        // Inform the user that the file they want to upload probably already exists in their storage pool
-       std::cout << "\nYour storage pool already contains a \"" + _locFileInfo->fileName
+       std::cout << "\nYour storage pool already contains a \"" + _mainFileInfo->fileName
                     + "\" file of the same size and last modified time of the one to be uploaded" << std::endl;
 
        // Ask for user confirmation on whether to continue the file upload, also sending
@@ -436,39 +451,20 @@ bool CliSessMgr::parseUploadResponse()
 
      // Otherwise, if the file in the storage pool was more
      // recently modified than the one to be uploaded
-     if(_locFileInfo->meta->lastModTimeRaw < _remFileInfo->meta->lastModTimeRaw)
+     if(_mainFileInfo->meta->lastModTimeRaw < _remFileInfo->meta->lastModTimeRaw)
       {
        // Inform the user that the file on the storage pool is more recent than the one they want to upload
-       std::cout << "Your storage pool contains a more recent version of the \"" + _locFileInfo->fileName + "\" file" << std::endl;
+       std::cout << "Your storage pool contains a more recent version of the \"" + _mainFileInfo->fileName + "\" file" << std::endl;
 
        // Ask for user confirmation on whether to continue the file upload, also sending
        // the operation confirmation or cancellation notification to the SafeCloud server
        return askFileOpConf();
       }
 
-    // If the SafeCloud server has reported that the empty file has been uploaded successfully
-    case COMPLETED:
-
-     // Ensure the file that was uploaded to be in fact empty, where, since
-     // after sending a 'COMPLETED' message the server has supposedly reset
-     // its session state, in case such a file is in fact NOT empty just throw
-     // the associated exception without notifying the server of the error
-     if(_locFileInfo->meta->fileSizeRaw != 0)
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedCmdToStr(),
-                      "The server reported to have completed an upload operation of a non-empty file without actually receiving"
-                      "its data (file: \"" + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")");
-
-     // Inform the user that the empty file has been successfully uploaded to their storage pool
-     std::cout << "\nEmpty file \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
-
-     // As the file was empty, return that its raw contents should NOT be uploaded
-     return false;
-
-
     // All other session message types do not represent valid
     // responses to a 'FILE_UPLOAD_REQ' session message
     default:
-     sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+     sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type " +
                           std::to_string(_recvSessMsgType) + "as a 'FILE_UPLOAD_REQ' response");
      // [Unnecessary, just silences a warning]
      return false;
@@ -510,7 +506,7 @@ void CliSessMgr::uploadFileData()
 
   // If the file to be uploaded is large enough, display
   // the upload progress to the user via a progress bar
-  bool showProgBar = _locFileInfo->meta->fileSizeRaw > (_connMgr._priBufSize * 5);
+  bool showProgBar = _mainFileInfo->meta->fileSizeRaw > (_connMgr._priBufSize * 5);
 
   // Initialize the file encryption operation
   _aesGCMMgr.encryptInit();
@@ -519,8 +515,8 @@ void CliSessMgr::uploadFileData()
   if(showProgBar)
    {
     // Print an introductory uploaded message
-    std::cout << "\nUploading file \"" + _locFileInfo->fileName + "\" ("
-                 + _locFileInfo->meta->fileSizeStr + ") to the storage pool:\n" << std::endl;
+    std::cout << "\nUploading file \"" + _mainFileInfo->fileName + "\" ("
+                 + _mainFileInfo->meta->fileSizeStr + ") to the storage pool:\n" << std::endl;
 
     // Display the progress bar with 0% completion
     uploadProgBar.update();
@@ -535,7 +531,7 @@ void CliSessMgr::uploadFileData()
     // An error occurred in reading the file raw contents is a critical error that in the current
     // session state cannot be notified to the server and so require the connection to be dropped
     if(ferror(_mainFileDscr))
-     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED, _locFileInfo->fileName + ", upload operation aborted", ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_FILE_READ_FAILED, _mainFileInfo->fileName + ", upload operation aborted", ERRNO_DESC);
 
     // If bytes were read from the file into the secondary connection buffer
     if(freadRet > 0)
@@ -553,7 +549,7 @@ void CliSessMgr::uploadFileData()
       if(showProgBar)
        {
         // Compute the current upload progress discretized between 0-100%
-        currUploadProg = (unsigned char)((float)totBytesSent / (float)_locFileInfo->meta->fileSizeRaw * 100);
+        currUploadProg = (unsigned char)((float)totBytesSent / (float)_mainFileInfo->meta->fileSizeRaw * 100);
 
         // Update the progress bar to the current upload progress
         for(unsigned char i = prevUploadProg; i < currUploadProg; i++)
@@ -568,9 +564,9 @@ void CliSessMgr::uploadFileData()
   // Having sent to the SafeCloud server a number of bytes different from the
   // file size is a critical error that in the current session state cannot
   // be notified to the server and so require the connection to be dropped
-  if(totBytesSent != _locFileInfo->meta->fileSizeRaw)
-   THROW_EXEC_EXCP(ERR_FILE_READ_UNEXPECTED_SIZE, _locFileInfo->fileName + ", upload operation aborted",
-                   std::to_string(totBytesSent) + " != " + std::to_string(_locFileInfo->meta->fileSizeRaw));
+  if(totBytesSent != _mainFileInfo->meta->fileSizeRaw)
+   THROW_EXEC_EXCP(ERR_FILE_READ_UNEXPECTED_SIZE, _mainFileInfo->fileName + ", upload operation aborted",
+                   std::to_string(totBytesSent) + " != " + std::to_string(_mainFileInfo->meta->fileSizeRaw));
 
   // Finalize the file encryption operation by writing the resulting
   // integrity tag at the start of the primary connection buffer
@@ -611,7 +607,7 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
 
      // Load into the '_remFileInfo' attribute the name and
      // metadata of the file the client is requesting to download
-     loadRemFileInfo();
+     loadRemSessMsgFileInfo();
 
      // Ensure that the file information received from the server
      // refer to a file with the same name of the one to be downloaded
@@ -621,8 +617,8 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
                                                       "one the client wants to download (\"" + fileName + "\")");
 
      // Check whether a file with the same name of the one to be downloaded already exists in the client's
-     // download directory by attempting to load its information into the '_locFileInfo' attribute
-     checkLoadMainFile();
+     // download directory by attempting to load its information into the '_mainFileInfo' attribute
+     checkLoadMainFileInfo();
 
      // If the file to be downloaded is empty
      if(_remFileInfo->meta->fileSizeRaw == 0)
@@ -643,7 +639,7 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
 
      // If the non-empty file to be downloaded was
      // not found in the client's download directory
-     if(_locFileInfo == nullptr)
+     if(_mainFileInfo == nullptr)
       {
        // Confirm the download operation on the SafeCloud server
        sendCliSessSignalMsg(CONFIRM);
@@ -658,7 +654,7 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
       {
        // If the file on the storage pool was more recently
        // modified than the one in the client's download directory
-       if(_remFileInfo->meta->lastModTimeRaw > _locFileInfo->meta->lastModTimeRaw)
+       if(_remFileInfo->meta->lastModTimeRaw > _mainFileInfo->meta->lastModTimeRaw)
         {
          // Confirm the download operation on the SafeCloud server
          sendCliSessSignalMsg(CONFIRM);
@@ -669,12 +665,12 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
 
        // Otherwise, if the file on the storage pool and the one in the
        // download directory have the same size and last modified time
-       if(_locFileInfo->meta->lastModTimeRaw == _remFileInfo->meta->lastModTimeRaw
-          && _locFileInfo->meta->fileSizeRaw == _remFileInfo->meta->fileSizeRaw)
+       if(_mainFileInfo->meta->lastModTimeRaw == _remFileInfo->meta->lastModTimeRaw
+          && _mainFileInfo->meta->fileSizeRaw == _remFileInfo->meta->fileSizeRaw)
         {
          // Inform the user that the most recent version of the file they
          // want to download probably is already in their download directory
-         std::cout << "\nYour download directory already contains a \"" + _locFileInfo->fileName
+         std::cout << "\nYour download directory already contains a \"" + _mainFileInfo->fileName
                       + "\" file of the same size and last modified time of the one in your storage pool" << std::endl;
 
          // Ask for user confirmation on whether to continue the file download, also sending
@@ -684,12 +680,12 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
 
        // Otherwise, if the file in the download directory was more
        // recently modified than the one in the client's storage pool
-       if(_locFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
+       if(_mainFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
         {
          // Inform the user that the file in their download directory is more recent than the one to be downloaded
-         std::cout << "Your downloads directory contains a more recent version of the \"" + _locFileInfo->fileName + "\" file" << std::endl;
+         std::cout << "Your download directory contains a more recent version of the \"" + _mainFileInfo->fileName + "\" file" << std::endl;
 
-         // Ask for user confirmation on whether to continue the file upload, also sending
+         // Ask for user confirmation on whether to continue the file download, also sending
          // the operation confirmation or cancellation notification to the SafeCloud server
          return askFileOpConf();
         }
@@ -711,8 +707,8 @@ void CliSessMgr::downloadFileData()
  {
   // TODO: Move in a "SessMgr::setRecvRaw() method after moving the sub-state into the 'SessMgr' class -----
 
-  // Update the client session manager sub-state so to expect raw data
-  _cliSessMgrSubstate = WAITING_SRV_RAW_DATA;
+  // Update the session manager operation step so to expect raw data
+  _sessMgrOpStep = WAITING_RAW;
 
   // Set the reception mode of the associated connection manager to 'RECV_RAW'
   _connMgr._recvMode = ConnMgr::RECV_RAW;
@@ -836,17 +832,16 @@ void CliSessMgr::downloadFileData()
                                            "(" + *_tmpFileAbsPath + ") (reason = " + ERRNO_DESC + ")");
   _tmpFileDscr = nullptr;
 
-  // Move the temporary file from the user's temporary directory into the associated main file in their storage pool
+  // Move the temporary file from the user's temporary directory
+  // into the associated main file in their download directory
   if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
    sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the downloaded temporary file from the client's temporary"
-                                              "directory to their downloads directory (" + *_tmpFileAbsPath + ")");
+                                           " directory to their download directory (" + *_tmpFileAbsPath + ")");
 
-  // Change the download file last modified time to
-  // the one specified in the '_remFileInfo' object
-  mirrorRemLastModTime();
+  // Set the download file last modified time to the one specified in the '_remFileInfo' object
+  mainToRemLastModTime();
 
-  // Inform the client that the file upload has been completed
-  // successfully by sending a 'COMPLETED' session signaling message
+  // Notify the server that the file download has been completed successfully
   sendSessSignalMsg(COMPLETED);
  }
 
@@ -859,32 +854,19 @@ void CliSessMgr::downloadFileData()
  * @param cliConnMgr A reference to the client connection manager parent object
  */
 CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr),cliConnMgr._downDir),
-    _cliSessMgrSubstate(CLI_IDLE), _cliConnMgr(cliConnMgr)
+ : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr),cliConnMgr._downDir)
  {}
 
-/* Same destructor of the SessMgr base class */
+
+/* Same destructor of the 'SessMgr' base class */
+
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
-
-/**
- * @brief Resets all session parameters in preparation for the next
- *        session command to be executed by the client session manager
- */
-void CliSessMgr::resetCliSessState()
- {
-  // Reset the client session manage sub-state
-  _cliSessMgrSubstate = CLI_IDLE;
-
-  // Reset the base session parameters
-  resetSessState();
- }
-
 
 /* ---------------------------- Session Commands API ---------------------------- */
 
 /**
- * @brief  Uploads a file to the user's storage pool within the SafeCloud server
+ * @brief  Uploads a file to the user's SafeCloud storage pool
  * @param  filePath The relative or absolute path of the file to be uploaded
  * @throws ERR_SESS_FILE_NOT_FOUND   The file to be uploaded was not found
  * @throws ERR_SESS_FILE_OPEN_FAILED The file to be uploaded could not be opened in read mode
@@ -896,21 +878,15 @@ void CliSessMgr::resetCliSessState()
  */
 void CliSessMgr::uploadFile(std::string& filePath)
  {
-  // Initialize the client session manager state and substate
-  _sessMgrState       = UPLOAD;
-  _cliSessMgrSubstate = CMD_START;
+  // Initialize the client session manager operation
+  _sessMgrOp = UPLOAD;
 
-  /*
-   * Parse the target file to be uploaded by:
-   *    1) Writing its canonicalized path into the '_mainFileAbsPath' attribute
-   *    2) Opening its '_mainFileDscr' file descriptor in read-byte mode
-   *    3) Loading the file name and metadata into the '_locFileInfo' attribute
-   */
-  parseUploadFile(filePath);
+  // Load and sanitize the information of the file to be uploaded to the SafeCloud storage pool
+  checkLoadUploadFile(filePath);
 
   /*
   // LOG: Upload file info
-  _locFileInfo->printFileInfo();
+  _mainFileInfo->printFileInfo();
   */
 
   // Prepare a 'SessMsgFileInfo' session message of type 'FILE_UPLOAD_REQ' containing the
@@ -918,10 +894,10 @@ void CliSessMgr::uploadFile(std::string& filePath)
   sendSessMsgFileInfo(FILE_UPLOAD_REQ);
 
   LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (file = \""
-            + *_mainFileAbsPath + "\", size = " + _locFileInfo->meta->fileSizeStr + ")")
+            + *_mainFileAbsPath + "\", size = " + _mainFileInfo->meta->fileSizeStr + ")")
 
-  // Update the client session manager sub-state so to expect a 'FILE_UPLOAD_REQ' response
-  _cliSessMgrSubstate = WAITING_FILE_STATUS;
+  // Update the command step so to expect a 'FILE_UPLOAD_REQ' response
+  _sessMgrOpStep = WAITING_RESP;
 
   // Block until the 'FILE_UPLOAD_REQ' response is received from the SafeCloud server
   recvCheckCliSessMsg();
@@ -934,8 +910,8 @@ void CliSessMgr::uploadFile(std::string& filePath)
   // Send the file raw contents to the SafeCloud server
   uploadFileData();
 
-  // Update the client session manager sub-state so to expect the server completion notification
-  _cliSessMgrSubstate = WAITING_SRV_COMPL;
+  // Update the command step so to expect the server completion notification
+  _sessMgrOpStep = WAITING_COMPL;
 
   // Block until the supposed server completion notification has been received
   recvCheckCliSessMsg();
@@ -947,7 +923,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
                                                     " while awaiting for the server's 'UPLOAD' completion");
 
   // Inform the user that the file has been successfully uploaded to their storage pool
-  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" (" + _locFileInfo->meta->fileSizeStr +
+  std::cout << "\nFile \"" + _mainFileInfo->fileName + "\" (" + _mainFileInfo->meta->fileSizeStr +
                ") successfully uploaded to the SafeCloud storage pool\n" << std::endl;
  }
 
@@ -955,16 +931,15 @@ void CliSessMgr::uploadFile(std::string& filePath)
 // TODO
 void CliSessMgr::downloadFile(std::string& fileName)
  {
-  // Initialize the client session manager state and substate
-  _sessMgrState       = DOWNLOAD;
-  _cliSessMgrSubstate = CMD_START;
+  // Initialize the client session manager operation
+  _sessMgrOp       = DOWNLOAD;
 
   // Assert the file name string to consist of a valid Linux file name
   validateFileName(fileName);
 
   // Initialize the main and temporary absolute paths of the file to be downloaded
-  _mainFileAbsPath = new std::string(*_cliConnMgr._downDir + "/" + fileName);
-  _tmpFileAbsPath  = new std::string(*_cliConnMgr._tmpDir + "/" + fileName + "_PART");
+  _mainFileAbsPath = new std::string(*_mainDirAbsPath + "/" + fileName);
+  _tmpFileAbsPath  = new std::string(*_tmpDirAbsPath + "/" + fileName + "_PART");
 
   // TODO: Comment
   // LOG: Main and temporary files absolute paths
@@ -972,13 +947,13 @@ void CliSessMgr::downloadFile(std::string& fileName)
   std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
 
   // Prepare a 'SessMsgFileName' session message of type 'FILE_DOWNLOAD_REQ' containing
-  // the name of the file to be uploaded and sent it to the SafeCloud server
+  // the name of the file to be uploaded and send it to the SafeCloud server
   sendSessMsgFileName(FILE_DOWNLOAD_REQ,fileName);
 
   LOG_DEBUG("Sent 'FILE_DOWNLOAD_REQ' message to the server (file = \"" + fileName + "\")")
 
-  // Update the client session manager sub-state so to expect a 'FILE_DOWNLOAD_REQ' response
-  _cliSessMgrSubstate = WAITING_FILE_STATUS;
+  // Update the command step so to expect a 'FILE_DOWNLOAD_REQ' response
+  _sessMgrOpStep = WAITING_RESP;
 
   // Block until the 'FILE_DOWNLOAD_REQ' response is received from the SafeCloud server
   recvCheckCliSessMsg();
@@ -988,12 +963,12 @@ void CliSessMgr::downloadFile(std::string& fileName)
   if(!parseDownloadResponse(fileName))
    return;
 
-  // Receive the raw file contents
+  // Proceed downloading the file's raw contents
   downloadFileData();
 
-  // Inform the user that the file has been successfully downloaded to their downloads directory
+  // Inform the user that the file has been successfully downloaded to their download directory
   std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
-               ") successfully downloaded into the downloads directory\n" << std::endl;
+               ") successfully downloaded into the download directory\n" << std::endl;
  }
 
 
@@ -1013,7 +988,7 @@ void CliSessMgr::renameRemFile(std::string& oldFileName,std::string& newFileName
 
 /**
  * @brief  Sends the 'BYE session signaling message to the
- *         SafeCloud server, gracefully terminating the connection
+ *         SafeCloud server, gracefully terminating the session
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
