@@ -68,7 +68,7 @@ struct SessMsgWrapper
   char      tag[AES_128_GCM_TAG_SIZE];  // AES_128_GCM Integrity Tag (16 bytes)
  };
 
-/* ------------------------ 'FILE_INFO Session Message ------------------------ */
+/* -------------------- 'SessMsgFileInfo' Session Message -------------------- */
 
 // Used with type = FILE_UPLOAD_REQ, FILE_EXISTS
 
@@ -79,5 +79,15 @@ struct __attribute__((packed)) SessMsgFileInfo : public SessMsg
   long int creationTime;     // The file creation time in UNIX epochs
   unsigned char fileName[];  // The file name (variable size)
  };
+
+/* -------------------- 'SessMsgFileName' Session Message -------------------- */
+
+// Used with type = FILE_DOWNLOAD_REQ, FILE_DELETE_REQ
+
+struct __attribute__((packed)) SessMsgFileName : public SessMsg
+ {
+  unsigned char fileName[];  // The file name (variable size)
+ };
+
 
 #endif //SAFECLOUD_SESSMSG_H

@@ -29,6 +29,13 @@
 
 
 /**
+ * @brief Validates a string to represent a valid Linux file name
+ * @param fileName The filename string to be validated
+ * @throws ERR_SESS_FILE_INVALID_NAME The string represents an invalid Linux file name
+ */
+void validateFileName(std::string& fileName);
+
+/**
  * @brief Sanitizes a SafeCloud username by converting it to lower-case and ensuring that:\n
  *        - It is not too long (length <= CLI_NAME_MAX_LENGTH)\name
  *        - Its first character consists of a letter of the alphabet (a-z, A-Z)

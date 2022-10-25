@@ -8,6 +8,7 @@
 #include "../CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "../../../client_utils.h"
+#include "utils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -257,8 +258,66 @@ void CliSessMgr::recvCheckCliSessMsg()
  }
 
 
-/* -------------------------------- File Upload -------------------------------- */
+/**
+ * @brief  Prints a table comparing the metadata of the local and remote file and asks the user
+ *         whether to continue the current file upload or download operation, confirming or
+ *         cancelling the operation on the SafeCloud server depending on the user's response
+ * @return A boolean indicating whether the file upload or download operation should continue
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state  or the '_locFileInfo' or the
+ *                                      '_remFileInfo' attribute have not been initialized
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+bool CliSessMgr::askFileOpConf()
+ {
+  // Assert the client session manager state and substate to be valid to ask for a user's file operation confirmation
+  if(!((_sessMgrState == UPLOAD || _sessMgrState == DOWNLOAD) && _cliSessMgrSubstate == WAITING_FILE_STATUS))
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation in session state" "\""
+                                           + currSessMgrStateToStr() + "\", sub-state " + std::to_string(_cliSessMgrSubstate));
 
+  // Ensure the '_locFileInfo' attribute to have been initialized
+  if(_locFileInfo == nullptr)
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation with a NULL '_locFileInfo'");
+
+  // Ensure the '_remFileInfo' attribute to have been initialized
+  if(_remFileInfo == nullptr)
+   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file operation confirmation with a NULL '_remFileInfo'");
+
+  // Print a table comparing the metadata of the local and remote file
+  _locFileInfo->compareMetadata(_remFileInfo);
+
+  // Assemble the question asking for user confirmation on whether the file operation should continue
+  std::string fileOpContinueQuestion("Do you want to continue " + currSessMgrStateToStr() + "ing the file?");
+
+  // Ask the user whether the file operation should continue and, if it should
+  if(askUser(fileOpContinueQuestion.c_str()))
+   {
+    // Confirm the file operation to the SafeCloud server
+    sendCliSessSignalMsg(CONFIRM);
+
+    // Return that the file operation should continue
+    return true;
+   }
+
+  // If otherwise the file operation should be cancelled
+  else
+   {
+    // Notify the file cancellation operation to the SafeCloud server
+    sendCliSessSignalMsg(CANCEL);
+
+    // Return that the file operation should NOT continue
+    return false;
+   }
+ }
+
+
+/* ------------------------------ 'UPLOAD' Operation Methods ------------------------------ */
 
 /**
  * @brief  Parses a file to be uploaded to the SafeCloud storage pool by:\n
@@ -370,29 +429,9 @@ bool CliSessMgr::parseUploadResponse()
        std::cout << "\nYour storage pool already contains a \"" + _locFileInfo->fileName
                     + "\" file of the same size and last modified time of the one to be uploaded" << std::endl;
 
-       // Print a table comparing the metadata of the file
-       // to be uploaded and the one in the user's storage pool
-       _locFileInfo->compareMetadata(_remFileInfo);
-
-       // Ask the user if the upload operation should continue and, if it should
-       if(askUser("Do you want to continue uploading the file?"))
-        {
-         // Confirm the upload operation to the SafeCloud server
-         sendCliSessSignalMsg(CONFIRM);
-
-         // Return that the file raw contents should be uploaded
-         return true;
-        }
-
-       // If otherwise the upload operation should be cancelled
-       else
-        {
-         // Notify the operation cancellation to the server
-         sendCliSessSignalMsg(CANCEL);
-
-         // Return the file raw contents should NOT be uploaded
-         return false;
-        }
+       // Ask for user confirmation on whether to continue the file upload, also sending
+       // the operation confirmation or cancellation notification to the SafeCloud server
+       return askFileOpConf();
       }
 
      // Otherwise, if the file in the storage pool was more
@@ -402,29 +441,9 @@ bool CliSessMgr::parseUploadResponse()
        // Inform the user that the file on the storage pool is more recent than the one they want to upload
        std::cout << "Your storage pool contains a more recent version of the \"" + _locFileInfo->fileName + "\" file" << std::endl;
 
-       // Print a table comparing the metadata of the file
-       // to be uploaded and the one in the user's storage pool
-       _locFileInfo->compareMetadata(_remFileInfo);
-
-       // Ask the user if the upload operation should continue and, if it should
-       if(askUser("Do you want to continue uploading the file?"))
-        {
-         // Confirm the upload operation to the SafeCloud server
-         sendCliSessSignalMsg(CONFIRM);
-
-         // Return that the file raw contents should be uploaded
-         return true;
-        }
-
-       // If otherwise the upload operation should be cancelled
-       else
-        {
-         // Notify the operation cancellation to the server
-         sendCliSessSignalMsg(CANCEL);
-
-         // Return the file raw contents should NOT be uploaded
-         return false;
-        }
+       // Ask for user confirmation on whether to continue the file upload, also sending
+       // the operation confirmation or cancellation notification to the SafeCloud server
+       return askFileOpConf();
       }
 
     // If the SafeCloud server has reported that the empty file has been uploaded successfully
@@ -439,7 +458,7 @@ bool CliSessMgr::parseUploadResponse()
                       "The server reported to have completed an upload operation of a non-empty file without actually receiving"
                       "its data (file: \"" + _locFileInfo->fileName + "\", size: " + _locFileInfo->meta->fileSizeStr + ")");
 
-     // Inform the user that the file has been successfully uploaded to their storage pool
+     // Inform the user that the empty file has been successfully uploaded to their storage pool
      std::cout << "\nEmpty file \"" + _locFileInfo->fileName + "\" successfully uploaded to the SafeCloud storage pool\n" << std::endl;
 
      // As the file was empty, return that its raw contents should NOT be uploaded
@@ -566,6 +585,127 @@ void CliSessMgr::uploadFileData()
  }
 
 
+/* ----------------------------- 'DOWNLOAD' Operation Methods ----------------------------- */
+
+
+// TODO
+bool CliSessMgr::parseDownloadResponse(std::string& fileName)
+ {
+  // Depending on the 'FILE_DOWNLOAD_REQ' response message type:
+  switch(_recvSessMsgType)
+   {
+    // If the SafeCloud server has reported that the file to be downloaded does not exist in the user's storage pool
+    case FILE_NOT_EXISTS:
+
+     // Inform the client that such a file does not exist in their storage pool,
+     // and that they can retrieve its list of files via the 'LIST remote' command
+     // TODO: LOG Yellow?
+     std::cout << "File \"" + fileName + "\" was not found in your storage pool" << std::endl;
+     std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
+
+     // Return that the download operation should not proceed
+     return false;
+
+    // Otherwise, if the SafeCloud server has returned the information on the file to be downloaded
+    case FILE_EXISTS:
+
+     // Load into the '_remFileInfo' attribute the name and
+     // metadata of the file the client is requesting to download
+     loadRemFileInfo();
+
+     // Ensure that the file information received from the server
+     // refer to a file with the same name of the one to be downloaded
+     if(_remFileInfo->fileName != fileName)
+      sendCliSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received as a FILE_DOWNLOAD_REQ response information on a "
+                                                      "file (\"" + _remFileInfo->fileName + "\") different from the "
+                                                      "one the client wants to download (\"" + fileName + "\")");
+
+     // Check whether a file with the same name of the one to be downloaded already exists in the client's
+     // download directory by attempting to load its information into the '_locFileInfo' attribute
+     checkLoadMainFile();
+
+     // If the file to be downloaded is empty
+     if(_remFileInfo->meta->fileSizeRaw == 0)
+      {
+       // Touch the empty file in the client's download directory
+       touchEmptyFile();
+
+       // Inform the server that the empty file has been successfully downloaded
+       sendCliSessSignalMsg(COMPLETED);
+
+       // Inform the user that the empty file has been successfully downloaded
+       std::cout << "\nEmpty file \"" + _remFileInfo->fileName + "\" successfully "
+                    "downloaded from the SafeCloud storage pool\n" << std::endl;
+
+       // Return that the download operation should not proceed
+       return false;
+      }
+
+     // If the non-empty file to be downloaded was
+     // not found in the client's download directory
+     if(_locFileInfo == nullptr)
+      {
+       // Confirm the download operation on the SafeCloud server
+       sendCliSessSignalMsg(CONFIRM);
+
+       // Return that the download operation should proceed
+       return true;
+      }
+
+     // Otherwise, if the non-empty file to be downloaded
+     // was found in the client's download directory
+     else
+      {
+       // If the file on the storage pool was more recently
+       // modified than the one in the client's download directory
+       if(_remFileInfo->meta->lastModTimeRaw > _locFileInfo->meta->lastModTimeRaw)
+        {
+         // Confirm the download operation on the SafeCloud server
+         sendCliSessSignalMsg(CONFIRM);
+
+         // Return that the download operation should proceed
+         return true;
+        }
+
+       // Otherwise, if the file on the storage pool and the one in the
+       // download directory have the same size and last modified time
+       if(_locFileInfo->meta->lastModTimeRaw == _remFileInfo->meta->lastModTimeRaw
+          && _locFileInfo->meta->fileSizeRaw == _remFileInfo->meta->fileSizeRaw)
+        {
+         // Inform the user that the most recent version of the file they
+         // want to download probably is already in their download directory
+         std::cout << "\nYour download directory already contains a \"" + _locFileInfo->fileName
+                      + "\" file of the same size and last modified time of the one in your storage pool" << std::endl;
+
+         // Ask for user confirmation on whether to continue the file download, also sending
+         // the operation confirmation or cancellation notification to the SafeCloud server
+         return askFileOpConf();
+        }
+
+       // Otherwise, if the file in the download directory was more
+       // recently modified than the one in the client's storage pool
+       if(_locFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
+        {
+         // Inform the user that the file in their download directory is more recent than the one to be downloaded
+         std::cout << "Your downloads directory contains a more recent version of the \"" + _locFileInfo->fileName + "\" file" << std::endl;
+
+         // Ask for user confirmation on whether to continue the file upload, also sending
+         // the operation confirmation or cancellation notification to the SafeCloud server
+         return askFileOpConf();
+        }
+      }
+
+    // All other session message types do not represent valid
+    // responses to a 'FILE_DOWNLOAD_REQ' session message
+    default:
+     sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                                                      std::to_string(_recvSessMsgType) + "as a 'FILE_DOWNLOAD_REQ' response");
+    // [Unnecessary, just silences a warning]
+    return false;
+   }
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -574,7 +714,8 @@ void CliSessMgr::uploadFileData()
  * @param cliConnMgr A reference to the client connection manager parent object
  */
 CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr)), _cliSessMgrSubstate(CLI_IDLE), _cliConnMgr(cliConnMgr)
+  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr),cliConnMgr._downDir),
+    _cliSessMgrSubstate(CLI_IDLE), _cliConnMgr(cliConnMgr)
  {}
 
 /* Same destructor of the SessMgr base class */
@@ -629,9 +770,9 @@ void CliSessMgr::uploadFile(std::string& filePath)
 
   // Prepare a 'SessMsgFileInfo' session message of type 'FILE_UPLOAD_REQ' containing the
   // name and metadata of the file to be uploaded and send it to the SafeCloud server
-  sendLocalFileInfo(FILE_UPLOAD_REQ);
+  sendSessMsgFileInfo(FILE_UPLOAD_REQ);
 
-  LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (target file = \""
+  LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (file = \""
             + *_mainFileAbsPath + "\", size = " + _locFileInfo->meta->fileSizeStr + ")")
 
   // Update the client session manager sub-state so to expect a 'FILE_UPLOAD_REQ' response
@@ -661,14 +802,48 @@ void CliSessMgr::uploadFile(std::string& filePath)
                                                     " while awaiting for the server's 'UPLOAD' completion");
 
   // Inform the user that the file has been successfully uploaded to their storage pool
-  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" (" + _locFileInfo->meta->fileSizeStr + ") successfully uploaded to the SafeCloud storage pool\n" << std::endl;
+  std::cout << "\nFile \"" + _locFileInfo->fileName + "\" (" + _locFileInfo->meta->fileSizeStr +
+               ") successfully uploaded to the SafeCloud storage pool\n" << std::endl;
  }
 
 
 // TODO: Placeholder implementation
 void CliSessMgr::downloadFile(std::string& fileName)
  {
-  std::cout << "In downloadFile() (fileName = " << fileName << ")" << std::endl;
+  // Initialize the client session manager state and substate
+  _sessMgrState       = DOWNLOAD;
+  _cliSessMgrSubstate = CMD_START;
+
+  // Assert the file name string to consist of a valid Linux file name
+  validateFileName(fileName);
+
+  // Initialize the main and temporary absolute paths of the file to be downloaded
+  _mainFileAbsPath = new std::string(*_cliConnMgr._downDir + "/" + fileName);
+  _tmpFileAbsPath  = new std::string(*_cliConnMgr._tmpDir + "/" + fileName + "_PART");
+
+  // TODO: Comment
+  // LOG: Main and temporary files absolute paths
+  std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
+  std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
+
+  // Prepare a 'SessMsgFileName' session message of type 'FILE_DOWNLOAD_REQ' containing
+  // the name of the file to be uploaded and sent it to the SafeCloud server
+  sendSessMsgFileName(FILE_DOWNLOAD_REQ,fileName);
+
+  LOG_DEBUG("Sent 'FILE_DOWNLOAD_REQ' message to the server (file = \"" + fileName + "\")")
+
+  // Update the client session manager sub-state so to expect a 'FILE_DOWNLOAD_REQ' response
+  _cliSessMgrSubstate = WAITING_FILE_STATUS;
+
+  // Block until the 'FILE_DOWNLOAD_REQ' response is received from the SafeCloud server
+  recvCheckCliSessMsg();
+
+  // Parse the 'FILE_DOWNLOAD_REQ' response, obtaining an indication on
+  // whether to proceed downloading the file from the SafeCloud server
+  if(!parseDownloadResponse(fileName))
+   return;
+
+  std::cout << "Downloading file from the SafeCloud server... " << std::endl;
  }
 
 

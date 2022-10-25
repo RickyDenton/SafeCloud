@@ -14,16 +14,6 @@
 
 class FileInfo
  {
-  private:
-
-   /* =============================== PRIVATE METHODS =============================== */
-
-   /**
-    * @brief  Validates the 'fileName' attribute to represent a valid Linux file name
-    * @throws ERR_SESS_FILE_INVALID_NAME Invalid Linux file name
-    */
-   void validateFileName();
-
   public:
 
    /* ================================= ATTRIBUTES ================================= */

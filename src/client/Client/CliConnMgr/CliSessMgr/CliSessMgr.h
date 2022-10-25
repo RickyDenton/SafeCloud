@@ -70,8 +70,25 @@ class CliSessMgr : public SessMgr
     */
    void recvCheckCliSessMsg();
 
+   /**
+    * @brief  Prints a table comparing the metadata of the local and remote file and asks the user
+    *         whether to continue the current file upload or download operation, confirming or
+    *         cancelling the operation on the SafeCloud server depending on the user's response
+    * @return A boolean indicating whether the file upload or download operation should continue
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state  or the '_locFileInfo' or the
+    *                                      '_remFileInfo' attribute have not been initialized
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   bool askFileOpConf();
 
-   /* -------------------------------- File Upload -------------------------------- */
+   /* ------------------------------ 'UPLOAD' Operation Methods ------------------------------ */
 
    /**
     * @brief  Parses a file to be uploaded to the SafeCloud storage pool by:\n
@@ -124,6 +141,11 @@ class CliSessMgr : public SessMgr
     */
    void uploadFileData();
 
+   /* ----------------------------- 'DOWNLOAD' Operation Methods ----------------------------- */
+
+   bool parseDownloadResponse(std::string& fileName);
+
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -160,7 +182,7 @@ class CliSessMgr : public SessMgr
     */
    void uploadFile(std::string& filePath);
 
-   // TODO: STUB
+   // TODO
    void downloadFile(std::string& fileName);
 
    // TODO: STUB

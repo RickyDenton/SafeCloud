@@ -37,6 +37,15 @@ class SessMgr
    ConnMgr&       _connMgr;       // The associated connection manager parent object
    AESGCMMgr      _aesGCMMgr;     // The associated AES_128_GCM manager child object
 
+   // TODO: Section
+
+  // The session's main directory, consisting in the user's storage
+  // pool on the server or their downloads folder on the client
+   std::string* _mainDir;
+
+   // The session's temporary directory
+   std::string* _tmpDir;
+
    /* ------------------------ Files Management Attributes ------------------------ */
 
   // The file descriptor used for reading and the absolute path of a
@@ -68,11 +77,29 @@ class SessMgr
 
    // TODO: Section?
    /**
-    * @brief Loads into a FileInfo object pointed by the '_remFileInfo' attribute the name
-    *        and metadata of a remote file embedded within a 'SessMsgFileInfo' session
-    *        message stored in the associated connection manager's secondary buffer
+    * @brief Validates and loads into a FileInfo object pointed by the '_remFileInfo' attribute
+    *        the name and metadata of a remote file embedded within a 'SessMsgFileInfo'
+    *        session message stored in the associated connection manager's secondary buffer
+    * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
     */
    void loadRemFileInfo();
+
+   /**
+    * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
+    *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
+    *         attribute to the concatenation of the session's main directory with such file name
+    * @return The file name embedded in the 'SessMsgFileName' session message
+    * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
+    */
+   std::string loadMainFileName();
+
+   /**
+    * @brief Attempts to load into the '_locFileInfo' attribute the information
+    *        of the main file referred by the '_mainFileAbsPath' attribute
+    * @throws ERR_SESS_INTERNAL_ERROR   The '_mainFileAbsPath' attribute has not been initialized
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR The main file was found to be a directory (!)
+    */
+   void checkLoadMainFile();
 
    /**
     * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
@@ -89,8 +116,24 @@ class SessMgr
     * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED              send() fatal error
     */
-   void sendLocalFileInfo(SessMsgType sessMsgType);
+   void sendSessMsgFileInfo(SessMsgType sessMsgType);
 
+   /**
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
+    *        session message of the specified type and fileName value, for then wrapping
+    *        and sending the resulting session message wrapper to the connection peer
+    * @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName);
 
    /**
     * @brief  Mirrors the remote file last modification time as for the '_remFileInfo' attribute into the main file
@@ -208,8 +251,10 @@ class SessMgr
     * @brief Session manager object constructor, initializing
     *        session parameters and its child AESGCMMgr object
     * @param connMgr A reference to the connection manager parent object
+    * @param connMgr The session's main directory, consisting in the user's storage
+    *                pool on the server or their downloads folder on the client
     */
-   explicit SessMgr(ConnMgr& _connMgr);
+   SessMgr(ConnMgr& connMgr, std::string* mainDir);
 
    /**
     * @brief Session manager object destructor, performing cleanup operation

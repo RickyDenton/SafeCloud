@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "defaults.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 #include <bits/stdc++.h>
 //#include <string.h>
 
@@ -46,6 +47,24 @@
 // }
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
+
+
+/**
+ * @brief Validates a string to represent a valid Linux file name
+ * @param fileName The filename string to be validated
+ * @throws ERR_SESS_FILE_INVALID_NAME The string represents an invalid Linux file name
+ */
+void validateFileName(std::string& fileName)
+ {
+  // A file name cannot consist of the current or the parent's directory
+  if(fileName == "." || fileName == "..")
+   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+
+  // A file name cannot contain '/' or '\0' characters
+  for(auto& ch : fileName)
+   if(ch == '/' || ch == '\0')
+    THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+ }
 
 
 /**

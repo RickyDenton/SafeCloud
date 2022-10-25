@@ -4,25 +4,7 @@
 #include "FileInfo.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
-
-
-/* =============================== PRIVATE METHODS =============================== */
-
-/**
- * @brief  Validates the 'fileName' attribute to represent a valid Linux file name
- * @throws ERR_SESS_FILE_INVALID_NAME Invalid Linux file name
- */
-void FileInfo::validateFileName()
- {
-  // The file name cannot consist of the current or the parent's directory
-  if(fileName == "." || fileName == "..")
-   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
-
-  // The file name cannot contain '/' or '\0' characters
-  for(auto& ch : fileName)
-   if(ch == '/' || ch == '\0')
-    THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
- }
+#include "utils.h"
 
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
@@ -52,7 +34,7 @@ FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), meta(nullptr)
  fileName = basename(fileAbsPathC);
 
  // Assert the file name string to consist of a valid Linux file name
- validateFileName();
+ validateFileName(fileName);
 
  // Attempt to read the file's metadata
  if(stat(fileAbsPathC, &fileInfo) != 0)
@@ -84,7 +66,7 @@ FileInfo::FileInfo(std::string& fileName_, long int fileSize_, long int lastModT
    : fileName(std::move(fileName_)), meta(new FileMeta(fileSize_,lastModTime_,creationTime_))
  {
   // Assert the file name string to consist of a valid Linux file name
-  validateFileName();
+  validateFileName(fileName);
  }
 
 

@@ -55,6 +55,7 @@ enum sessErrCode : unsigned char
   ERR_SESS_FILE_META_NEGATIVE,
   ERR_SESS_FILE_INFO_COMP_NULL,
   ERR_SESS_FILE_INFO_COMP_DIFF_NAMES,
+  ERR_SESS_MAIN_FILE_IS_DIR,
 
   ERR_SESS_FILE_OPEN_FAILED,
   ERR_SESS_FILE_DELETE_FAILED,
@@ -109,6 +110,9 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     {ERR_SESS_FILE_META_NEGATIVE,        {CRITICAL, "Attempting to initialize a file's metadata to negative values"}},
     {ERR_SESS_FILE_INFO_COMP_NULL,       {CRITICAL, "Attempting to compare the metadata of a a NULL FileInfo"}},
     {ERR_SESS_FILE_INFO_COMP_DIFF_NAMES, {CRITICAL, "Attempting to compare the metadata of two files of different names"}},
+    {ERR_SESS_MAIN_FILE_IS_DIR,          {CRITICAL, "Main file found as a sub-directory of the session's main directory"}},
+
+
 
     {ERR_SESS_FILE_OPEN_FAILED,     {ERROR,"The file could not be opened"}},
     {ERR_SESS_FILE_DELETE_FAILED,   {CRITICAL, "Error in deleting the file"}},

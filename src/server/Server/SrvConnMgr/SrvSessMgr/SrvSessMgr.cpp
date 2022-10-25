@@ -109,7 +109,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
        case FILE_DOWNLOAD_REQ:
         _sessMgrState = DOWNLOAD;
-        //srvDownloadStart();
+        srvDownloadStart();
         break;
 
        case FILE_DELETE_REQ:
@@ -151,6 +151,38 @@ void SrvSessMgr::dispatchRecvSessMsg()
      break;
 
 
+    // 'DOWNLOAD' server session manager state
+    case SessMgr::DOWNLOAD:
+     switch(_recvSessMsgType)
+      {
+       // TODO
+
+       case CONFIRM:
+
+        // TODO Remove
+        LOG_INFO("[" + *_srvConnMgr._name + "] File Download in progress...")
+       resetSrvSessState();
+       return;
+
+       case COMPLETED:
+        if(_locFileInfo->meta->fileSizeRaw == 0)
+         LOG_INFO("[" + *_srvConnMgr._name + "] Empty file \""
+                  + _locFileInfo->fileName + "\" downloaded from the storage pool")
+        else
+         LOG_INFO("[" + *_srvConnMgr._name + "] File \"" + _locFileInfo->fileName + "\" ("
+                  + _remFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
+
+        resetSrvSessState();
+        return;
+
+       default:
+        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\""
+                                                         "session message received in the 'DOWNLOAD' session state");
+      }
+    break;
+
+
+
     // TODO
 
     default:
@@ -159,7 +191,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
  }
 
 
-/* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
+/* ------------------------------- 'UPLOAD' Callback Methods ------------------------------- */
 
 /**
  * @brief Starts a file upload operation by:\n
@@ -172,9 +204,13 @@ void SrvSessMgr::dispatchRecvSessMsg()
  *                          the one provided by the client and inform them that the file has been successfully uploaded \n
  *                   2.2.2) If the file to be uploaded is NOT empty, inform the client
  *                          that the server is ready to receive the file's raw contents
- * @throws ERR_SESS_MALFORMED_MESSAGE   The file name in the 'SessMsgFileInfo' message is invalid
- * @throws ERR_SESS_INTERNAL_ERROR      Session manager status or file read/write error
- * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
+ * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be uploaded was found as a directory in the client's storage pool (!)
+ * @throws ERR_SESS_INTERNAL_ERROR       Invalid session manager state or file read/write error
+ * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the uploaded empty main file
+ * @throws ERR_SESS_FILE_OPEN_FAILED     Error in opening the uploaded empty main file
+ * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the uploaded empty main file
+ * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the empty main file's metadata
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -186,17 +222,13 @@ void SrvSessMgr::dispatchRecvSessMsg()
  */
 void SrvSessMgr::srvUploadStart()
  {
-  // Whether a file with the same name of the one to be
-  // uploaded already exists in the client's storage pool
-  bool fileNameAlreadyExists;
-
   // Load into the '_remFileInfo' attribute the name and
   // metadata of the file the client is requesting to upload
   loadRemFileInfo();
 
   // Initialize the main and temporary absolute paths of the file to be uploaded
-  _mainFileAbsPath = new std::string(*_srvConnMgr._poolDir + _remFileInfo->fileName);
-  _tmpFileAbsPath  = new std::string(*_srvConnMgr._tmpDir + _remFileInfo->fileName + "_PART");
+  _mainFileAbsPath = new std::string(*_mainDir + _remFileInfo->fileName);
+  _tmpFileAbsPath  = new std::string(*_tmpDir + _remFileInfo->fileName + "_PART");
 
   /*
   // LOG: Main and temporary files absolute paths
@@ -208,22 +240,8 @@ void SrvSessMgr::srvUploadStart()
   */
 
   // Check whether a file with the same name of the one to be uploaded already exists in the
-  // client's storage pool, loading in such case its information into the '_locFileInfo' object
-  try
-   {
-    _locFileInfo = new FileInfo(*_srvConnMgr._poolDir + "/" + _remFileInfo->fileName);
-    fileNameAlreadyExists = true;
-   }
-  catch(sessErrExcp& locFileError)
-   {
-    _locFileInfo = nullptr;
-    if(locFileError.sesErrCode == ERR_SESS_FILE_READ_FAILED)
-     fileNameAlreadyExists = false;
-    else
-     if(locFileError.sesErrCode == ERR_SESS_FILE_IS_DIR)
-      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"The file \"" + _remFileInfo->fileName + "\" the client is attempting"
-                                              " to upload already exists in their storage pool as a directory");
-   }
+  // client's storage pool by attempting to load its information into the '_locFileInfo' attribute
+  checkLoadMainFile();
 
   // If the file to be uploaded is empty
   if(_remFileInfo->meta->fileSizeRaw == 0)
@@ -244,11 +262,11 @@ void SrvSessMgr::srvUploadStart()
 
   // Otherwise, if a file with the same name of the one to
   // be uploaded was found in the client's storage pool
-  if(fileNameAlreadyExists)
+  if(_locFileInfo != nullptr)
    {
     // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS'
     // containing the local file name and metadata and send it to the client
-    sendLocalFileInfo(FILE_EXISTS);
+    sendSessMsgFileInfo(FILE_EXISTS);
 
     // Further client confirmation is required before uploading the file
     _srvSessMgrSubstate = WAITING_CLI_CONF;
@@ -438,7 +456,74 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
  }
 
 
+/* ------------------------------ 'DOWNLOAD' Callback Methods ------------------------------ */
 
+/**
+ * @brief  Starts a file download operation by checking whether a file with the same name
+ *         of the one the client wants to download exists in their storage pool, and:\n
+ *            1) If such a file does not exist, notify the client and reset the session state
+ *            2) If such a file exists, send its information to the client and set\n
+ *               the session manager to expect the download operation confirmation
+ * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SrvSessMgr::srvDownloadStart()
+ {
+  // Retrieve the file name the client wants to download, also loading
+  // its associated absolute path into the '_mainFileAbsPath' attribute
+  std::string fileName = std::move(loadMainFileName());
+
+  // Check whether the file the client wants to download exists in their storage
+  // pool by attempting to load its information into the '_locFileInfo' attribute
+  checkLoadMainFile();
+
+  // If the file the client wants to download was not found in their storage pool
+  if(_locFileInfo == nullptr)
+   {
+    // Notify the client that the file was not found
+    sendSrvSessSignalMsg(FILE_NOT_EXISTS);
+
+    LOG_INFO("[" + *_srvConnMgr._name + "] Attempting to download "
+             "file \""+ fileName + "\" not existing in the storage pool")
+
+    // Reset the server session manager state and return
+    resetSrvSessState();
+    return;
+   }
+
+  // Otherwise, if the file the client wants to download was found in their storage pool
+  else
+   {
+    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
+    // the information on the file to be downloaded and send it to the client
+    sendSessMsgFileInfo(FILE_EXISTS);
+
+    // Set the server session manager to expect the download operation completion or
+    // confirmation notification depending on whether the file to be downloaded is empty or not
+    if(_locFileInfo->meta->fileSizeRaw == 0)
+     {
+      _srvSessMgrSubstate = WAITING_CLI_COMPL;
+
+      LOG_INFO("[" + *_srvConnMgr._name + "] Received download request of empty"
+               " file \"" + _locFileInfo->fileName + "\", awaiting client completion")
+     }
+    else
+     {
+      _srvSessMgrSubstate = WAITING_CLI_CONF;
+
+      LOG_INFO("[" + *_srvConnMgr._name + "] Received download request of file \"" + _locFileInfo->fileName
+               + "\" (" + _locFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
+     }
+   }
+ }
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -449,7 +534,8 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
  * @param srvConnMgr A reference to the server connection manager parent object
  */
 SrvSessMgr::SrvSessMgr(SrvConnMgr& srvConnMgr)
-  : SessMgr(reinterpret_cast<ConnMgr&>(srvConnMgr)), _srvSessMgrSubstate(SRV_IDLE), _srvConnMgr(srvConnMgr)
+  : SessMgr(reinterpret_cast<ConnMgr&>(srvConnMgr),srvConnMgr._poolDir),
+    _srvSessMgrSubstate(SRV_IDLE), _srvConnMgr(srvConnMgr)
  {}
 
 /* Same destructor of the SessMgr base class */

@@ -55,7 +55,7 @@ class SrvSessMgr : public SessMgr
    // TODO
    void dispatchRecvSessMsg();
 
-   /* ------------------------- 'UPLOAD' Callback Methods ------------------------- */
+   /* ------------------------------- 'UPLOAD' Callback Methods ------------------------------- */
 
    /**
    * @brief Starts a file upload operation by:\n
@@ -68,9 +68,13 @@ class SrvSessMgr : public SessMgr
    *                          the one provided by the client and inform them that the file has been successfully uploaded \n
    *                   2.2.2) If the file to be uploaded is NOT empty, inform the client
    *                          that the server is ready to receive the file's raw contents
-   * @throws ERR_SESS_MALFORMED_MESSAGE   The file name in the 'SessMsgFileInfo' message is invalid
-   * @throws ERR_INTERNAL_ERROR           Session manager status or file read/write error
-   * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or the '_locFileInfo' attribute has not been initialized
+   * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
+   * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be uploaded was found as a directory in the client's storage pool (!)
+   * @throws ERR_SESS_INTERNAL_ERROR       Invalid session manager state or file read/write error
+   * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the uploaded empty main file
+   * @throws ERR_SESS_FILE_OPEN_FAILED     Error in opening the uploaded empty main file
+   * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the uploaded empty main file
+   * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the empty main file's metadata
    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -122,6 +126,27 @@ class SrvSessMgr : public SessMgr
     *                                        file or NULL session attributes
     */
    void recvUploadFileData(size_t recvBytes);
+
+   /* ------------------------------ 'DOWNLOAD' Callback Methods ------------------------------ */
+
+   /**
+    * @brief  Starts a file download operation by checking whether a file with the same name
+    *         of the one the client wants to download exists in their storage pool, and:\n
+    *            1) If such a file does not exist, notify the client and reset the session state
+    *            2) If such a file exists, send its information to the client and set\n
+    *               the session manager to expect the download operation confirmation
+    * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void srvDownloadStart();
 
   public:
 

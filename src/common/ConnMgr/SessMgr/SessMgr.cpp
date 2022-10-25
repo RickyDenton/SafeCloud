@@ -8,15 +8,17 @@
 #include "SessMsg.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
+#include "utils.h"
 
 
 /* ============================= PROTECTED METHODS ============================= */
 
 // TODO: Section?
+
 /**
- * @brief Loads into a FileInfo object pointed by the '_remFileInfo' attribute the name
- *        and metadata of a remote file embedded within a 'SessMsgFileInfo' session
- *        message stored in the associated connection manager's secondary buffer
+ * @brief Validates and loads into a FileInfo object pointed by the '_remFileInfo' attribute
+ *        the name and metadata of a remote file embedded within a 'SessMsgFileInfo'
+ *        session message stored in the associated connection manager's secondary buffer
  * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file values in the 'SessMsgFileInfo' message
  */
 void SessMgr::loadRemFileInfo()
@@ -46,6 +48,81 @@ void SessMgr::loadRemFileInfo()
 
 
 /**
+ * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
+ *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
+ *         attribute to the concatenation of the session's main directory with such file name
+ * @return The file name embedded in the 'SessMsgFileName' session message
+ * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
+ */
+std::string SessMgr::loadMainFileName()
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileName' session message
+  SessMsgFileName* fileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
+
+  // Determine the length of the file name within the 'SessMsgFileName' message, '\0' character included
+  unsigned char fileNameLength = fileNameMsg->msgLen - sizeof(SessMsgFileName);
+
+  // Extract the file name from the 'SessMsgFileName' message
+  std::string fileName(reinterpret_cast<char*>(fileNameMsg->fileName), fileNameLength);
+
+  // Assert the file name string to consist of a valid Linux file name
+  try
+   {  validateFileName(fileName); }
+  catch(sessErrExcp& invalidFileNameExcp)
+   {
+    // If the received file name string does not represent a
+    // valid Linux file name, the received message is malformed
+    sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileName'"
+                                               " message (\"" + fileName + "\")");
+   }
+
+  // Initialize the '_mainFileAbsPath' attribute to the concatenation
+  // of the session's main directory with such file name
+  _mainFileAbsPath = new std::string(*_mainDir + fileName);
+
+  // Return file name embedded in the 'SessMsgFileName' session message
+  return fileName;
+ }
+
+
+/**
+ * @brief Attempts to load into the '_locFileInfo' attribute the information
+ *        of the main file referred by the '_mainFileAbsPath' attribute
+ * @throws ERR_SESS_INTERNAL_ERROR   The '_mainFileAbsPath' attribute has not been initialized
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR The main file was found to be a directory (!)
+ */
+void SessMgr::checkLoadMainFile()
+ {
+  // Ensure the '_mainFileAbsPath' attribute to have been initialized
+  if(_mainFileAbsPath == nullptr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to load the main file information time with a NULL '_mainFileAbsPath'");
+   }
+
+  // Attempt to load into the '_locFileInfo' attribute the information
+  // of the main file referred by the '_mainFileAbsPath' attribute
+  try
+   { _locFileInfo = new FileInfo(*_mainFileAbsPath); }
+  catch(sessErrExcp& mainFileError)
+   {
+    // If the main file was found to be a directory (!), notify the
+    // connection peer of the internal error and rethrow the exception
+    if(mainFileError.sesErrCode == ERR_SESS_FILE_IS_DIR)
+     {
+      sendSessSignalMsg(ERR_INTERNAL_ERROR);
+      THROW_SESS_EXCP(ERR_SESS_MAIN_FILE_IS_DIR, *_mainFileAbsPath);
+     }
+
+    // Otherwise the main file was not found in the session's main directory
+    _locFileInfo = nullptr;
+   }
+ }
+
+
+
+/**
  * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
  *         of the specified type containing the name and metadata of the local file referred by the '_locFileInfo'
  *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
@@ -60,7 +137,7 @@ void SessMgr::loadRemFileInfo()
  * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED              send() fatal error
  */
-void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
+void SessMgr::sendSessMsgFileInfo(SessMsgType sessMsgType)
  {
   // TODO: Check if NEW_FILENAME_EXISTS is applicable (also in the function description)
   // Ensure the session message type to be valid for a 'SessMsgFileInfo' message
@@ -84,7 +161,7 @@ void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
   sessMsgFileInfoMsg->msgType = sessMsgType;
 
   // Set the length of the 'SessMsgFileInfo' message to the length of its struct + the local file name
-  // length (+1 for the '/0' character, -1 for the 'filename' placeholder attribute in the struct)
+  // length (+1 for the '/0' character, -1 for the 'fileName' placeholder attribute in the struct)
   sessMsgFileInfoMsg->msgLen = sizeof(SessMsgFileInfo) + _locFileInfo->fileName.length();
 
   // Write the local file's metadata into the 'SessMsgFileInfo' message
@@ -99,6 +176,50 @@ void SessMgr::sendLocalFileInfo(SessMsgType sessMsgType)
   // session message wrapper and send it to the connection peer
   wrapSendSessMsg();
  }
+
+
+/**
+* @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
+ *        session message of the specified type and fileName value, for then wrapping
+ *        and sending the resulting session message wrapper to the connection peer
+* @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
+* @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
+* @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+* @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+* @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+* @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+* @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+* @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+* @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+* @throws ERR_SEND_FAILED              send() fatal error
+*/
+void SessMgr::sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName)
+ {
+  // Ensure the session message type to be valid for a 'SessMsgFileName' message
+  if(!(sessMsgType == FILE_DOWNLOAD_REQ || sessMsgType == FILE_DELETE_REQ))
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileName' message type (" + std::to_string(sessMsgType) + ")");
+   }
+
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileName' session message
+  SessMsgFileName* sessMsgFileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
+
+  // Set the 'SessMsgFileName' message type to the provided argument
+  sessMsgFileNameMsg->msgType = sessMsgType;
+
+  // Set the length of the 'SessMsgFileName' message to the length of its struct + the fileName
+  // length (+1 for the '/0' character, -1 for the 'fileName' placeholder attribute in the struct)
+  sessMsgFileNameMsg->msgLen = sizeof(SessMsgFileName) + fileName.length();
+
+  // Write the fileName, '/0' character included, into the 'SessMsgFileName' message
+  memcpy(reinterpret_cast<char*>(&sessMsgFileNameMsg->fileName), fileName.c_str(), fileName.length() + 1);
+
+  // Wrap the 'SessMsgFileName' message into its associated
+  // session message wrapper and send it to the connection peer
+  wrapSendSessMsg();
+ }
+
 
 
 /**
@@ -406,12 +527,14 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType)
  * @brief Session manager object constructor, initializing
  *        session parameters and its child AESGCMMgr object
  * @param connMgr A reference to the connection manager parent object
+ * @param connMgr The session's main directory, consisting in the user's storage
+ *                pool on the server or their downloads folder on the client
  */
-SessMgr::SessMgr(ConnMgr& connMgr)
+SessMgr::SessMgr(ConnMgr& connMgr, std::string* mainDir)
   : _sessMgrState(IDLE), _connMgr(connMgr), _aesGCMMgr(_connMgr._skey, _connMgr._iv),
-    _mainFileDscr(nullptr), _mainFileAbsPath(nullptr), _tmpFileDscr(nullptr),
-    _tmpFileAbsPath(nullptr), _locFileInfo(nullptr), _remFileInfo(nullptr), _rawBytesRem(0),
-    _recvSessMsgLen(0), _recvSessMsgType(ERR_UNKNOWN_SESSMSG_TYPE)
+    _mainDir(mainDir), _tmpDir(_connMgr._tmpDir), _mainFileDscr(nullptr), _mainFileAbsPath(nullptr),
+    _tmpFileDscr(nullptr), _tmpFileAbsPath(nullptr), _locFileInfo(nullptr), _remFileInfo(nullptr),
+    _rawBytesRem(0), _recvSessMsgLen(0), _recvSessMsgType(ERR_UNKNOWN_SESSMSG_TYPE)
  {}
 
 /**
