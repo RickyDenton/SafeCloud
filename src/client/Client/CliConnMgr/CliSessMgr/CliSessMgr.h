@@ -142,24 +142,26 @@ class CliSessMgr : public SessMgr
     *            1) If the SafeCloud server has reported that the file to be downloaded does not exist in
     *               the user's storage pool, inform the client that the download operation cannot proceed.\n
     *            2) If the SafeCloud server has returned the information on the existing file to be downloaded:\n
-    *                  2.1) If the file to be downloaded is empty, directly touch such a file in the user's
-    *                       download directory and inform them that the download operation has completed\n
-    *                  2.2) If the file to be downloaded is NOT empty, check whether a file
-    *                       with the same name exists in the user's download directory, and:\n
-    *                          2.2.1) If it does not, confirm the download operation to the SafeCloud server
-    *                          2.2.2) If it does, if the file in the user's storage pool:\n
-    *                                    2.2.2.1) Was more recently modified than the one in the download
-    *                                             directory, confirm the download operation to the SafeCloud server\n
-    *                                    2.2.2.2) Has the same size and last modified time of the one
-    *                                             in the download directory, ask for user confirmation
-    *                                             on whether the download operation should continue\n
-    *                                    2.2.2.3) Has a last modified time older than the one in the
-    *                                             download directory, ask for user confirmation on
-    *                                             whether the download operation should continue
-    * @return A boolean indicating whether the download operation should continue
+    *                  2.1) If the file to be downloaded is empty and a file with the same name in the user's
+    *                       download directory does not exist or is empty the download operation should proceed\n
+    *                  2.2) [PATCH] If the file to be downloaded is empty and a non-empty file with
+    *                       the same name does exist in the user's download directory, ask for
+    *                       their confirmation on whether the download operation should proceed\n
+    *                  2.3) If the file to be downloaded is NOT empty and a file with such name does not exist
+    *                       in the user's download directory, confirm the download operation to the server\n
+    *                  2.4) If the file to be downloaded is NOT empty and a file with such name does exist in
+    *                       the user's download directory, if the file in the storage pool:\n
+    *                                    2.4.1) Was more recently modified than the one in the download
+    *                                           directory, confirm the upload operation to the SafeCloud server\n
+    *                                    2.4.2) Has the same size and last modified time of the one
+    *                                           in the download directory, ask for user confirmation
+    *                                           on whether the upload operation should continue\n
+    *                                    2.4.3) Has a last modified time older than the one in the
+    *                                           download directory, ask for user confirmation on
+    *                                           whether the upload operation should continue
+    * @return A boolean indicating whether the downloaded operation should continue
     * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
-    * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
-    *                                     invalid 'FILE_DOWNLOAD_REQ' session message response type was received
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE An invalid 'FILE_DOWNLOAD_REQ' session message response type was received
     */
    bool parseDownloadResponse(std::string& fileName);
 

@@ -621,24 +621,26 @@ void CliSessMgr::uploadFileData()
  *            1) If the SafeCloud server has reported that the file to be downloaded does not exist in
  *               the user's storage pool, inform the client that the download operation cannot proceed.\n
  *            2) If the SafeCloud server has returned the information on the existing file to be downloaded:\n
- *                  2.1) If the file to be downloaded is empty, directly touch such a file in the user's
- *                       download directory and inform them that the download operation has completed\n
- *                  2.2) If the file to be downloaded is NOT empty, check whether a file
- *                       with the same name exists in the user's download directory, and:\n
- *                          2.2.1) If it does not, confirm the download operation to the SafeCloud server
- *                          2.2.2) If it does, if the file in the user's storage pool:\n
- *                                    2.2.2.1) Was more recently modified than the one in the download
- *                                             directory, confirm the upload operation to the SafeCloud server\n
- *                                    2.2.2.2) Has the same size and last modified time of the one
- *                                             in the download directory, ask for user confirmation
- *                                             on whether the upload operation should continue\n
- *                                    2.2.2.3) Has a last modified time older than the one in the
- *                                             download directory, ask for user confirmation on
- *                                             whether the upload operation should continue
- * @return A boolean indicating whether the upload operation should continue
+ *                  2.1) If the file to be downloaded is empty and a file with the same name in the user's
+ *                       download directory does not exist or is empty the download operation should proceed\n
+ *                  2.2) [PATCH] If the file to be downloaded is empty and a non-empty file with
+ *                       the same name does exist in the user's download directory, ask for
+ *                       their confirmation on whether the download operation should proceed\n
+ *                  2.3) If the file to be downloaded is NOT empty and a file with such name does not exist
+ *                       in the user's download directory, confirm the download operation to the server\n
+ *                  2.4) If the file to be downloaded is NOT empty and a file with such name does exist in
+ *                       the user's download directory, if the file in the storage pool:\n
+ *                                    2.4.1) Was more recently modified than the one in the download
+ *                                           directory, confirm the upload operation to the SafeCloud server\n
+ *                                    2.4.2) Has the same size and last modified time of the one
+ *                                           in the download directory, ask for user confirmation
+ *                                           on whether the upload operation should continue\n
+ *                                    2.4.3) Has a last modified time older than the one in the
+ *                                           download directory, ask for user confirmation on
+ *                                           whether the upload operation should continue
+ * @return A boolean indicating whether the downloaded operation should continue
  * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
- * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
- *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE An invalid 'FILE_DOWNLOAD_REQ' session message response type was received
  */
 bool CliSessMgr::parseDownloadResponse(std::string& fileName)
  {
@@ -674,22 +676,11 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
      // download directory by attempting to load its information into the '_mainFileInfo' attribute
      checkLoadMainFileInfo();
 
-     // If the file to be downloaded is empty
-     if(_remFileInfo->meta->fileSizeRaw == 0)
-      {
-       // Touch the empty file in the client's download directory
-       touchEmptyFile();
-
-       // Inform the server that the empty file has been successfully downloaded
-       sendCliSessSignalMsg(COMPLETED);
-
-       // Inform the user that the empty file has been successfully downloaded
-       std::cout << "\nEmpty file \"" + _remFileInfo->fileName + "\" successfully "
-                    "downloaded from the SafeCloud storage pool\n" << std::endl;
-
-       // Return that the download operation should not proceed
-       return false;
-      }
+     // If the file to be downloaded is empty and the file in the user's download
+     // directory does not exist or is empty, the download operation should proceed
+     if(_remFileInfo->meta->fileSizeRaw == 0 &&
+        (_mainFileInfo == nullptr || _mainFileInfo->meta->fileSizeRaw == 0))
+      return true;
 
      // If a file with the same name of the one to be downloaded
      // was not found in the client's download directory
@@ -706,6 +697,35 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
      // downloaded was found in the client's download directory
      else
       {
+
+       /* [PATCH] */
+       // If the file to be downloaded is empty and, at this point, the
+       // file with the same name in the user's download directory is not
+       if(_remFileInfo->meta->fileSizeRaw == 0)
+        {
+         // Inform the user that the download would result in overwriting
+         // a non-empty with an empty file in their download directory
+         std::cout << "\nThe empty file to be downloaded would overwrite a non-empty "
+                      "file in your download directory" << std::endl;
+
+         // Print a table comparing the metadata of the main and remote file
+         _mainFileInfo->compareMetadata(_remFileInfo);
+
+         // Ask the user whether the download operation should proceed
+         if(askUser("Do you want to continue downloading the file?"))
+          return true;
+
+          // Otherwise, if the download operation should not proceed
+         else
+          {
+           // Inform the server that the download operation has completed
+           sendCliSessSignalMsg(COMPLETED);
+
+           // Return that the download operation should NOT continue
+           return false;
+          }
+        }
+
        // If the file on the storage pool was more recently
        // modified than the one in the client's download directory
        if(_remFileInfo->meta->lastModTimeRaw > _mainFileInfo->meta->lastModTimeRaw)
@@ -749,7 +769,7 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
     // responses to a 'FILE_DOWNLOAD_REQ' session message
     default:
      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
-                                                      std::to_string(_recvSessMsgType) + "as a 'FILE_DOWNLOAD_REQ' response");
+                          std::to_string(_recvSessMsgType) + "as a 'FILE_DOWNLOAD_REQ' response");
     // [Unnecessary, just silences a warning]
     return false;
    }
@@ -966,8 +986,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
   if(!parseUploadResponse())
    return;
 
-  // If uploading an empty file overwriting a non-empty file in the user's
-  // storage pool, simply wait for the server completion notification
+  // If uploading a non-empty file, send its raw contents
   if(_mainFileInfo->meta->fileSizeRaw != 0)
    uploadFileData();
 
@@ -1036,12 +1055,30 @@ void CliSessMgr::downloadFile(std::string& fileName)
   if(!parseDownloadResponse(fileName))
    return;
 
-  // Proceed downloading the file's raw contents
-  downloadFileData();
+  // If downloading a non-empty file
+  if(_remFileInfo->meta->fileSizeRaw != 0)
+   {
+    // Receive the file's raw contents
+    downloadFileData();
 
-  // Inform the user that the file has been successfully downloaded to their download directory
-  std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
-               ") successfully downloaded into the download directory\n" << std::endl;
+    // Inform the user that the file has been successfully downloaded to their download directory
+    std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
+                 ") successfully downloaded into the download directory\n" << std::endl;
+   }
+
+  // Otherwise, if downloading an empty file
+  else
+   {
+    // Touch the empty file in the client's download directory
+    touchEmptyFile();
+
+    // Notify the server that the empty file has been successfully downloaded
+    sendCliSessSignalMsg(COMPLETED);
+
+    // Inform the user that the empty file has been successfully downloaded
+    std::cout << "\nEmpty file \"" + _remFileInfo->fileName + "\" successfully "
+                 "downloaded from the SafeCloud storage pool\n" << std::endl;
+   }
  }
 
 
