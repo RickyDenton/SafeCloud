@@ -150,6 +150,11 @@ class SrvSessMgr : public SessMgr
     */
    void sendDownloadFileData();
 
+   /* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
+
+   // TODO
+   void srvDeleteStart();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

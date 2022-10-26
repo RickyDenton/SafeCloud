@@ -647,7 +647,8 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
   // Depending on the 'FILE_DOWNLOAD_REQ' response message type:
   switch(_recvSessMsgType)
    {
-    // If the SafeCloud server has reported that the file to be downloaded does not exist in the user's storage pool
+    // If the SafeCloud server has reported that the file to
+    // be downloaded does not exist in the user's storage pool
     case FILE_NOT_EXISTS:
 
      // Inform the client that such a file does not exist in their storage pool,
@@ -927,6 +928,75 @@ void CliSessMgr::downloadFileData()
  }
 
 
+/* ------------------------------ 'DELETE' Operation Methods ------------------------------ */
+
+// TODO
+bool CliSessMgr::parseDeleteResponse(std::string& fileName)
+ {
+  // Depending on the 'FILE_DELETE_REQ' response message type:
+  switch(_recvSessMsgType)
+   {
+    // If the SafeCloud server has reported that the file to
+    // be deleted does not exist in the user's storage pool
+    case FILE_NOT_EXISTS:
+
+     // Inform the client that such a file does not exist in their storage pool,
+     // and that they can retrieve its list of files via the 'LIST remote' command
+     std::cout << "File \"" + fileName + "\" was not found in your storage pool" << std::endl;
+     std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
+
+     // Return that the server completion notification is NOT expected
+     return false;
+
+    // Otherwise, if the SafeCloud server has returned
+    // the information on the file to be deleted
+    case FILE_EXISTS:
+
+     // Load into the '_remFileInfo' attribute the name and
+     // metadata of the file the client is requesting to delete
+     loadRemSessMsgFileInfo();
+
+     // Ensure that the file information received from the server
+     // refer to a file with the same name of the one to be deleted
+     if(_remFileInfo->fileName != fileName)
+      sendCliSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE, "Received as a FILE_DELETE_REQ response information on a "
+                                                       "file (\"" + _remFileInfo->fileName + "\") different from "
+                                                       "the one the client wants to delete (\"" + fileName + "\")");
+
+     // Print the information on the file to be deleted
+     _remFileInfo->printFileInfo();
+
+     // Ask for user confirmation on whether proceeding deleting the file
+     if(askUser("Are you sure to delete the file from your storage pool?"))
+      {
+       // Confirm the delete operation to the SafeCloud server
+       sendCliSessSignalMsg(CONFIRM);
+
+       // Return that the server completion notification is expected
+       return true;
+      }
+
+     // Otherwise, if the file should not be deleted
+     else
+      {
+       // Cancel the delete operation on the SafeCloud server
+       sendCliSessSignalMsg(CANCEL);
+
+       // Return that the server completion notification is NOT expected
+       return false;
+      }
+
+    // All other session message types do not represent valid
+    // responses to a 'FILE_DELETE_REQ' session message
+    default:
+     sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                          std::to_string(_recvSessMsgType) + "as a 'FILE_DELETE_REQ' response");
+    // [Unnecessary, just silences a warning]
+    return false;
+   }
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -1080,6 +1150,51 @@ void CliSessMgr::downloadFile(std::string& fileName)
                  "downloaded from the SafeCloud storage pool\n" << std::endl;
    }
  }
+
+// TODO
+void CliSessMgr::deleteFile(std::string& fileName)
+ {
+  // Initialize the client session manager operation
+  _sessMgrOp = DELETE;
+
+  // Assert the file name string to consist of a valid Linux file name
+  validateFileName(fileName);
+
+  // Prepare a 'SessMsgFileName' session message of type 'FILE_DELETE_REQ' containing
+  // the name of the file to be deleted and send it to the SafeCloud server
+  sendSessMsgFileName(FILE_DELETE_REQ,fileName);
+
+  LOG_DEBUG("Sent 'FILE_DELETE_REQ' message to the server (file = \"" + fileName + "\")")
+
+  // Update the command step so to expect a 'FILE_DOWNLOAD_REQ' response
+  _sessMgrOpStep = WAITING_RESP;
+
+  // Block until the 'FILE_DELETE_REQ' response is received from the SafeCloud server
+  recvCheckCliSessMsg();
+
+  // Parse the 'FILE_DELETE_REQ' response, obtaining an indication on whether
+  // to expect the deletion completion notification from the SafeCloud server
+  if(!parseDeleteResponse(fileName))
+   return;
+
+  // Update the operation step so to expect the server completion notification
+  _sessMgrOpStep = WAITING_COMPL;
+
+  // Block until the supposed server completion notification has been received
+  recvCheckCliSessMsg();
+
+  // Ensure that the server completion notification was received
+  if(_recvSessMsgType != COMPLETED)
+   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                                                    std::to_string(_recvSessMsgType) +
+                                                    " while awaiting for the server's 'DELETE' completion");
+
+  // Inform the user that the file has been
+  // successfully deleted from their storage pool
+  std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
+               ") successfully deleted from the SafeCloud storage pool\n" << std::endl;
+ }
+
 
 
 // TODO: Placeholder implementation

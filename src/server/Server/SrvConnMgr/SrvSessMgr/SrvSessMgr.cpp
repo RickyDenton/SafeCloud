@@ -106,7 +106,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
        case FILE_DELETE_REQ:
         _sessMgrOp = DELETE;
-        //srvDeleteStart();
+        srvDeleteStart();
         break;
 
        case FILE_RENAME_REQ:
@@ -189,7 +189,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
          LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" ("
                   + _mainFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
 
-       resetSessState();
+        resetSessState();
         return;
 
        default:
@@ -197,7 +197,37 @@ void SrvSessMgr::dispatchRecvSessMsg()
                                                          " message type received in the 'DOWNLOAD' operation,"
                                                          " step " + sessMgrOpStepToStrUpCase());
       }
+     break;
+
+
+    // 'DELETE' server session manager operation
+    case SessMgr::DELETE:
+
+     // Only the client confirmation of a pending delete can be
+     // received in the 'DELETE' operation with step 'WAITING_CONF'
+     if(_sessMgrOpStep == WAITING_CONF && _recvSessMsgType == CONFIRM)
+      {
+       // Attempt to delete the main file
+       if(remove(_mainFileAbsPath->c_str()) == -1)
+        sendSrvSessSignalMsg(ERR_INTERNAL_ERROR, "Failed to delete file \"" + *_mainFileAbsPath + "\" (reason: " + ERRNO_DESC + ")");
+
+       // Notify the client that the file has been successfully deleted
+       sendSrvSessSignalMsg(COMPLETED);
+
+       // Log the successful delete operation
+       LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" ("
+                + _mainFileInfo->meta->fileSizeStr + ") deleted from the storage pool")
+
+       // Reset the session state and return
+       resetSessState();
+       return;
+      }
+     else
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
+                                                       " message type received in the 'DELETE' operation,"
+                                                       " step " + sessMgrOpStepToStrUpCase());
     break;
+
 
 
     // TODO (must eventually be removed)
@@ -611,6 +641,47 @@ void SrvSessMgr::sendDownloadFileData()
   _sessMgrOpStep = WAITING_COMPL;
  }
 
+
+/* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
+
+void SrvSessMgr::srvDeleteStart()
+ {
+  // Retrieve the file name the client wants to delete, also loading
+  // its associated absolute path into the '_mainFileAbsPath' attribute
+  std::string fileName = std::move(loadMainSessMsgFileName());
+
+  // Check whether the file the client wants to delete exists in their storage
+  // pool by attempting to load its information into the '_mainFileInfo' attribute
+  checkLoadMainFileInfo();
+
+  // If the file the client wants to delete was not found in their storage pool
+  if(_mainFileInfo == nullptr)
+   {
+    // Notify the client that the file was not found
+    sendSrvSessSignalMsg(FILE_NOT_EXISTS);
+
+    LOG_INFO("[" + *_connMgr._name + "] Attempting to delete "
+             "file \""+ fileName + "\" not existing in the storage pool")
+
+    // Reset the server session manager state and return
+    resetSessState();
+    return;
+   }
+
+   // Otherwise, if the file the client wants to delete was found in their storage pool
+  else
+   {
+    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
+    // the information on the file to be deleted and send it to the client
+    sendSessMsgFileInfo(FILE_EXISTS);
+
+    // Set the server session manager to expect the client confirmation notification
+    _sessMgrOpStep = WAITING_CONF;
+
+    LOG_INFO("[" + *_connMgr._name + "] Received delete request of file \"" + _mainFileInfo->fileName
+             + "\" (" + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
+   }
+ }
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**

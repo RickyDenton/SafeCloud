@@ -197,6 +197,11 @@ class CliSessMgr : public SessMgr
     */
    void downloadFileData();
 
+   /* ------------------------------ 'DELETE' Operation Methods ------------------------------ */
+
+   // TODO
+   bool parseDeleteResponse(std::string& fileName);
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -235,6 +240,9 @@ class CliSessMgr : public SessMgr
     *         "execErrCode.h" and "sessErrCodes.h" for more details)
     */
    void downloadFile(std::string& fileName);
+
+   // TODO
+   void deleteFile(std::string& fileName);
 
    // TODO: STUB
    void listRemoteFiles();

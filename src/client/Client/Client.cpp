@@ -582,7 +582,7 @@ void Client::printCmdHelp()
   std::cout << "LIST storage                   - List the files within the Safecloud storage" << std::endl;
   std::cout << "LIST local                     - List the files in the local download directory" << std::endl;
   std::cout << "HELP                           - Prints this list of available commands" << std::endl;
-  std::cout << "LOGOUT/EXIT/QUIT               - Closes the application\n" << std::endl;
+  std::cout << "LOGOUT/EXIT/QUIT/BYE           - Closes the application\n" << std::endl;
  }
 
 
@@ -645,6 +645,18 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
    {
     // Attempt to download the specified file from the SafeCloud storage pool
     _cliConnMgr->getSession()->downloadFile(arg1);
+
+    // Reset the client session manager state
+    _cliConnMgr->getSession()->resetSessState();
+
+    return;
+   }
+
+  // DELETE command
+  if(cmd == "DEL" || cmd == "DELETE")
+   {
+    // Attempt to delete the specified file from the SafeCloud storage pool
+    _cliConnMgr->getSession()->deleteFile(arg1);
 
     // Reset the client session manager state
     _cliConnMgr->getSession()->resetSessState();
