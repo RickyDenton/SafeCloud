@@ -200,7 +200,7 @@ void Server::newClientData(int ski)
  {
   connMapIt connIt;        // _connMap iterator
   SrvConnMgr* srvConnMgr;  // The client's assigned connection manager
-  bool keepCliConn;           // Whether the client connection should be maintained or not
+  bool shutdownCliConn;    // Whether the client connection should be terminated
 
   // Retrieve the connection's map entry associated with "ski"
   connIt = _connMap.find(ski);
@@ -227,16 +227,21 @@ void Server::newClientData(int ski)
     // handler of the associated SrvConnMgr object
     srvConnMgr->srvRecvHandleData();
 
-    // Determine whether the client connection should be maintained or not
-    keepCliConn = srvConnMgr->keepConn();
+    // Determine whether the client connection should be terminated
+    shutdownCliConn = srvConnMgr->shutdownConn();
    }
   catch(execErrExcp& excp)
    {
+    // Change a ERR_PEER_DISCONNECTED into the
+    // more specific ERR_CLI_DISCONNECTED error code
+    if(excp.exErrcode == ERR_PEER_DISCONNECTED)
+     excp.exErrcode = ERR_CLI_DISCONNECTED;
+
     // TODO: Check
     handleExecErrException(excp);
 
-    // The client connection must always be closed
-    keepCliConn = false;
+    // The client connection must always be terminated
+    shutdownCliConn = true;
    }
   catch(sessErrExcp& sessExcp)
    {
@@ -244,15 +249,16 @@ void Server::newClientData(int ski)
     handleSessErrException(sessExcp);
 
     // Reset the server session manager's state
-    srvConnMgr->getSession()->resetSrvSessState();
+    srvConnMgr->getSession()->resetSessState();
 
-    // The connection must always be maintained
-    keepCliConn = true;
+    // TODO: Probably unnecessary
+    // The connection must not be terminated
+    //shutdownCliConn = true;
    }
 
-  // If necessary close the client's connection and continue
+  // If necessary terminate the client's connection and continue
   // checking the next socket descriptor in the server's main loop
-  if(!keepCliConn)
+  if(shutdownCliConn)
    closeConn(connIt);
  }
 

@@ -39,9 +39,10 @@ class ConnMgr
    /* ================================= ATTRIBUTES ================================= */
 
    /* ----------------------- Connection General Information ----------------------- */
-   connPhase    _connPhase;  // The connection's current phase (STSM key establishment or session)
-   recvMode     _recvMode;   // The connection manager's current reception mode (RECV_MSG or RECV_RAW)
-   const int    _csk;        // The connection socket associated with this manager
+   connPhase _connPhase;    // The connection's current phase (STSM key establishment or session)
+   recvMode  _recvMode;     // The connection manager's current reception mode (RECV_MSG or RECV_RAW)
+   const int _csk;          // The connection socket associated with this manager
+   bool      _shutdownConn; // Whether the connection manager should be terminated
 
    /* ------------------------ Primary Communication Buffer ------------------------ */
 
@@ -183,6 +184,14 @@ class ConnMgr
     *          3) Safely deletes all the connection's sensitive information
     */
    ~ConnMgr();
+
+   /* ============================= OTHER PUBLIC METHODS ============================= */
+
+   /**
+    * @brief  Returns whether the connection manager should be terminated
+    * @return A boolean indicating whether the connection manager should be terminated
+    */
+   bool shutdownConn() const;
  };
 
 

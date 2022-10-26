@@ -19,7 +19,8 @@
  * @param errReason            An optional error reason to be embedded with the exception that
  *                             must be thrown after sending such session message signaling type
  * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
- * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message invalid for its current state
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
+ *                                       invalid for its current operation or step
  * @throws ERR_SESS_MALFORMED_MESSAGE    The session manager received a malformed session message
  * @throws ERR_SESS_UNKNOWN_SESSMSG_TYPE The session manager received a session message of unknown type
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
@@ -43,6 +44,13 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
   // perform their associated actions or raise their associated exceptions
   switch(sessMsgSignalingType)
    {
+    // The client is gracefully shutting down the connection
+    case BYE:
+
+     // Set that the connection manager must be terminated
+     _connMgr._shutdownConn = true;
+     break;
+
     // The client session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
      if(!errReason.empty())
@@ -50,7 +58,7 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
      else
       THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, abortedOpToStr());
 
-    // A session message invalid for the current client session manager state was received
+    // A session message invalid for the current client session operation or step was received
     case ERR_UNEXPECTED_SESS_MESSAGE:
      if(!errReason.empty())
       THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), errReason);
@@ -127,22 +135,22 @@ void CliSessMgr::recvCheckCliSessMsg()
   /*
    * Check whether the received session message type:
    *   1) Should trigger a session state reset or termination,
-   *      directly performing the appropriate actions
+   *      directly performing the appropriate actions.
    *   2) Is valid in the current client session manager
-   *      state, signaling the error to the server and
-   *      throwing the associated exception otherwise
+   *      operation and step, signaling the error to the server
+   *      and throwing the associated exception otherwise.
    */
   switch(_recvSessMsgType)
    {
     /* ---------------------------- 'FILE_EXISTS' Payload Message Type ---------------------------- */
 
     // A 'FILE_EXISTS' payload message type is allowed only with the client session
-    // manager in the 'UPLOAD', 'DOWNLOAD' and 'DELETE' commands with step 'WAITING_RESP'
+    // manager in the 'UPLOAD', 'DOWNLOAD' and 'DELETE' operations with step 'WAITING_RESP'
     case FILE_EXISTS:
      if(!((_sessMgrOp == UPLOAD || _sessMgrOp == DOWNLOAD || _sessMgrOp == DELETE)
           && _sessMgrOpStep == WAITING_RESP))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_EXISTS' session message received in"
-                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       " session operation \"" + sessMgrOpToStrUpCase() +
                                                        "\", step " + sessMgrOpStepToStrUpCase());
       break;
 
@@ -151,8 +159,8 @@ void CliSessMgr::recvCheckCliSessMsg()
     // A 'POOL_SIZE' payload message type is allowed in the 'LIST' operation with step 'WAITING_RESP'
     case POOL_SIZE:
      if(!(_sessMgrOp == LIST && _sessMgrOpStep == WAITING_RESP))
-      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'POOL_SIZE' session message received in"
-                                                       " session state \"" + sessMgrOpToStrUpCase() +
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'POOL_SIZE' session message received in session"
+                                                       " operation \"" + sessMgrOpToStrUpCase() +
                                                        "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
@@ -162,8 +170,8 @@ void CliSessMgr::recvCheckCliSessMsg()
     // in all operations but 'LIST' with step 'WAITING_RESP'
     case FILE_NOT_EXISTS:
      if(!(_sessMgrOp != LIST && _sessMgrOpStep == WAITING_RESP))
-      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_NOT_EXISTS' session message received in"
-                                                       " session state \"" + sessMgrOpToStrUpCase() +
+      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_NOT_EXISTS' session message received in "
+                                                       "session operation \"" + sessMgrOpToStrUpCase() +
                                                        "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
@@ -174,7 +182,7 @@ void CliSessMgr::recvCheckCliSessMsg()
     case NEW_FILENAME_EXISTS:
      if(!(_sessMgrOp == RENAME && _sessMgrOpStep == WAITING_CONF))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'NEW_FILENAME_EXISTS' session message received in"
-                                                       " session state \"" + sessMgrOpToStrUpCase() +
+                                                       " session operation \"" + sessMgrOpToStrUpCase() +
                                                        "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
@@ -187,13 +195,13 @@ void CliSessMgr::recvCheckCliSessMsg()
      */
     case COMPLETED:
 
-     // Since after sending a 'COMPLETED' message the SafeCloud server has supposedly
-     // reset its session state, if such a message type is received in an invalid
-     // state just throw the associated exception without notifying the server
+     // Since after sending a 'COMPLETED' message the SafeCloud server has supposedly reset its session
+     // state, if such a message type is received in an invalid operation or step just throw the
+     // associated exception without notifying the server that an unexpected session message was received
      if(!((_sessMgrOp == UPLOAD) || ((_sessMgrOp == DELETE || _sessMgrOp == RENAME) &&
                                      _sessMgrOpStep == WAITING_COMPL)))
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), "'COMPLETED' session message received in"
-                                                                     " session state \"" + sessMgrOpToStrUpCase() +
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), "'COMPLETED' session message received in "
+                                                                     "session operation \"" + sessMgrOpToStrUpCase() +
                                                                      "\", step " + sessMgrOpStepToStrUpCase());
       break;
 
@@ -202,9 +210,9 @@ void CliSessMgr::recvCheckCliSessMsg()
     // A 'BYE' signaling message type is allowed in the 'IDLE' operation only
     case BYE:
 
-     // Since after sending a 'BYE' message the SafeCloud server is supposedly
-     // shutting down the connection, if such a message type is received in an invalid
-     // state just throw the associated exception without notifying the server
+     // Since after sending a 'BYE' message the SafeCloud server is supposedly shutting down the
+     // connection, if such a message type is received in an invalid operation or step just throw the
+     // associated exception without notifying the server that an unexpected session message was received
      if(_sessMgrOp != IDLE)
       THROW_EXEC_EXCP(ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT, abortedOpToStr());
      else
@@ -257,7 +265,7 @@ void CliSessMgr::recvCheckCliSessMsg()
  *         whether to continue the current file upload or download operation, confirming or
  *         cancelling the operation on the SafeCloud server depending on the user's response
  * @return A boolean indicating whether the file upload or download operation should continue
- * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state or uninitialized
+ * @throws ERR_SESS_INTERNAL_ERROR      Invalid session operation or step or uninitialized
  *                                      '_mainFileInfo' or '_remFileInfo' attributes
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -270,10 +278,10 @@ void CliSessMgr::recvCheckCliSessMsg()
  */
 bool CliSessMgr::askFileOpConf()
  {
-  // Assert the client session manager command and step to be valid to ask for a user's file operation confirmation
+  // Assert the client session manager operation and step to be valid to ask for a user's file operation confirmation
   if(!((_sessMgrOp == UPLOAD || _sessMgrOp == DOWNLOAD) && _sessMgrOpStep == WAITING_RESP))
    sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Attempting to ask for a user file " + sessMgrOpToStrLowCase() + " confirmation in "
-                                           "command \"" + sessMgrOpToStrUpCase() + "\", sub-state " + sessMgrOpStepToStrUpCase());
+                                           "operation \"" + sessMgrOpToStrUpCase() + "\", step " + sessMgrOpStepToStrUpCase());
 
   // Ensure the '_mainFileInfo' attribute to have been initialized
   if(_mainFileInfo == nullptr)
@@ -857,9 +865,7 @@ CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
  : SessMgr(reinterpret_cast<ConnMgr&>(cliConnMgr),cliConnMgr._downDir)
  {}
 
-
 /* Same destructor of the 'SessMgr' base class */
-
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
 

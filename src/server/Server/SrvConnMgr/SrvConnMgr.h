@@ -18,10 +18,6 @@ class SrvConnMgr : public ConnMgr
 
     /* ================================= ATTRIBUTES ================================= */
 
-    // Whether the client's connection should be
-    // maintained after receiving and parsing its data
-    bool               _keepConn;
-
     // The absolute path of the storage pool of the
     // authenticated client associated with this manager
     std::string*       _poolDir;
@@ -71,12 +67,6 @@ class SrvConnMgr : public ConnMgr
    ~SrvConnMgr();
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
-
-  /**
-   * @brief  Returns whether the client's connection should be maintained
-   * @return whether the client's connection should be maintained
-   */
-  bool keepConn() const;
 
   /**
    * @brief  Returns a pointer to the session manager's child object

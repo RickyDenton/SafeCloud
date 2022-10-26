@@ -330,7 +330,7 @@ unsigned int ConnMgr::recvRaw()
  * @param tmpDir The absolute path of the temporary directory associated with this connection
  */
 ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir)
- : _connPhase(KEYXCHANGE),_recvMode(RECV_MSG), _csk(csk),  _priBuf(), _priBufSize(CONN_BUF_SIZE),
+ : _connPhase(KEYXCHANGE), _recvMode(RECV_MSG), _csk(csk), _shutdownConn(false), _priBuf(), _priBufSize(CONN_BUF_SIZE),
    _priBufInd(0), _recvBlockSize(0), _secBuf(), _secBufSize(CONN_BUF_SIZE), _skey(), _iv(nullptr), _name(name), _tmpDir(tmpDir)
  {}
 
@@ -359,3 +359,13 @@ ConnMgr::~ConnMgr()
   if(_tmpDir != nullptr)
    cleanTmpDir();
  }
+
+
+/* ============================ OTHER PUBLIC METHODS ============================ */
+
+/**
+ * @brief  Returns whether the connection manager should be terminated
+ * @return A boolean indicating whether the connection manager should be terminated
+ */
+bool ConnMgr::shutdownConn() const
+ { return _shutdownConn; }

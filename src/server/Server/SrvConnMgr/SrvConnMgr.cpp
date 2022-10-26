@@ -50,7 +50,7 @@ bool SrvConnMgr::srvRecvMsgData()
  */
 SrvConnMgr::SrvConnMgr(int csk, unsigned int guestIdx, EVP_PKEY* rsaKey, X509* srvCert)
   : ConnMgr(csk,new std::string("Guest" + std::to_string(guestIdx)),nullptr),
-    _keepConn(true), _poolDir(nullptr), _srvSTSMMgr(new SrvSTSMMgr(rsaKey,*this,srvCert)), _srvSessMgr(nullptr)
+    _poolDir(nullptr), _srvSTSMMgr(new SrvSTSMMgr(rsaKey,*this,srvCert)), _srvSessMgr(nullptr)
  {
   // Log the client's connection
   LOG_INFO("\"" + *_name + "\" has connected")
@@ -72,13 +72,6 @@ SrvConnMgr::~SrvConnMgr()
  }
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
-
-/**
- * @brief  Returns whether the client's connection should be maintained
- * @return whether the client's connection should be maintained
- */
-bool SrvConnMgr::keepConn() const
- { return _keepConn; }
 
 /**
  * @brief  Returns a pointer to the session manager's child object
@@ -112,82 +105,66 @@ SrvSessMgr* SrvConnMgr::getSession()
  */
 void SrvConnMgr::srvRecvHandleData()
  {
-  try
+  // If the connection manager is in the 'RECV_MSG' reception mode
+  if(_recvMode == RECV_MSG)
    {
-    // If the connection manager is in the 'RECV_MSG' reception mode
-    if(_recvMode == RECV_MSG)
-     {
-      // Read data belonging to a SafeCloud message (STSMMsg or SessMsg) from the connection socket
-      // into the primary connection buffer, returning if a full message has not been received yet
-      if(!srvRecvMsgData())
-       return;
+    // Read data belonging to a SafeCloud message (STSMMsg or SessMsg) from the connection socket
+    // into the primary connection buffer, returning if a full message has not been received yet
+    if(!srvRecvMsgData())
+     return;
 
-      // If a full SafeCloud message has been received
-      else
-       {
-        // If the connection is in the STSM Key establishment phase
-        if(_connPhase == KEYXCHANGE)
-         {
-          // Call the child SrvSTSMMgr object message handler and, if it returns
-          // that the key establishment protocol has completed successfully
-          if(_srvSTSMMgr->STSMMsgHandler())
-           {
-            // Delete the SrvSTSMMgr child object
-            delete _srvSTSMMgr;
-            _srvSTSMMgr = nullptr;
-
-            // Instantiate the SrvSessMgr child object
-            _srvSessMgr = new SrvSessMgr(*this);
-
-            // Switch the connection to the SESSION phase
-            _connPhase = SESSION;
-           }
-         }
-
-        // Otherwise if the connection is in the session phase,
-        // call the child SrvSessMgr object message handler
-        else
-          _srvSessMgr->srvSessMsgHandler();
-
-        /* ---------- Message Reception Cleanup ---------- */
-
-        // Reset the index of the most significant
-        // byte in the primary connection buffer
-        _priBufInd = 0;
-
-        // If the reception mode is still 'RECV_MSG', reset
-        // the expected size of the message  to be received
-        if(_recvMode == RECV_MSG)
-         _recvBlockSize = 0;
-       }
-      }
-
-    // Otherwise, if the connection manager is in the 'RECV_RAW' reception mode
+     // If a full SafeCloud message has been received
     else
-     if(_recvMode == RECV_RAW)
-      {
-       // Ensure the connection to be in the session phase and
-       // the 'SrvSessMgr' child object to have been instantiated
-       if(_connPhase != SESSION || _srvSessMgr == nullptr)
-        THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE,"Connection manager in RECV_RAW mode"
-                                                  "during the STSM Key establishment phase");
-
-       // Reads bytes belonging to the same data block from the connection socket into
-       // the primary connection buffer and pass them to the session raw  handler
-       _srvSessMgr->srvSessRawHandler(recvRaw());
-      }
-   }
-  catch(execErrExcp& recvExcp)
-   {
-    // Change a ERR_PEER_DISCONNECTED into the more specific ERR_CLI_DISCONNECTED error
-    // code and add the client's name into the exception's additional description
-    if(recvExcp.exErrcode == ERR_PEER_DISCONNECTED)
      {
-      recvExcp.exErrcode = ERR_CLI_DISCONNECTED;
-      recvExcp.addDscr = new std::string(*_name);
-     }
+      // If the connection is in the STSM Key establishment phase
+      if(_connPhase == KEYXCHANGE)
+       {
+        // Call the child SrvSTSMMgr object message handler and, if it returns
+        // that the key establishment protocol has completed successfully
+        if(_srvSTSMMgr->STSMMsgHandler())
+         {
+          // Delete the SrvSTSMMgr child object
+          delete _srvSTSMMgr;
+          _srvSTSMMgr = nullptr;
 
-    // Rethrow the exception
-    throw;
+          // Instantiate the SrvSessMgr child object
+          _srvSessMgr = new SrvSessMgr(*this);
+
+          // Switch the connection to the SESSION phase
+          _connPhase = SESSION;
+         }
+       }
+
+       // Otherwise if the connection is in the session phase,
+       // call the child SrvSessMgr object message handler
+      else
+       _srvSessMgr->srvSessMsgHandler();
+
+      /* ---------- Message Reception Cleanup ---------- */
+
+      // Reset the index of the most significant
+      // byte in the primary connection buffer
+      _priBufInd = 0;
+
+      // If the reception mode is still 'RECV_MSG', reset
+      // the expected size of the message  to be received
+      if(_recvMode == RECV_MSG)
+       _recvBlockSize = 0;
+     }
    }
+
+   // Otherwise, if the connection manager is in the 'RECV_RAW' reception mode
+  else
+   if(_recvMode == RECV_RAW)
+    {
+     // Ensure the connection to be in the session phase and
+     // the 'SrvSessMgr' child object to have been instantiated
+     if(_connPhase != SESSION || _srvSessMgr == nullptr)
+      THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Connection manager in RECV_RAW mode"
+                                                 "during the STSM Key establishment phase");
+
+     // Reads bytes belonging to the same data block from the connection socket into
+     // the primary connection buffer and pass them to the session raw  handler
+     _srvSessMgr->srvSessRawHandler(recvRaw());
+    }
  }

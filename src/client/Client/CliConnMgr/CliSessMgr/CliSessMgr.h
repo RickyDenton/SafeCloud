@@ -28,7 +28,8 @@ class CliSessMgr : public SessMgr
     * @param errReason            An optional error reason to be embedded with the exception that
     *                             must be thrown after sending such session message signaling type
     * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
-    * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message invalid for its current state
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
+    *                                       invalid for its current operation or step
     * @throws ERR_SESS_MALFORMED_MESSAGE    The session manager received a malformed session message
     * @throws ERR_SESS_UNKNOWN_SESSMSG_TYPE The session manager received a session message of unknown type
     * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
@@ -60,11 +61,11 @@ class CliSessMgr : public SessMgr
    void recvCheckCliSessMsg();
 
    /**
-    * @brief  Prints a table comparing the metadata of the local and remote file and asks the user
+    * @brief  Prints a table comparing the metadata of the main and remote file and asks the user
     *         whether to continue the current file upload or download operation, confirming or
     *         cancelling the operation on the SafeCloud server depending on the user's response
     * @return A boolean indicating whether the file upload or download operation should continue
-    * @throws ERR_SESS_INTERNAL_ERROR      Invalid session state or uninitialized
+    * @throws ERR_SESS_INTERNAL_ERROR      Invalid session operation or step or uninitialized
     *                                      '_mainFileInfo' or '_remFileInfo' attributes
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
