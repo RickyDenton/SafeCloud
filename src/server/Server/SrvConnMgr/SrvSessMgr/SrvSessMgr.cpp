@@ -132,12 +132,35 @@ void SrvSessMgr::dispatchRecvSessMsg()
      // in the 'UPLOAD' operation with step 'WAITING_CONF'
      if(_sessMgrOpStep == WAITING_CONF && _recvSessMsgType == CONFIRM)
       {
-       // Prepare the server session manager to receive
-       // the raw contents of the file to be uploaded
-       prepRecvFileData();
+       /* [PATCH] */
+       // If the file to be uploaded is empty
+       if(_remFileInfo->meta->fileSizeRaw == 0)
+        {
+         // Touch the empty file in the user's storage
+         // pool, possibly overwriting the existing one
+         touchEmptyFile();
 
-       LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName +
-                "\" confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr +")")
+         // Inform the client that the empty file has been successfully uploaded
+         sendSrvSessSignalMsg(COMPLETED);
+
+         LOG_INFO("[" + *_connMgr._name + "] Empty file \"" +
+                  _remFileInfo->fileName + "\" uploaded into the storage pool")
+
+         // Reset the server session manager state and return
+         resetSessState();
+         return;
+        }
+
+       // Otherwise, if the file to be uploaded is NOT empty
+       else
+        {
+         // Prepare the server session manager to receive
+         // the raw contents of the file to be uploaded
+         prepRecvFileData();
+
+         LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName + "\" "
+                  "confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
+        }
       }
      else
       sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
@@ -189,8 +212,9 @@ void SrvSessMgr::dispatchRecvSessMsg()
 /**
  * @brief Starts a file upload operation by:\n
  *           1) Loading the name and metadata of the remote file to be uploaded\n
- *              2.1) If the file to be uploaded is empty, directly touch such a file in the
- *                   user's storage pool and notify them that the upload operation has completed\n
+ *              2.1) If the file to be uploaded is empty and the file in the user's storage
+ *                   pool does not exist or is empty, directly touch such a file in the user's
+ *                   storage pool and notify them that the upload operation has completed\n
  *              2.2) If the file to be uploaded is NOT empty, depending on whether a file with
  *                   the same name already exists in the user's storage pool:\n
  *                   2.1.1) If it does, the local file information are sent to the client,
@@ -239,8 +263,10 @@ void SrvSessMgr::srvUploadStart()
   // user's storage pool by attempting to load its information into the '_mainFileInfo' attribute
   checkLoadMainFileInfo();
 
-  // If the file to be uploaded is empty
-  if(_remFileInfo->meta->fileSizeRaw == 0)
+  // If the file to be uploaded is empty and the file in
+  // the user's storage pool does not exist or is empty
+  if(_remFileInfo->meta->fileSizeRaw == 0 &&
+    (_mainFileInfo == nullptr || _mainFileInfo->meta->fileSizeRaw == 0))
    {
     // Touch the empty file in the user's storage
     // pool, possibly overwriting the existing one

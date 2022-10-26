@@ -103,9 +103,12 @@ class CliSessMgr : public SessMgr
     *               uploaded does not exist in the user's storage pool, the file upload operation should continue\n
     *            3) If the SafeCloud server has reported that a file with the same name of the one to be uploaded
     *               already exists in the user's storage pool:\n
-    *                  3.1) If the file to be uploaded was more recently modified than the
+    *                  3.1) If the file to be uploaded is empty and, at this point, the file with the
+    *                       same name in the SafeCloud storage pool is not, inform the user and ask
+    *                       for their confirmation on whether the upload operation should continue\n
+    *                  3.2) If the file to be uploaded was more recently modified than the
     *                       one in the storage pool the file upload operation should continue\n
-    *                  3.2) If the file to be uploaded has the same size and last modified time of
+    *                  3.3) If the file to be uploaded has the same size and last modified time of
     *                       the one in the storage pool, or the latter was more recently modified,
     *                       ask for user confirmation on whether the upload operation should continue\n
     * @return A boolean indicating whether the upload operation should continue

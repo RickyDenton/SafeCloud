@@ -392,9 +392,12 @@ void CliSessMgr::checkLoadUploadFile(std::string& filePath)
  *               uploaded does not exist in the user's storage pool, the file upload operation should continue\n
  *            3) If the SafeCloud server has reported that a file with the same name of the one to be uploaded
  *               already exists in the user's storage pool:\n
- *                  3.1) If the file to be uploaded was more recently modified than the
+ *                  3.1) If the file to be uploaded is empty and, at this point, the file with the
+ *                       same name in the SafeCloud storage pool is not, inform the user and ask
+ *                       for their confirmation on whether the upload operation should continue\n
+ *                  3.2) If the file to be uploaded was more recently modified than the
  *                       one in the storage pool the file upload operation should continue\n
- *                  3.2) If the file to be uploaded has the same size and last modified time of
+ *                  3.3) If the file to be uploaded has the same size and last modified time of
  *                       the one in the storage pool, or the latter was more recently modified,
  *                       ask for user confirmation on whether the upload operation should continue\n
  * @return A boolean indicating whether the upload operation should continue
@@ -438,10 +441,29 @@ bool CliSessMgr::parseUploadResponse()
      // in the user's storage pool with the same name of the one to be uploaded
      loadRemSessMsgFileInfo();
 
+     // If the file to be uploaded is empty and, at this point, the
+     // file with the same name in the SafeCloud storage pool is not
+     if(_mainFileInfo->meta->fileSizeRaw == 0)
+      {
+       // Inform the user that the upload would result in overwriting
+       // a non-empty with an empty file in their storage pool
+       std::cout << "\nThe empty file to be uploaded would overwrite a non-empty file in your storage pool" << std::endl;
+
+       // Ask for user confirmation on whether to continue the file upload, also sending
+       // the operation confirmation or cancellation notification to the SafeCloud server
+       return askFileOpConf();
+      }
+
      // If the file to be uploaded was more recently modified than the one in
      // the storage pool, return that the file raw contents should be uploaded
      if(_mainFileInfo->meta->lastModTimeRaw > _remFileInfo->meta->lastModTimeRaw)
-      return true;
+      {
+       // Confirm the upload operation to the SafeCloud server
+       sendCliSessSignalMsg(CONFIRM);
+
+       // Return that the upload operation should continue
+       return true;
+      }
 
      // Otherwise, if the file to be uploaded and the one on the
      // storage pool have the same size and last modified time
@@ -944,8 +966,10 @@ void CliSessMgr::uploadFile(std::string& filePath)
   if(!parseUploadResponse())
    return;
 
-  // Send the file raw contents to the SafeCloud server
-  uploadFileData();
+  // If uploading an empty file overwriting a non-empty file in the user's
+  // storage pool, simply wait for the server completion notification
+  if(_mainFileInfo->meta->fileSizeRaw != 0)
+   uploadFileData();
 
   // Update the operation step so to expect the server completion notification
   _sessMgrOpStep = WAITING_COMPL;
@@ -959,8 +983,13 @@ void CliSessMgr::uploadFile(std::string& filePath)
                                                     std::to_string(_recvSessMsgType) +
                                                     " while awaiting for the server's 'UPLOAD' completion");
 
-  // Inform the user that the file has been successfully uploaded to their storage pool
-  std::cout << "\nFile \"" + _mainFileInfo->fileName + "\" (" + _mainFileInfo->meta->fileSizeStr +
+  // Inform the user that the file has been successfully uploaded to
+  // their storage pool depending on whether it is empty or not
+  if(_mainFileInfo->meta->fileSizeRaw == 0)
+   std::cout << "\nEmpty file \"" + _mainFileInfo->fileName + "\" successfully"
+                " uploaded to the SafeCloud storage pool\n" << std::endl;
+  else
+   std::cout << "\nFile \"" + _mainFileInfo->fileName + "\" (" + _mainFileInfo->meta->fileSizeStr +
                ") successfully uploaded to the SafeCloud storage pool\n" << std::endl;
  }
 
