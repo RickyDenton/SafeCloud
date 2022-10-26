@@ -255,6 +255,57 @@ void SessMgr::touchEmptyFile()
  }
 
 
+/**
+ * @brief  Prepares the session manager to receive the raw
+ *         contents of a file being uploaded or downloaded
+ * @throws ERR_SESSABORT_INTERNAL_ERROR  Invalid session manager operation or step
+ *                                       for receiving a file's raw contents
+ * @throws ERR_SESS_FILE_OPEN_FAILED     Failed to open the temporary file
+ *                                       descriptor in write-byte mode
+ * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_DECRYPT_INIT     EVP_CIPHER decrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+ * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
+ * @throws ERR_SEND_FAILED               send() fatal error
+ */
+void SessMgr::prepRecvFileData()
+ {
+  // Assert the session manager to be in the 'UPLOAD' or 'DOWNLOAD' operation
+  if(_sessMgrOp != UPLOAD && _sessMgrOp != DOWNLOAD)
+   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Preparing to receive a file's raw contents with the "
+                                                 "session manager in operation \"" + sessMgrOpToStrUpCase() +
+                                                 "\", step " + sessMgrOpStepToStrUpCase());
+
+  // Update the session manager step so to expect raw data
+  _sessMgrOpStep = WAITING_RAW;
+
+  // Set the reception mode of the associated connection manager to 'RECV_RAW'
+  _connMgr._recvMode = ConnMgr::RECV_RAW;
+
+  // Set the associated connection manager's expected data
+  // block size to the size of the file to be received
+  _connMgr._recvBlockSize = _remFileInfo->meta->fileSizeRaw;
+
+  // Initialize the number of raw bytes to be received to the file size
+  _rawBytesRem = _remFileInfo->meta->fileSizeRaw;
+
+  // Open the temporary file descriptor in write-byte mode
+  _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
+  if(!_tmpFileDscr)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_FILE_OPEN_FAILED,*_tmpFileAbsPath,ERRNO_DESC);
+   }
+
+  // Initialize the file AES_128_GCM decryption operation
+  _aesGCMMgr.decryptInit();
+ }
+
+
 /* -------------------- Session Messages Wrapping/Unwrapping -------------------- */
 
 /**

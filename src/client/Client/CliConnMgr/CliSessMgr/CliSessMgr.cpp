@@ -481,7 +481,7 @@ bool CliSessMgr::parseUploadResponse()
 
 
 /**
- * @brief  Uploads the main file's raw contents and the
+ * @brief  Uploads the main file's raw contents and sends the
  *         resulting integrity tag to the SafeCloud server
  * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
  * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
@@ -531,6 +531,7 @@ void CliSessMgr::uploadFileData()
    }
 
   /* -------------------------------- File Upload Loop -------------------------------- */
+
   do
    {
     // Read the file raw contents into the secondary buffer size (possibly filling it)
@@ -569,6 +570,8 @@ void CliSessMgr::uploadFileData()
      }
    } while(!feof(_mainFileDscr)); // While the main file has not been completely read
 
+  /* ------------------------------ End File Upload Loop ------------------------------ */
+
   // Having sent to the SafeCloud server a number of bytes different from the
   // file size is a critical error that in the current session state cannot
   // be notified to the server and so require the connection to be dropped
@@ -591,8 +594,30 @@ void CliSessMgr::uploadFileData()
 
 /* ----------------------------- 'DOWNLOAD' Operation Methods ----------------------------- */
 
-
-// TODO
+/**
+ * @brief  Parses the 'FILE_DOWNLOAD_REQ' session response message returned by the SafeCloud server, where:\n
+ *            1) If the SafeCloud server has reported that the file to be downloaded does not exist in
+ *               the user's storage pool, inform the client that the download operation cannot proceed.\n
+ *            2) If the SafeCloud server has returned the information on the existing file to be downloaded:\n
+ *                  2.1) If the file to be downloaded is empty, directly touch such a file in the user's
+ *                       download directory and inform them that the download operation has completed\n
+ *                  2.2) If the file to be downloaded is NOT empty, check whether a file
+ *                       with the same name exists in the user's download directory, and:\n
+ *                          2.2.1) If it does not, confirm the download operation to the SafeCloud server
+ *                          2.2.2) If it does, if the file in the user's storage pool:\n
+ *                                    2.2.2.1) Was more recently modified than the one in the download
+ *                                             directory, confirm the upload operation to the SafeCloud server\n
+ *                                    2.2.2.2) Has the same size and last modified time of the one
+ *                                             in the download directory, ask for user confirmation
+ *                                             on whether the upload operation should continue\n
+ *                                    2.2.2.3) Has a last modified time older than the one in the
+ *                                             download directory, ask for user confirmation on
+ *                                             whether the upload operation should continue
+ * @return A boolean indicating whether the upload operation should continue
+ * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
+ *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received
+ */
 bool CliSessMgr::parseDownloadResponse(std::string& fileName)
  {
   // Depending on the 'FILE_DOWNLOAD_REQ' response message type:
@@ -603,7 +628,6 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
 
      // Inform the client that such a file does not exist in their storage pool,
      // and that they can retrieve its list of files via the 'LIST remote' command
-     // TODO: LOG Yellow?
      std::cout << "File \"" + fileName + "\" was not found in your storage pool" << std::endl;
      std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
 
@@ -645,8 +669,8 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
        return false;
       }
 
-     // If the non-empty file to be downloaded was
-     // not found in the client's download directory
+     // If a file with the same name of the one to be downloaded
+     // was not found in the client's download directory
      if(_mainFileInfo == nullptr)
       {
        // Confirm the download operation on the SafeCloud server
@@ -656,8 +680,8 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
        return true;
       }
 
-     // Otherwise, if the non-empty file to be downloaded
-     // was found in the client's download directory
+     // Otherwise, if a file with the same name of the one to be
+     // downloaded was found in the client's download directory
      else
       {
        // If the file on the storage pool was more recently
@@ -710,34 +734,41 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
  }
 
 
-// TODO
+/**
+ * @brief Downloads a file's raw contents from the user's SafeCloud storage pool by:
+ *            1) Preparing the client session manager to receive the file's raw contents..\n
+ *            2) Receiving and decrypting the file's raw contents.\n
+ *            3) Verifying the file trailing integrity tag.\n
+ *            4) Moving the resulting temporary file into the associated
+ *               associated main file in the user's download directory.\n
+ *            5) Setting the main file last modified time to
+ *               the one specified in the '_remFileInfo' object.\n
+ *            6) Notifying the success of the download operation to the SafeCloud server.
+ * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid session manager operation or step
+ *                                        for receiving a file's raw contents
+ * @throws ERR_SESS_FILE_OPEN_FAILED      Failed to open the temporary file
+ *                                        descriptor in write-byte mode
+ * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the downloaded file's metadata
+ * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+ * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+ * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                send() fatal error
+ * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the downloaded temporary
+ *                                        file or NULL session attributes
+ */
 void CliSessMgr::downloadFileData()
  {
-  // TODO: Move in a "SessMgr::setRecvRaw() method after moving the sub-state into the 'SessMgr' class -----
-
-  // Update the session manager operation step so to expect raw data
-  _sessMgrOpStep = WAITING_RAW;
-
-  // Set the reception mode of the associated connection manager to 'RECV_RAW'
-  _connMgr._recvMode = ConnMgr::RECV_RAW;
-
-  // Set the expected data block size in the associated
-  // connection manager to the size of the file to be received
-  _connMgr._recvBlockSize = _remFileInfo->meta->fileSizeRaw;
-
-  // Initialize the number of raw bytes to be received to the file size
-  _rawBytesRem = _remFileInfo->meta->fileSizeRaw;
-
-  // Open the temporary file descriptor in write-byte mode
-  _tmpFileDscr = fopen(_tmpFileAbsPath->c_str(), "wb");
-  if(!_tmpFileDscr)
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Error in opening the uploaded temporary file \""
-                                           + *_tmpFileAbsPath + " \" (" + ERRNO_DESC + ")");
-
-  // Initialize an AES_128_GCM decryption operation
-  _aesGCMMgr.decryptInit();
-
-  // TODO: -------------------------------------------------------------------------------------------------
+  // Prepare the client session manager to receive
+  // the raw contents of the file to be downloaded
+  prepRecvFileData();
 
   // The number of raw file bytes read from the
   // connection socket into the primary connection buffer
@@ -869,7 +900,7 @@ CliSessMgr::CliSessMgr(CliConnMgr& cliConnMgr)
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
 
-/* ---------------------------- Session Commands API ---------------------------- */
+/* ---------------------------- Session Operations API ---------------------------- */
 
 /**
  * @brief  Uploads a file to the user's SafeCloud storage pool
@@ -916,7 +947,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
   // Send the file raw contents to the SafeCloud server
   uploadFileData();
 
-  // Update the command step so to expect the server completion notification
+  // Update the operation step so to expect the server completion notification
   _sessMgrOpStep = WAITING_COMPL;
 
   // Block until the supposed server completion notification has been received
@@ -934,11 +965,17 @@ void CliSessMgr::uploadFile(std::string& filePath)
  }
 
 
-// TODO
+/**
+ * @brief  Downloads a file from the user's SafeCloud storage pool into their download directory
+ * @param  fileName The name of the file to be downloaded from the user's SafeCloud storage pool
+ * @throws ERR_SESS_FILE_INVALID_NAME The provided file name is not a valid Linux file name
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
+ */
 void CliSessMgr::downloadFile(std::string& fileName)
  {
   // Initialize the client session manager operation
-  _sessMgrOp       = DOWNLOAD;
+  _sessMgrOp = DOWNLOAD;
 
   // Assert the file name string to consist of a valid Linux file name
   validateFileName(fileName);
@@ -947,10 +984,11 @@ void CliSessMgr::downloadFile(std::string& fileName)
   _mainFileAbsPath = new std::string(*_mainDirAbsPath + "/" + fileName);
   _tmpFileAbsPath  = new std::string(*_tmpDirAbsPath + "/" + fileName + "_PART");
 
-  // TODO: Comment
+  /*
   // LOG: Main and temporary files absolute paths
   std::cout << "_mainFileAbsPath = " << *_mainFileAbsPath << std::endl;
   std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
+  */
 
   // Prepare a 'SessMsgFileName' session message of type 'FILE_DOWNLOAD_REQ' containing
   // the name of the file to be uploaded and send it to the SafeCloud server

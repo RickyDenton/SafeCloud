@@ -187,6 +187,25 @@ class SessMgr
     */
    void touchEmptyFile();
 
+   /**
+    * @brief  Prepares the session manager to receive the raw
+    *         contents of a file being uploaded or downloaded
+    * @throws ERR_SESSABORT_INTERNAL_ERROR  Invalid session manager operation or step
+    *                                       for receiving a file's raw contents
+    * @throws ERR_SESS_FILE_OPEN_FAILED     Failed to open the temporary file
+    *                                       descriptor in write-byte mode
+    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_DECRYPT_INIT     EVP_CIPHER decrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
+    * @throws ERR_SEND_FAILED               send() fatal error
+    */
+   void prepRecvFileData();
+
    /* -------------------- Session Messages Wrapping/Unwrapping -------------------- */
 
    /**

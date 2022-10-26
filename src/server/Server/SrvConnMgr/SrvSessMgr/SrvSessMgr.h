@@ -82,27 +82,13 @@ class SrvSessMgr : public SessMgr
    void srvUploadStart();
 
    /**
-    * @brief Prepares the server session manager to receive
-    *        the raw contents of a file to be uploaded
-    * @throws ERR_INTERNAL_ERROR            Could not open the temporary file descriptor in write-byte mode
-    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
-    * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
-    * @throws ERR_SEND_FAILED               send() fatal error
-    */
-   void srvUploadSetRecvRaw();
-
-   /**
     * @brief  Server file upload raw data handler, which:\n
     *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
-    *               contents and writes them into the session's temporary file in the user's temporary directory\n
-    *            2) If the file being uploaded has been completely received, verifies its trailing integrity tag,
-    *               moves the temporary into the associated main file in the user's storage pool, notifies the
-    *               client the success of the upload operation and resets the server session manager state\n
+    *               bytes and writes them into the session's temporary file in the user's temporary directory\n
+    *            2) If the file being uploaded has been completely received, verifies its trailing integrity
+    *               tag, moves the temporary into the associated main file in the user's storage pool, sets
+    *               its last modified time to the one specified in the '_remFileInfo' object, notifies the
+    *               success of the upload operation to the client and resets the server session manager state\n
     * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
     * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
     * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
@@ -127,9 +113,11 @@ class SrvSessMgr : public SessMgr
    /**
     * @brief  Starts a file download operation by checking whether a file with the same name
     *         of the one the client wants to download exists in their storage pool, and:\n
-    *            1) If such a file does not exist, notify the client and reset the session state
-    *            2) If such a file exists, send its information to the client and set\n
-    *               the session manager to expect the download operation confirmation
+    *            1) If such a file does not exist, notify the client that the
+    *               download operation cannot proceed and reset the session state.\n
+    *            2) If such a file exists, send its information to the client and set the
+    *               session manager to expect the download operation completion or confirmation
+    *               notification depending on whether the file to be downloaded is empty or not.
     * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
     * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
     * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be downloaded
@@ -144,7 +132,22 @@ class SrvSessMgr : public SessMgr
     */
    void srvDownloadStart();
 
-   // TODO
+   /**
+    * @brief Sends the raw contents of the file to be downloaded and its
+    *        resulting integrity tag to the client, also setting the server
+    *        session manager to expect the download operation completion message
+    * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
+    * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
+    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The plaintext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW             Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED               send() fatal error
+    */
    void sendDownloadFileData();
 
   public:

@@ -116,7 +116,7 @@ class CliSessMgr : public SessMgr
    bool parseUploadResponse();
 
    /**
-    * @brief  Uploads the main file's raw contents and the
+    * @brief  Uploads the main file's raw contents and sends the
     *         resulting integrity tag to the SafeCloud server
     * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
     * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
@@ -134,10 +134,62 @@ class CliSessMgr : public SessMgr
 
    /* ----------------------------- 'DOWNLOAD' Operation Methods ----------------------------- */
 
-   // TODO
+   /**
+    * @brief  Parses the 'FILE_DOWNLOAD_REQ' session response message returned by the SafeCloud server, where:\n
+    *            1) If the SafeCloud server has reported that the file to be downloaded does not exist in
+    *               the user's storage pool, inform the client that the download operation cannot proceed.\n
+    *            2) If the SafeCloud server has returned the information on the existing file to be downloaded:\n
+    *                  2.1) If the file to be downloaded is empty, directly touch such a file in the user's
+    *                       download directory and inform them that the download operation has completed\n
+    *                  2.2) If the file to be downloaded is NOT empty, check whether a file
+    *                       with the same name exists in the user's download directory, and:\n
+    *                          2.2.1) If it does not, confirm the download operation to the SafeCloud server
+    *                          2.2.2) If it does, if the file in the user's storage pool:\n
+    *                                    2.2.2.1) Was more recently modified than the one in the download
+    *                                             directory, confirm the download operation to the SafeCloud server\n
+    *                                    2.2.2.2) Has the same size and last modified time of the one
+    *                                             in the download directory, ask for user confirmation
+    *                                             on whether the download operation should continue\n
+    *                                    2.2.2.3) Has a last modified time older than the one in the
+    *                                             download directory, ask for user confirmation on
+    *                                             whether the download operation should continue
+    * @return A boolean indicating whether the download operation should continue
+    * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
+    *                                     invalid 'FILE_DOWNLOAD_REQ' session message response type was received
+    */
    bool parseDownloadResponse(std::string& fileName);
 
-   // TODO
+   /**
+    * @brief Downloads a file's raw contents from the user's SafeCloud storage pool by:
+    *            1) Preparing the client session manager to receive the file's raw contents..\n
+    *            2) Receiving and decrypting the file's raw contents.\n
+    *            3) Verifying the file trailing integrity tag.\n
+    *            4) Moving the resulting temporary file into the associated
+    *               associated main file in the user's download directory.\n
+    *            5) Setting the main file last modified time to
+    *               the one specified in the '_remFileInfo' object.\n
+    *            6) Notifying the success of the download operation to the SafeCloud server.
+    * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid session manager operation or step
+    *                                        for receiving a file's raw contents
+    * @throws ERR_SESS_FILE_OPEN_FAILED      Failed to open the temporary file
+    *                                        descriptor in write-byte mode
+    * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the downloaded file's metadata
+    * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+    * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+    * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED        Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED          The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                send() fatal error
+    * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the downloaded temporary
+    *                                        file or NULL session attributes
+    */
    void downloadFileData();
 
   public:
@@ -155,7 +207,7 @@ class CliSessMgr : public SessMgr
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
-   /* ---------------------------- Session Commands API ---------------------------- */
+   /* ---------------------------- Session Operations API ---------------------------- */
 
    /**
     * @brief  Uploads a file to the user's SafeCloud storage pool
@@ -170,7 +222,13 @@ class CliSessMgr : public SessMgr
     */
    void uploadFile(std::string& filePath);
 
-   // TODO
+   /**
+    * @brief  Downloads a file from the user's SafeCloud storage pool into their download directory
+    * @param  fileName The name of the file to be downloaded from the user's SafeCloud storage pool
+    * @throws ERR_SESS_FILE_INVALID_NAME The provided file name is not a valid Linux file name
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
+    */
    void downloadFile(std::string& fileName);
 
    // TODO: STUB
