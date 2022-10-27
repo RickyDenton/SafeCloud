@@ -112,9 +112,17 @@ class CliSessMgr : public SessMgr
     *                       the one in the storage pool, or the latter was more recently modified,
     *                       ask for user confirmation on whether the upload operation should continue\n
     * @return A boolean indicating whether the upload operation should continue
-    * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
-    * @throws ERR_SESS_UNEXPECTED_MESSAGE The server reported to have completed uploading a non-empty file or an
-    *                                     invalid 'FILE_UPLOAD_REQ' session message response type was received
+    * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file values in the 'SessMsgFileInfo' message
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED         The server disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE  The server reported to have completed uploading a non-empty file or an
+    *                                      invalid 'FILE_UPLOAD_REQ' session message response type was received
     */
    bool parseUploadResponse();
 
@@ -160,8 +168,18 @@ class CliSessMgr : public SessMgr
     *                                           download directory, ask for user confirmation on
     *                                           whether the upload operation should continue
     * @return A boolean indicating whether the downloaded operation should continue
-    * @throws ERR_SESS_MALFORMED_MESSAGE  Invalid file values in the 'SessMsgFileInfo' message
-    * @throws ERR_SESS_UNEXPECTED_MESSAGE An invalid 'FILE_DOWNLOAD_REQ' session message response type was received
+    * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file values in the 'SessMsgFileInfo' message
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR    The main file was found to be a directory (!)
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED         The server disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE  An invalid 'FILE_DOWNLOAD_REQ' session
+    *                                      message response type was received
     */
    bool parseDownloadResponse(std::string& fileName);
 
@@ -175,6 +193,7 @@ class CliSessMgr : public SessMgr
     *            5) Setting the main file last modified time to
     *               the one specified in the '_remFileInfo' object.\n
     *            6) Notifying the success of the download operation to the SafeCloud server.
+    * @param  fileName The name of the file to be downloaded from the SafeCloud storage pool
     * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid session manager operation or step
     *                                        for receiving a file's raw contents
     * @throws ERR_SESS_FILE_OPEN_FAILED      Failed to open the temporary file
@@ -199,7 +218,27 @@ class CliSessMgr : public SessMgr
 
    /* ------------------------------ 'DELETE' Operation Methods ------------------------------ */
 
-   // TODO
+   /**
+    * @brief  Parses the 'FILE_DELETE_REQ' session response message returned by the SafeCloud server, where:\n
+    *            1) If the SafeCloud server has reported that the file to be deleted does not exist in
+    *               the user's storage pool, inform the client that the deletion operation cannot proceed.\n
+    *            2) If the SafeCloud server has returned the information on the existing file
+    *               to be deleted, print it on stdout and ask for user confirmation on whether
+    *               proceeding deleting the file, sending the appropriate deletion operation
+    *               confirmation or cancellation notification to the SafeCloud server.
+    * @param  fileName The name of the file to be downloaded from the SafeCloud storage pool
+    * @return A boolean indicating whether to expect the deletion completion notification from the SafeCloud server
+    * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file values in the 'SessMsgFileInfo' message
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE  An invalid 'FILE_DELETE_REQ' session message response type was received
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED         The server disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
    bool parseDeleteResponse(std::string& fileName);
 
   public:
@@ -241,7 +280,13 @@ class CliSessMgr : public SessMgr
     */
    void downloadFile(std::string& fileName);
 
-   // TODO
+   /**
+    * @brief  Deletes a file from the user's SafeCloud storage pool
+    * @param  fileName The name of the file to be deleted from the user's SafeCloud storage pool
+    * @throws ERR_SESS_FILE_INVALID_NAME The provided file name is not a valid Linux file name
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
+    */
    void deleteFile(std::string& fileName);
 
    // TODO: STUB

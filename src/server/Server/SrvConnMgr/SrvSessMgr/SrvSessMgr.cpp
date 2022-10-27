@@ -644,6 +644,25 @@ void SrvSessMgr::sendDownloadFileData()
 
 /* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
 
+/**
+ * @brief  Starts a file deletion operation by checking whether a file with the same
+ *         name of the one the client wants to delete exists in their storage pool, and:\n
+ *            1) If such a file does not exist, notify the client that the
+ *               delete operation cannot proceed and reset the session state.\n
+ *            2) If such a file exists, send its information to the client and set
+ *               the session manager to expect the delete operation confirmation.
+ * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file name in the 'SessMsgFileName' message
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be deleted was found to be a directory (!)
+ * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be deleted
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
 void SrvSessMgr::srvDeleteStart()
  {
   // Retrieve the file name the client wants to delete, also loading
