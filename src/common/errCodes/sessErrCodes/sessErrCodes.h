@@ -94,7 +94,7 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     { ERR_SESS_UPLOAD_DIR,      {WARNING,"Uploading directories is currently not supported"}},
     { ERR_SESS_UPLOAD_TOO_BIG,  {WARNING,"The file is too big to be uploaded"}},
 
-    { ERR_SESS_RENAME_SAME_NAME,  {WARNING,"Renaming a same to itself would have no effect"}},
+    { ERR_SESS_RENAME_SAME_NAME,  {WARNING,"Renaming a file to itself would have no effect"}},
 
     { ERR_SESS_CLI_SRV_INTERNAL_ERROR,       {ERROR,"The server reported an internal error"}},
     { ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The server reported to have received an unexpected session message"}},

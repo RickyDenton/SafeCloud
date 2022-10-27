@@ -996,7 +996,7 @@ bool CliSessMgr::parseDeleteResponse(std::string& fileName)
      _remFileInfo->printFileInfo();
 
      // Ask for user confirmation on whether proceeding deleting the file
-     if(askUser("Are you sure to delete the file from your storage pool?"))
+     if(askUser("Are you sure to delete this file from your storage pool?"))
       {
        // Confirm the delete operation to the SafeCloud server
        sendCliSessSignalMsg(CONFIRM);

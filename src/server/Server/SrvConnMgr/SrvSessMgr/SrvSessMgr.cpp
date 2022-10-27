@@ -10,6 +10,8 @@
 
 /* ============================== PRIVATE METHODS ============================== */
 
+/* ------------------------ Server Session Manager Utility Methods ------------------------ */
+
 /**
  * @brief Sends a session message signaling type to the client and performs the actions
  *        appropriate to session signaling types resetting or terminating the session
@@ -85,10 +87,16 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  }
 
 
-
 /**
- * @brief Dispatches a received session message to the callback method
- *        associated with the server session manager current operation and step
+ * @brief  Dispatches a received session message to the callback method associated with
+ *         its type and the server session manager current operation and implicit step
+ * @note   The validity of the received session message type in the
+ *         srvSessMsgHandler() server session message handler method
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE The received session message type is invalid for
+ *                                     the current session manager operation and step
+ *                                     (should never happen)
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
  */
 void SrvSessMgr::dispatchRecvSessMsg()
  {
@@ -103,36 +111,37 @@ void SrvSessMgr::dispatchRecvSessMsg()
      // operation-starting session message and call its starting callback method
      switch(_recvSessMsgType)
       {
-       // 'UPLOAD' operation start
+       // ----------------- 'FILE_UPLOAD_REQ' Session Message ----------------- //
        case FILE_UPLOAD_REQ:
         _sessMgrOp = UPLOAD;
-        srvUploadStart();
+        uploadStartCallback();
         break;
 
-       // 'DOWNLOAD' operation start
+       // ---------------- 'FILE_DOWNLOAD_REQ' Session Message ---------------- //
        case FILE_DOWNLOAD_REQ:
         _sessMgrOp = DOWNLOAD;
-        srvDownloadStart();
+        downloadStartCallback();
         break;
 
-       // 'DELETE' operation start
+       // ----------------- 'FILE_DELETE_REQ' Session Message ----------------- //
        case FILE_DELETE_REQ:
         _sessMgrOp = DELETE;
-        srvDeleteStart();
+        deleteStartCallback();
         break;
 
-       // 'RENAME' operation start
+       // ----------------- 'FILE_RENAME_REQ' Session Message ----------------- //
        case FILE_RENAME_REQ:
         _sessMgrOp = RENAME;
-        srvRenameStart();
+        renameStartCallback();
         break;
 
-       // 'LIST' operation start
+       // ------------------ 'FILE_LIST_REQ' Session Message ------------------ //
        case FILE_LIST_REQ:
         _sessMgrOp = LIST;
-        //srvListStart();
+        listStartCallback();
         break;
 
+       // --------------------- Unexpected Session Message --------------------- //
        // Unexpected session message type
        default:
         sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE, "Client: \"" + *_connMgr._name + "\", "
@@ -146,42 +155,11 @@ void SrvSessMgr::dispatchRecvSessMsg()
     /* --------------- 'UPLOAD' Server Session Manager Operation --------------- */
     case SessMgr::UPLOAD:
 
-     // The only session message allowed in the 'UPLOAD' operation
-     // is a client confirmation message in step 'WAITING_CONF'
+     // --------------------- 'CONFIRM' Signaling Message --------------------- //
+     if(_recvSessMsgType == CONFIRM)
+      uploadConfCallback();
 
-
-     if(_sessMgrOpStep == WAITING_CONF && _recvSessMsgType == CONFIRM)
-      {
-       /* [PATCH] */
-       // If the file to be uploaded is empty
-       if(_remFileInfo->meta->fileSizeRaw == 0)
-        {
-         // Touch the empty file in the user's storage
-         // pool, possibly overwriting the existing one
-         touchEmptyFile();
-
-         // Inform the client that the empty file has been successfully uploaded
-         sendSrvSessSignalMsg(COMPLETED);
-
-         LOG_INFO("[" + *_connMgr._name + "] Empty file \"" +
-                  _remFileInfo->fileName + "\" uploaded into the storage pool")
-
-         // Reset the server session manager state and return
-         resetSessState();
-         return;
-        }
-
-       // Otherwise, if the file to be uploaded is NOT empty
-       else
-        {
-         // Prepare the server session manager to receive
-         // the raw contents of the file to be uploaded
-         prepRecvFileData();
-
-         LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName + "\" "
-                  "confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
-        }
-      }
+     // ---------------------- Unexpected Session Message ---------------------- //
      else
       sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
                                                        " message type received in the 'UPLOAD' operation,"
@@ -189,29 +167,23 @@ void SrvSessMgr::dispatchRecvSessMsg()
      break;
 
 
-    // 'DOWNLOAD' server session manager operation
+    /* -------------- 'DOWNLOAD' Server Session Manager Operation -------------- */
     case SessMgr::DOWNLOAD:
+
+     // Depending on the type of the received session message
      switch(_recvSessMsgType)
       {
-       // TODO
-
+       // -------------------- 'CONFIRM' Signaling Message -------------------- //
        case CONFIRM:
-
-        // TODO Remove
-        sendDownloadFileData();
+        downloadConfSendFileCallback();
         return;
 
+       // ------------------- 'COMPLETED' Signaling Message ------------------- //
        case COMPLETED:
-        if(_mainFileInfo->meta->fileSizeRaw == 0)
-         LOG_INFO("[" + *_connMgr._name + "] Empty file \""
-                  + _mainFileInfo->fileName + "\" downloaded from the storage pool")
-        else
-         LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" ("
-                  + _mainFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
-
-        resetSessState();
+        downloadComplCallback();
         return;
 
+       // --------------------- Unexpected Session Message --------------------- //
        default:
         sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
                                                          " message type received in the 'DOWNLOAD' operation,"
@@ -220,39 +192,44 @@ void SrvSessMgr::dispatchRecvSessMsg()
      break;
 
 
-    // 'DELETE' server session manager operation
+    /* --------------- 'DELETE' Server Session Manager Operation --------------- */
     case SessMgr::DELETE:
 
-     // Only the client confirmation of a pending delete can be
-     // received in the 'DELETE' operation with step 'WAITING_CONF'
-     if(_sessMgrOpStep == WAITING_CONF && _recvSessMsgType == CONFIRM)
-      {
-       // Attempt to delete the main file
-       if(remove(_mainFileAbsPath->c_str()) == -1)
-        sendSrvSessSignalMsg(ERR_INTERNAL_ERROR, "Failed to delete file \"" + *_mainFileAbsPath + "\" (reason: " + ERRNO_DESC + ")");
+     // --------------------- 'CONFIRM' Signaling Message --------------------- //
+     if(_recvSessMsgType == CONFIRM)
+      deleteConfCallback();
 
-       // Notify the client that the file has been successfully deleted
-       sendSrvSessSignalMsg(COMPLETED);
-
-       // Log the successful delete operation
-       LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" ("
-                + _mainFileInfo->meta->fileSizeStr + ") deleted from the storage pool")
-
-       // Reset the session state and return
-       resetSessState();
-       return;
-      }
+      // ---------------------- Unexpected Session Message ---------------------- //
      else
       sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
                                                        " message type received in the 'DELETE' operation,"
                                                        " step " + sessMgrOpStepToStrUpCase());
-    break;
+     break;
 
 
+    /* --------------- 'RENAME' Server Session Manager Operation --------------- */
+    case SessMgr::RENAME:
 
-    // TODO (must eventually be removed)
-    default:
-     sendSrvSessSignalMsg(ERR_INTERNAL_ERROR, "UNIMPLEMENTED server session manager operation (" + sessMgrOpToStrUpCase() + ")");
+     // The 'RENAME' operation has no callback methods other than the operation starting callback
+     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
+                                                      " message type received in the 'RENAME' operation,"
+                                                      " step " + sessMgrOpStepToStrUpCase());
+     break;
+
+
+    /* ---------------- 'LIST' Server Session Manager Operation ---------------- */
+    case SessMgr::LIST:
+
+     // -------------------- 'COMPLETED' Signaling Message -------------------- //
+     if(_recvSessMsgType == CONFIRM)
+      listComplCallback();
+
+     // ---------------------- Unexpected Session Message ---------------------- //
+     else
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" "
+                                                        "session message type received in the 'LIST' "
+                                                        "operation, step " + sessMgrOpStepToStrUpCase());
+     break;
    }
  }
 
@@ -260,8 +237,8 @@ void SrvSessMgr::dispatchRecvSessMsg()
 /* -------------------------- 'UPLOAD' Operation Callback Methods -------------------------- */
 
 /**
- * @brief Starts a file upload operation by:\n
- *           1) Loading the name and metadata of the remote file to be uploaded\n
+ * @brief 'UPLOAD' operation 'START' callback, which:\n
+ *           1) Loads the name and metadata of the remote file to be uploaded\n
  *              2.1) If the file to be uploaded is empty and the file in the user's storage
  *                   pool does not exist or is empty, directly touch such a file in the user's
  *                   storage pool and notify them that the upload operation has completed\n
@@ -290,7 +267,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
  * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED               send() fatal error
  */
-void SrvSessMgr::srvUploadStart()
+void SrvSessMgr::uploadStartCallback()
  {
   // Load the name and metadata of the remote file to
   // be uploaded into the '_remFileInfo' attribute
@@ -367,7 +344,62 @@ void SrvSessMgr::srvUploadStart()
 
 
 /**
- * @brief  Server file upload raw data handler, which:\n
+ * @brief  'UPLOAD' operation 'CONFIRM' session message callback, which:\n
+ *             1) [PATCH] If the file to be uploaded is empty, touch it in the user's
+ *                storage pool, possibly overwriting the existing one, notify the client
+ *                the success of the upload operation and reset the session state\n
+ *             2) If the file to be uploaded is NOT empty, prepare the server session
+ *                manager to receive its raw contents.
+ * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the existing empty file
+ * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the empty file to be uploaded
+ * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the empty file to be uploaded
+ * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the metadata of the file to be uploaded
+ * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED               send() fatal error
+ * @throws ERR_SESS_FILE_OPEN_FAILED     Failed to open the temporary file
+ *                                       descriptor in write-byte mode
+ */
+void SrvSessMgr::uploadConfCallback()
+ {
+  /* [PATCH] */
+  // If the file to be uploaded is empty
+  if(_remFileInfo->meta->fileSizeRaw == 0)
+   {
+    // Touch the empty file in the user's storage
+    // pool, possibly overwriting the existing one
+    touchEmptyFile();
+
+    // Inform the client that the empty file has been successfully uploaded
+    sendSrvSessSignalMsg(COMPLETED);
+
+    LOG_INFO("[" + *_connMgr._name + "] Empty file \"" + _remFileInfo->fileName + "\" uploaded into the storage pool")
+
+    // Reset the server session manager state and return
+    resetSessState();
+    return;
+   }
+
+   // Otherwise, if the file to be uploaded is NOT empty
+  else
+   {
+    // Prepare the server session manager to receive
+    // the raw contents of the file to be uploaded
+    prepRecvFileData();
+
+    LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName + "\" "
+             "confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
+   }
+ }
+
+
+/**
+ * @brief  'UPLOAD' operation raw file contents callback, which:\n
  *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
  *               bytes and writes them into the session's temporary file in the user's temporary directory\n
  *            2) If the file being uploaded has been completely received, verifies its trailing integrity
@@ -391,7 +423,7 @@ void SrvSessMgr::srvUploadStart()
  * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
  *                                        file or NULL session attributes
  */
-void SrvSessMgr::recvUploadFileData(size_t recvBytes)
+void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
  {
   // fwrite() return, representing the number of bytes written
   // from the secondary connection buffer into the temporary file
@@ -494,8 +526,8 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
 /* ------------------------- 'DOWNLOAD' Operation Callback Methods ------------------------- */
 
 /**
- * @brief  Starts a file download operation by checking whether a file with the same name
- *         of the one the client wants to download exists in their storage pool, and:\n
+ * @brief  'DOWNLOAD' operation 'START' callback, checking whether a file with the same
+ *         name of the one the client wants to download exists in their storage pool and:\n
  *            1) If such a file does not exist, notify the client that the
  *               download operation cannot proceed and reset the session state.\n
  *            2) If such a file exists, send its information to the client and set the
@@ -513,7 +545,7 @@ void SrvSessMgr::recvUploadFileData(size_t recvBytes)
  * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED              send() fatal error
  */
-void SrvSessMgr::srvDownloadStart()
+void SrvSessMgr::downloadStartCallback()
  {
   // Retrieve the file name the client wants to download, also loading
   // its associated absolute path into the '_mainFileAbsPath' attribute
@@ -574,9 +606,9 @@ void SrvSessMgr::srvDownloadStart()
 
 
 /**
- * @brief Sends the raw contents of the file to be downloaded and its
- *        resulting integrity tag to the client, also setting the server
- *        session manager to expect the download operation completion message
+ * @brief 'DOWNLOAD' operation 'CONFIRM' session message callback, sending the raw contents of
+ *        the file to be downloaded and its resulting integrity tag to the client, and setting
+ *        the server session manager to expect the client download completion notification
  * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
  * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
@@ -589,7 +621,7 @@ void SrvSessMgr::srvDownloadStart()
  * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED               send() fatal error
  */
-void SrvSessMgr::sendDownloadFileData()
+void SrvSessMgr::downloadConfSendFileCallback()
  {
   // fread() return, representing the number of bytes read
   // from main file into the secondary connection buffer
@@ -662,10 +694,30 @@ void SrvSessMgr::sendDownloadFileData()
  }
 
 
+/**
+ * @brief  'DOWNLOAD' operation 'COMPLETE' session message callback, logging the
+ *         successful download operation and resetting the server session manager state
+ */
+void SrvSessMgr::downloadComplCallback()
+ {
+  // Log the success of the download operation depending
+  // on whether the downloaded file is empty or not
+  if(_mainFileInfo->meta->fileSizeRaw == 0)
+   LOG_INFO("[" + *_connMgr._name + "] Empty file \""
+            + _mainFileInfo->fileName + "\" downloaded from the storage pool")
+  else
+   LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" ("
+            + _mainFileInfo->meta->fileSizeStr + ") downloaded from the storage pool")
+
+  // Reset the server session manager state
+  resetSessState();
+ }
+
+
 /* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
 
 /**
- * @brief  Starts a file deletion operation by checking whether a file with the same
+ * @brief  'DELETE' operation 'START' callback, checking whether a file with the same
  *         name of the one the client wants to delete exists in their storage pool, and:\n
  *            1) If such a file does not exist, notify the client that the
  *               delete operation cannot proceed and reset the session state.\n
@@ -683,7 +735,7 @@ void SrvSessMgr::sendDownloadFileData()
  * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED              send() fatal error
  */
-void SrvSessMgr::srvDeleteStart()
+void SrvSessMgr::deleteStartCallback()
  {
   // Retrieve the file name the client wants to delete, also loading
   // its associated absolute path into the '_mainFileAbsPath' attribute
@@ -723,6 +775,38 @@ void SrvSessMgr::srvDeleteStart()
  }
 
 
+/**
+ * @brief  'DELETE' operation 'CONFIRM' session message callback, attempting to delete the
+ *         main file, notify the client of its deletion and resetting the server session state
+ * @throws ERR_SESS_INTERNAL_ERROR Failed to delete the main file
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SrvSessMgr::deleteConfCallback()
+ {
+  // Attempt to delete the main file
+  if(remove(_mainFileAbsPath->c_str()) == -1)
+   sendSrvSessSignalMsg(ERR_INTERNAL_ERROR, "Failed to delete file \"" + *_mainFileAbsPath +
+                                            "\" (reason: " + ERRNO_DESC + ")");
+
+  // Notify the client that the file has been successfully deleted
+  sendSrvSessSignalMsg(COMPLETED);
+
+  // Log the successful delete operation
+  LOG_INFO("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName +
+           "\" (" + _mainFileInfo->meta->fileSizeStr + ") deleted from the storage pool")
+
+  // Reset the server session state
+  resetSessState();
+ }
+
+
 /* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
 
 /**
@@ -749,7 +833,7 @@ void SrvSessMgr::srvDeleteStart()
  * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED              send() fatal error
  */
-void SrvSessMgr::srvRenameStart()
+void SrvSessMgr::renameStartCallback()
  {
   // The candidate old and new name of the file to be renamed
   std::string* oldFilename = nullptr;
@@ -830,6 +914,21 @@ void SrvSessMgr::srvRenameStart()
 
   // Reset the server session manager state and return
   resetSessState();
+ }
+
+/* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
+
+// TODO: Stub implementation
+void SrvSessMgr::listStartCallback()
+ {
+  std::cout << "in listStartCallback() " << std::endl;
+ }
+
+
+// TODO: Stub implementation
+void SrvSessMgr::listComplCallback()
+ {
+  std::cout << "in listComplCallback() " << std::endl;
  }
 
 
@@ -1068,6 +1167,5 @@ void SrvSessMgr::srvSessRawHandler(size_t recvBytes)
 
   // Pass the number of bytes read from the connection socket into
   // the primary connection buffer to 'UPLOAD' raw sub-handler
-  recvUploadFileData(recvBytes);
+  uploadRecvRawCallback(recvBytes);
  }
-

@@ -11,30 +11,29 @@ enum SessMsgType : uint8_t
  {
   /* ---------------------- Payload Session Message Types ---------------------- */
 
-  /* ---- Operation-Starting Payload Session Message Types ---- */
+  // ------------ Operation-Starting Payload Session Message Types ------------ //
   FILE_UPLOAD_REQ,    // File upload request                      (Client -> Server)
   FILE_DOWNLOAD_REQ,  // File download request                    (Client -> Server)
   FILE_DELETE_REQ,    // File delete request                      (Client -> Server)
   FILE_RENAME_REQ,    // File rename request                      (Client -> Server)
 
-  /* ---------- Other Payload Session Message Types ---------- */
+  // ------------------- Other Payload Session Message Types ------------------- //
   FILE_EXISTS,        // A file with such name already exists     (Client <- Server)
   POOL_SIZE,          // Client storage pool information raw size (Client <- Server)
 
-
   /* -------------- Signaling Session Message Types (no payload) -------------- */
 
-  /* --- Operation-Starting Signaling Session Message Types --- */
+  // ----------- Operation-Starting Signaling Session Message Types ----------- //
   FILE_LIST_REQ,       // Storage pool contents list request       (Client -> Server)
 
-  /* ---- Other Non-error Signaling Session Message Types ---- */
+  // ------------ Other Non-error Signaling Session Message Types ------------ //
   FILE_NOT_EXISTS,     // A file with such name does not exist     (Client <- Server)
   CONFIRM,             // Session operation confirmation           (Client -> Server)
   CANCEL,              // Session operation cancellation           (Client -> Server)
   COMPLETED,           // Session operation completion             (Client <-> Server)
   BYE,                 // Peer graceful disconnection              (Client <-> Server)
 
-  /* --------- Error Signaling Session Message Types --------- */
+  // ------------------ Error Signaling Session Message Types ------------------ //
 
   /*
    * Error signaling session message types can be sent by both parties

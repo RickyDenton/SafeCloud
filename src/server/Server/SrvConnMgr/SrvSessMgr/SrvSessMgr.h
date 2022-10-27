@@ -20,6 +20,8 @@ class SrvSessMgr : public SessMgr
 
    /* ============================== PRIVATE METHODS ============================== */
 
+   /* ------------------------ Server Session Manager Utility Methods ------------------------ */
+
    /**
     * @brief Sends a session message signaling type to the client and performs the actions
     *        appropriate to session signaling types resetting or terminating the session
@@ -43,14 +45,23 @@ class SrvSessMgr : public SessMgr
    void sendSrvSessSignalMsg(SessMsgType sessMsgType);
    void sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const std::string& errReason);
 
-
-   // TODO
+   /**
+    * @brief  Dispatches a received session message to the callback method associated with
+    *         its type and the server session manager current operation and implicit step
+    * @note   The validity of the received session message type in the
+    *         srvSessMsgHandler() server session message handler method
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE The received session message type is invalid for
+    *                                     the current session manager operation and step
+    *                                     (should never happen)
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
+    */
    void dispatchRecvSessMsg();
 
    /* -------------------------- 'UPLOAD' Operation Callback Methods -------------------------- */
 
    /**
-    * @brief Starts a file upload operation by:\n
+    * @brief 'UPLOAD' operation 'START' callback, which:\n
     *           1) Loading the name and metadata of the remote file to be uploaded\n
     *              2.1) If the file to be uploaded is empty, directly touch such a file in the
     *                   user's storage pool and notify them that the upload operation has completed\n
@@ -79,10 +90,34 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED               send() fatal error
     */
-   void srvUploadStart();
+   void uploadStartCallback();
 
    /**
-    * @brief  Server file upload raw data handler, which:\n
+    * @brief  'UPLOAD' operation 'CONFIRM' session message callback, which:\n
+    *             1) [PATCH] If the file to be uploaded is empty, touch it in the user's
+    *                storage pool, possibly overwriting the existing one, notify the client
+    *                the success of the upload operation and reset the session state\n
+    *             2) If the file to be uploaded is NOT empty, prepare the server session
+    *                manager to receive its raw contents.
+    * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the existing empty file
+    * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the empty file to be uploaded
+    * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the empty file to be uploaded
+    * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the metadata of the file to be uploaded
+    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED               send() fatal error
+    * @throws ERR_SESS_FILE_OPEN_FAILED     Failed to open the temporary file
+    *                                       descriptor in write-byte mode
+    */
+   void uploadConfCallback();
+
+   /**
+    * @brief  'UPLOAD' operation raw file contents callback, which:\n
     *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
     *               bytes and writes them into the session's temporary file in the user's temporary directory\n
     *            2) If the file being uploaded has been completely received, verifies its trailing integrity
@@ -106,20 +141,20 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_SESS_INTERNAL_ERROR        Failed to close or move the uploaded temporary
     *                                        file or NULL session attributes
     */
-   void recvUploadFileData(size_t recvBytes);
+   void uploadRecvRawCallback(size_t recvBytes);
 
    /* ------------------------- 'DOWNLOAD' Operation Callback Methods ------------------------- */
 
    /**
-    * @brief  Starts a file download operation by checking whether a file with the same name
-    *         of the one the client wants to download exists in their storage pool, and:\n
+    * @brief  'DOWNLOAD' operation 'START' callback, checking whether a file with the same
+    *         name of the one the client wants to download exists in their storage pool and:\n
     *            1) If such a file does not exist, notify the client that the
     *               download operation cannot proceed and reset the session state.\n
     *            2) If such a file exists, send its information to the client and set the
     *               session manager to expect the download operation completion or confirmation
     *               notification depending on whether the file to be downloaded is empty or not.
-    * @throws ERR_SESS_MALFORMED_MESSAGE Invalid file name in the 'SessMsgFileName' message
-    * @throws ERR_SESS_MAIN_FILE_IS_DIR  The file to be downloaded was found to be a directory (!)
+    * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file name in the 'SessMsgFileName' message
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be downloaded was found to be a directory (!)
     * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be downloaded
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -130,12 +165,12 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED              send() fatal error
     */
-   void srvDownloadStart();
+   void downloadStartCallback();
 
    /**
-    * @brief Sends the raw contents of the file to be downloaded and its
-    *        resulting integrity tag to the client, also setting the server
-    *        session manager to expect the download operation completion message
+    * @brief 'DOWNLOAD' operation 'CONFIRM' session message callback, sending the raw contents of
+    *        the file to be downloaded and its resulting integrity tag to the client, and setting
+    *        the server session manager to expect the client download completion notification
     * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
     * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
     * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
@@ -148,12 +183,18 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED               send() fatal error
     */
-   void sendDownloadFileData();
+   void downloadConfSendFileCallback();
+
+   /**
+    * @brief  'DOWNLOAD' operation 'COMPLETE' session message callback, logging the
+    *         successful download operation and resetting the server session manager state
+    */
+   void downloadComplCallback();
 
    /* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
 
    /**
-    * @brief  Starts a file deletion operation by checking whether a file with the same
+    * @brief  'DELETE' operation 'START' callback, checking whether a file with the same
     *         name of the one the client wants to delete exists in their storage pool, and:\n
     *            1) If such a file does not exist, notify the client that the
     *               delete operation cannot proceed and reset the session state.\n
@@ -171,7 +212,22 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED              send() fatal error
     */
-   void srvDeleteStart();
+   void deleteStartCallback();
+
+   /**
+    * @brief  'DELETE' operation 'CONFIRM' session message callback, attempting to delete the
+    *         main file, notify the client of its deletion and resetting the server session state
+    * @throws ERR_SESS_INTERNAL_ERROR      Failed to delete the main file
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void deleteConfCallback();
 
    /* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
 
@@ -199,7 +255,15 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED              send() fatal error
     */
-   void srvRenameStart();
+   void renameStartCallback();
+
+   /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
+
+   // TODO: Stub implementation
+   void listStartCallback();
+
+   // TODO: Stub implementation
+   void listComplCallback();
 
   public:
 
