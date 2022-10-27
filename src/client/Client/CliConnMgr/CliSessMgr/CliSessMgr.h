@@ -241,6 +241,32 @@ class CliSessMgr : public SessMgr
     */
    bool parseDeleteResponse(std::string& fileName);
 
+   /* ------------------------------ 'RENAME' Operation Methods ------------------------------ */
+
+   /**
+    * @brief  Parses the 'FILE_RENAME_REQ' session response message returned by the SafeCloud server, where:\n
+    *            1) If the SafeCloud server has reported that the file to be renamed does not exist in
+    *               the user's storage pool, inform the client that the renaming operation cannot proceed.\n
+    *            2) If the SafeCloud server has returned the information on a file with the same name of the
+    *               one the user wants to rename the file to, prints them on stdout and inform the client that
+    *               such a file should be renamed or deleted before attempting to rename the original file.\n
+    *            3) If the SafeCloud server has reported that the file was renamed successfully, inform the
+    *               client of the success of operation.
+    * @param  oldFilename The name of the file to be renamed
+    * @param  newFilename The name the file should be renamed to
+    * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file values in the 'SessMsgFileInfo' message
+    * @throws ERR_SESS_UNEXPECTED_MESSAGE  An invalid 'FILE_RENAME_REQ' session message response type was received
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_CLI_DISCONNECTED         The server disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void parseRenameResponse(std::string& oldFileName, std::string& newFileName);
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -289,11 +315,19 @@ class CliSessMgr : public SessMgr
     */
    void deleteFile(std::string& fileName);
 
-   // TODO: STUB
-   void listRemoteFiles();
+   /**
+    * @brief  Renames a file in the user's SafeCloud storage pool
+    * @param  oldFilename The name of the file to be renamed
+    * @param  newFilename The name the file should be renamed to
+    * @throws ERR_SESS_FILE_INVALID_NAME The old or new file name is not a valid Linux file name
+    * @throws ERR_SESS_RENAME_SAME_NAME  The old and new file names coincide
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
+    */
+   void renameFile(std::string& oldFilename, std::string& newFilename);
 
    // TODO: STUB
-   void renameRemFile(std::string& oldFileName,std::string& newFileName);
+   void listRemoteFiles();
 
    /**
     * @brief  Sends the 'BYE session signaling message to the

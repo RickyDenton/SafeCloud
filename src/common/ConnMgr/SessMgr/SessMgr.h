@@ -159,6 +159,9 @@ class SessMgr
 
    /* --------------------------- Session Files Methods --------------------------- */
 
+   // TODO
+   void validateSessFileName(std::string& fileName);
+
    /**
     * @brief Attempts to load into the '_mainFileInfo' attribute the information
     *        of the main file referred by the '_mainFileAbsPath' attribute
@@ -257,7 +260,7 @@ class SessMgr
     * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
     *         of the specified type containing the name and metadata of the main file referred by the '_mainFileInfo'
     *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
-    * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
+    * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS)
     * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or uninitialized '_mainFileInfo' attribute
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -271,9 +274,9 @@ class SessMgr
    void sendSessMsgFileInfo(SessMsgType sessMsgType);
 
    /**
-    * @brief Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
-    *        session message of the specified type and fileName value, for then wrapping
-    *        and sending the resulting session message wrapper to the connection peer
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
+    *         session message of the specified type and fileName value, for then wrapping
+    *         and sending the resulting session message wrapper to the connection peer
     * @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
     * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -286,6 +289,23 @@ class SessMgr
     * @throws ERR_SEND_FAILED              send() fatal error
     */
    void sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName);
+
+   /**
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileRename' session
+    *         message of implicit type 'FILE_RENAME_REQ' containing the specified old and new file names,
+    *         for then wrapping and sending the resulting session message wrapper to the connection peer
+    * @param  oldFilename The name of the file to be renamed
+    * @param  newFilename The name the file should be renamed to
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void sendSessMsgFileRename(std::string& oldFilename, std::string& newFilename);
 
    /* ------------------------- Session Messages Reception ------------------------- */
 
@@ -305,6 +325,16 @@ class SessMgr
     * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
     */
    std::string loadMainSessMsgFileName();
+
+   /**
+    * @brief Extracts and validates the old and new file names embedded within a 'SessMsgFileRename'
+    *        session message stored in the associated connection manager's secondary buffer
+    * @param oldFilenameDest The pointer to be initialized to the old file name
+    * @param newFilenameDest The pointer to be initialized to the new file name
+    * @throws ERR_SESS_MALFORMED_MESSAGE The old or new file name is not a valid Linux
+    *                                    file name or the two file names coincide
+    */
+   void loadSessMsgFileRename(std::string** oldFilenameDest, std::string** newFilenameDest);
 
   public:
 

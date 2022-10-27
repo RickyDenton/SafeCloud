@@ -714,7 +714,7 @@ void Client::parseUserCmd3(std::string& cmd, std::string& arg1, std::string& arg
   if(cmd == "RENAME" || cmd == "REN")
    {
     // Attempt to rename the "arg1" file on SafeCloud storage pool to "arg2"
-    _cliConnMgr->getSession()->renameRemFile(arg1,arg2);
+    _cliConnMgr->getSession()->renameFile(arg1, arg2);
 
     // Reset the client session manager state
     _cliConnMgr->getSession()->resetSessState();

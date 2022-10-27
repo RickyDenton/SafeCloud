@@ -56,6 +56,10 @@
  */
 void validateFileName(std::string& fileName)
  {
+  // A file name cannot be null
+  if(fileName.empty())
+   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+
   // A file name cannot consist of the current or the parent's directory
   if(fileName == "." || fileName == "..")
    THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);

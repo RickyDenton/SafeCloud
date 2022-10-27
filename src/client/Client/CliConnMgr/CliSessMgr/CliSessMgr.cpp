@@ -144,11 +144,10 @@ void CliSessMgr::recvCheckCliSessMsg()
    {
     /* ---------------------------- 'FILE_EXISTS' Payload Message Type ---------------------------- */
 
-    // A 'FILE_EXISTS' payload message type is allowed only with the client session
-    // manager in the 'UPLOAD', 'DOWNLOAD' and 'DELETE' operations with step 'WAITING_RESP'
+    // A 'FILE_EXISTS' payload message type is allowed in
+    // all operations but 'LIST' with step 'WAITING_RESP'
     case FILE_EXISTS:
-     if(!((_sessMgrOp == UPLOAD || _sessMgrOp == DOWNLOAD || _sessMgrOp == DELETE)
-          && _sessMgrOpStep == WAITING_RESP))
+     if(!(_sessMgrOp != LIST && _sessMgrOpStep == WAITING_RESP))
       sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'FILE_EXISTS' session message received in"
                                                        " session operation \"" + sessMgrOpToStrUpCase() +
                                                        "\", step " + sessMgrOpStepToStrUpCase());
@@ -164,9 +163,10 @@ void CliSessMgr::recvCheckCliSessMsg()
                                                        "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
-    /* -------------------------- 'FILE_NOT_EXISTS' Payload Message Type -------------------------- */
 
-    // A 'FILE_NOT_EXISTS' payload message type is allowed
+    /* ------------------------- 'FILE_NOT_EXISTS' Signaling Message Type ------------------------- */
+
+    // A 'FILE_NOT_EXISTS' signaling message type is allowed
     // in all operations but 'LIST' with step 'WAITING_RESP'
     case FILE_NOT_EXISTS:
      if(!(_sessMgrOp != LIST && _sessMgrOpStep == WAITING_RESP))
@@ -175,31 +175,21 @@ void CliSessMgr::recvCheckCliSessMsg()
                                                        "\", step " + sessMgrOpStepToStrUpCase());
      break;
 
-    /* ------------------------ 'NEW_FILENAME_EXISTS' Payload Message Type ------------------------ */
-
-    // A 'NEW_FILENAME_EXISTS' payload message type is allowed
-    // only in the 'RENAME' operation with step 'WAITING_CONF'
-    case NEW_FILENAME_EXISTS:
-     if(!(_sessMgrOp == RENAME && _sessMgrOpStep == WAITING_CONF))
-      sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"'NEW_FILENAME_EXISTS' session message received in"
-                                                       " session operation \"" + sessMgrOpToStrUpCase() +
-                                                       "\", step " + sessMgrOpStepToStrUpCase());
-     break;
-
     /* ---------------------------- 'COMPLETED' Signaling Message Type ---------------------------- */
 
     /*
      * A 'COMPLETED' signaling message type is allowed only in:
      *   1) The 'UPLOAD' operation of any step
-     *   2) The 'DELETE' and 'RENAME' operations with step 'WAITING_COMPL'
+     *   2) The 'DELETE' operation with step 'WAITING_COMPL'
+     *   3) The 'RENAME' operation with step 'WAITING_RESP'
      */
     case COMPLETED:
 
      // Since after sending a 'COMPLETED' message the SafeCloud server has supposedly reset its session
      // state, if such a message type is received in an invalid operation or step just throw the
      // associated exception without notifying the server that an unexpected session message was received
-     if(!((_sessMgrOp == UPLOAD) || ((_sessMgrOp == DELETE || _sessMgrOp == RENAME) &&
-                                     _sessMgrOpStep == WAITING_COMPL)))
+     if(!((_sessMgrOp == UPLOAD) || (_sessMgrOp == DELETE && _sessMgrOpStep == WAITING_COMPL) ||
+          (_sessMgrOp == RENAME && _sessMgrOpStep == WAITING_RESP)))
       THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, abortedOpToStr(), "'COMPLETED' session message received in "
                                                                      "session operation \"" + sessMgrOpToStrUpCase() +
                                                                      "\", step " + sessMgrOpStepToStrUpCase());
@@ -669,8 +659,8 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
     // be downloaded does not exist in the user's storage pool
     case FILE_NOT_EXISTS:
 
-     // Inform the client that such a file does not exist in their storage pool,
-     // and that they can retrieve its list of files via the 'LIST remote' command
+     // Inform the user that such a file does not exist in their storage pool,
+     // and that they can retrieve its contents via the 'LIST remote' command
      std::cout << "File \"" + fileName + "\" was not found in your storage pool" << std::endl;
      std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
 
@@ -979,8 +969,8 @@ bool CliSessMgr::parseDeleteResponse(std::string& fileName)
     // be deleted does not exist in the user's storage pool
     case FILE_NOT_EXISTS:
 
-     // Inform the client that such a file does not exist in their storage pool,
-     // and that they can retrieve its list of files via the 'LIST remote' command
+     // Inform the user that such a file does not exist in their storage pool,
+     // and that they can retrieve its contents via the 'LIST remote' command
      std::cout << "File \"" + fileName + "\" was not found in your storage pool" << std::endl;
      std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
 
@@ -1035,6 +1025,92 @@ bool CliSessMgr::parseDeleteResponse(std::string& fileName)
    }
  }
 
+/* ------------------------------ 'RENAME' Operation Methods ------------------------------ */
+
+/**
+ * @brief  Parses the 'FILE_RENAME_REQ' session response message returned by the SafeCloud server, where:\n
+ *            1) If the SafeCloud server has reported that the file to be renamed does not exist in
+ *               the user's storage pool, inform the client that the renaming operation cannot proceed.\n
+ *            2) If the SafeCloud server has returned the information on a file with the same name of the
+ *               one the user wants to rename the file to, prints them on stdout and inform the client that
+ *               such a file should be renamed or deleted before attempting to rename the original file.\n
+ *            3) If the SafeCloud server has reported that the file was renamed successfully, inform the
+ *               client of the success of operation.
+ * @param  oldFilename The name of the file to be renamed
+ * @param  newFilename The name the file should be renamed to
+ * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file values in the 'SessMsgFileInfo' message
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE  An invalid 'FILE_RENAME_REQ' session message response type was received
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_CLI_DISCONNECTED         The server disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void CliSessMgr::parseRenameResponse(std::string& oldFileName, std::string& newFileName)
+ {
+  // Depending on the 'FILE_RENAME_REQ' response message type:
+  switch(_recvSessMsgType)
+   {
+    // If the SafeCloud server has reported that the file to
+    // be renamed does not exist in the user's storage pool
+    case FILE_NOT_EXISTS:
+
+     // Inform the user that such a file does not exist in their storage pool,
+     // and that they can retrieve its contents via the 'LIST remote' command
+     std::cout << "File \"" + oldFileName + "\" was not found in your storage pool" << std::endl;
+     std::cout << "Enter \"LIST remote\" to display the list of files in your storage pool" << std::endl;
+     break;
+
+    // Otherwise, if the SafeCloud server has returned the information on a
+    // file with the same name of the one the user wants to rename the file to
+    case FILE_EXISTS:
+
+     // Load into the '_remFileInfo' attribute the name and metadata of the
+     // file with the same name of the one the user wants to rename the file to
+     loadRemSessMsgFileInfo();
+
+     // Ensure that the file information received from the server refer to a file with the same
+     // name of the one the user wants to rename the file to, an error that should be thrown
+     // directly without notifying the server as it has supposedly reset its session state
+     if(_remFileInfo->fileName != newFileName)
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, "Received as a FILE_RESPONSE_REQ response information on a file"
+                                                  " (\"" + _remFileInfo->fileName + "\") different from the one "
+                                                  "the user wants to rename the file to (\"" + newFileName + "\")");
+
+     // Inform the user that a file with the same name of the one they
+     // want to rename the file to was found in their storage pool
+     std::cout << "A file with the same name of the one the file should be renamed to is present in your storage pool " << std::endl;
+
+     // Print the information on the file with the same name
+     // of the use the user wants to rename the file to
+     // Print the information on the file to be deleted
+     _remFileInfo->printFileInfo();
+
+     // Inform the user that such a file should be in turn
+     // renamed or deleted before renaming the original file
+     std::cout << "Please rename or delete such file before renaming the original file" << std::endl;
+     break;
+
+    // Otherwise, if the SafeCloud server has reported
+    // that the file was renamed successfully
+    case COMPLETED:
+
+     // Inform the user of the success of the rename operation
+     std::cout << "\nFile \"" + oldFileName + "\" successfully renamed to \""
+     + newFileName + "\" in the storage pool\n" << std::endl;
+     break;
+
+    // All other session message types do not represent valid
+    // responses to a 'FILE_RENAME_REQ' session message
+    default:
+     sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                          std::to_string(_recvSessMsgType) + "as a 'FILE_RENAME_REQ' response");
+   }
+ }
+
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
@@ -1084,7 +1160,7 @@ void CliSessMgr::uploadFile(std::string& filePath)
   LOG_DEBUG("Sent 'FILE_UPLOAD_REQ' message to the server (file = \""
             + *_mainFileAbsPath + "\", size = " + _mainFileInfo->meta->fileSizeStr + ")")
 
-  // Update the command step so to expect a 'FILE_UPLOAD_REQ' response
+  // Update the operation step so to expect a 'FILE_UPLOAD_REQ' response
   _sessMgrOpStep = WAITING_RESP;
 
   // Block until the 'FILE_UPLOAD_REQ' response is received from the SafeCloud server
@@ -1153,7 +1229,7 @@ void CliSessMgr::downloadFile(std::string& fileName)
 
   LOG_DEBUG("Sent 'FILE_DOWNLOAD_REQ' message to the server (file = \"" + fileName + "\")")
 
-  // Update the command step so to expect a 'FILE_DOWNLOAD_REQ' response
+  // Update the operation step so to expect a 'FILE_DOWNLOAD_REQ' response
   _sessMgrOpStep = WAITING_RESP;
 
   // Block until the 'FILE_DOWNLOAD_REQ' response is received from the SafeCloud server
@@ -1212,7 +1288,7 @@ void CliSessMgr::deleteFile(std::string& fileName)
 
   LOG_DEBUG("Sent 'FILE_DELETE_REQ' message to the server (file = \"" + fileName + "\")")
 
-  // Update the command step so to expect a 'FILE_DOWNLOAD_REQ' response
+  // Update the operation step so to expect a 'FILE_DOWNLOAD_REQ' response
   _sessMgrOpStep = WAITING_RESP;
 
   // Block until the 'FILE_DELETE_REQ' response is received from the SafeCloud server
@@ -1241,6 +1317,46 @@ void CliSessMgr::deleteFile(std::string& fileName)
  }
 
 
+/**
+ * @brief  Renames a file in the user's SafeCloud storage pool
+ * @param  oldFilename The name of the file to be renamed
+ * @param  newFilename The name the file should be renamed to
+ * @throws ERR_SESS_FILE_INVALID_NAME The old or new file name is not a valid Linux file name
+ * @throws ERR_SESS_RENAME_SAME_NAME  The old and new file names coincide
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
+ */
+void CliSessMgr::renameFile(std::string& oldFilename, std::string& newFilename)
+ {
+  // Initialize the client session manager operation
+  _sessMgrOp = RENAME;
+
+  // Assert both file names to represent valid Linux file names
+  validateFileName(oldFilename);
+  validateFileName(newFilename);
+
+  // Assert the old and new file names to be different
+  if(oldFilename == newFilename)
+   THROW_SESS_EXCP(ERR_SESS_RENAME_SAME_NAME);
+
+  // Prepare a 'SessMsgFileRename' session message of implicit type 'FILE_RENAME_REQ'
+  // the old and new file names and send it to the SafeCloud server
+  sendSessMsgFileRename(oldFilename, newFilename);
+
+  LOG_DEBUG("Sent 'FILE_RENAME_REQ' message to the server (oldFilename = \""
+            + oldFilename + "\", newFilename = \"" + newFilename + "\")")
+
+  // Update the operation step so to expect a 'FILE_RENAME_REQ' response
+  _sessMgrOpStep = WAITING_RESP;
+
+  // Block until the 'FILE_RENAME_REQ' response is received from the SafeCloud server
+  recvCheckCliSessMsg();
+
+  // Parse the 'FILE_RENAME_REQ' response, outlining the results of the rename operation
+  parseRenameResponse(oldFilename, newFilename);
+ }
+
+
 
 // TODO: Placeholder implementation
 void CliSessMgr::listRemoteFiles()
@@ -1248,12 +1364,6 @@ void CliSessMgr::listRemoteFiles()
   std::cout << "In listRemoteFiles()" << std::endl;
  }
 
-
-// TODO: Placeholder implementation
-void CliSessMgr::renameRemFile(std::string& oldFileName,std::string& newFileName)
- {
-  std::cout << "In renameRemFile() (oldFileName = " << oldFileName << ", newFileName = " << newFileName << ")" << std::endl;
- }
 
 
 /**

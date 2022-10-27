@@ -134,6 +134,23 @@ std::string SessMgr::abortedOpToStr()
 
 /* --------------------------- Session Files Methods --------------------------- */
 
+// TODO
+void SessMgr::validateSessFileName(std::string& fileName)
+ {
+  // Assert the file name string to consist of a valid Linux file name
+  try
+   {  validateFileName(fileName); }
+  catch(sessErrExcp& invalidFileNameExcp)
+   {
+    // If the received file name string does not represent a
+    // valid Linux file name, the received message is malformed
+    sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileName'"
+                                               " message (\"" + fileName + "\")");
+   }
+ }
+
+
 /**
  * @brief Attempts to load into the '_mainFileInfo' attribute the information
  *        of the main file referred by the '_mainFileAbsPath' attribute
@@ -439,7 +456,7 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType) // NOLINT(misc
  * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
  *         of the specified type containing the name and metadata of the main file referred by the '_mainFileInfo'
  *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
- * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS || NEW_FILENAME_EXISTS)
+ * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS)
  * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or uninitialized '_mainFileInfo' attribute
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -452,9 +469,8 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType) // NOLINT(misc
  */
 void SessMgr::sendSessMsgFileInfo(SessMsgType sessMsgType)
  {
-  // TODO: Check if NEW_FILENAME_EXISTS is applicable (also in the function description)
   // Ensure the session message type to be valid for a 'SessMsgFileInfo' message
-  if(!(sessMsgType == FILE_UPLOAD_REQ || sessMsgType == FILE_EXISTS || sessMsgType == NEW_FILENAME_EXISTS))
+  if(!(sessMsgType == FILE_UPLOAD_REQ || sessMsgType == FILE_EXISTS))
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
     THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileInfo' message type (" + std::to_string(sessMsgType) + ")");
@@ -493,8 +509,8 @@ void SessMgr::sendSessMsgFileInfo(SessMsgType sessMsgType)
 
 /**
  * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileName'
- *        session message of the specified type and fileName value, for then wrapping
- *        and sending the resulting session message wrapper to the connection peer
+ *         session message of the specified type and fileName value, for then wrapping
+ *         and sending the resulting session message wrapper to the connection peer
  * @param  sessMsgType The 'SessMsgFileName' session message type (FILE_DOWNLOAD_REQ || FILE_DELETE_REQ)
  * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType'
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -532,6 +548,51 @@ void SessMgr::sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName
   // session message wrapper and send it to the connection peer
   wrapSendSessMsg();
  }
+
+
+/**
+ * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileRename' session
+ *         message of implicit type 'FILE_RENAME_REQ' containing the specified old and new file names,
+ *         for then wrapping and sending the resulting session message wrapper to the connection peer
+ * @param  oldFilename The name of the file to be renamed
+ * @param  newFilename The name the file should be renamed to
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFilename)
+ {
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileRename' session message
+  SessMsgFileRename* sessMsgFileRenameMsg = reinterpret_cast<SessMsgFileRename*>(_connMgr._secBuf);
+
+  // Set the 'SessMsgFileRename' message type to 'FILE_RENAME_REQUEST'
+  sessMsgFileRenameMsg->msgType = FILE_RENAME_REQ;
+
+  // Set the old filename length, '/0' character included, in the 'SessMsgFileRename' message
+  sessMsgFileRenameMsg->oldFilenameLen = oldFilename.length() + 1;
+
+  // Copy the old file name, '\0' character included, in the 'SessMsgFileRename' message
+  memcpy(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName), oldFilename.c_str(), oldFilename.length() + 1);
+
+  // Copy the new file name, '\0' character included, in the 'SessMsgFileRename' message
+  memcpy(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName + oldFilename.length() + 1),
+         newFilename.c_str(), newFilename.length() + 1);
+
+  // Set the length of the 'SessMsgFileRename' message to the length of its struct + both file
+  // names lengths (+2 for the 2 '/0' character, -2 for the placeholder attributes in the struct)
+  sessMsgFileRenameMsg->msgLen = sizeof(SessMsgFileRename) + oldFilename.length() + newFilename.length();
+
+  // Wrap the 'SessMsgFileRename' message into its associated
+  // session message wrapper and send it to the connection peer
+  wrapSendSessMsg();
+ }
+
 
 /* ------------------------- Session Messages Reception ------------------------- */
 
@@ -577,25 +638,16 @@ void SessMgr::loadRemSessMsgFileInfo()
 std::string SessMgr::loadMainSessMsgFileName()
  {
   // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileName' session message
-  SessMsgFileName* fileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
+  SessMsgFileName* sessFileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
 
   // Determine the length of the file name within the 'SessMsgFileName' message, '\0' character included
-  unsigned char fileNameLength = fileNameMsg->msgLen - sizeof(SessMsgFileName);
+  unsigned char fileNameLength = sessFileNameMsg->msgLen - sizeof(SessMsgFileName);
 
   // Extract the file name from the 'SessMsgFileName' message
-  std::string fileName(reinterpret_cast<char*>(fileNameMsg->fileName), fileNameLength);
+  std::string fileName(reinterpret_cast<char*>(sessFileNameMsg->fileName), fileNameLength);
 
   // Assert the file name string to consist of a valid Linux file name
-  try
-   {  validateFileName(fileName); }
-  catch(sessErrExcp& invalidFileNameExcp)
-   {
-    // If the received file name string does not represent a
-    // valid Linux file name, the received message is malformed
-    sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
-    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileName'"
-                                               " message (\"" + fileName + "\")");
-   }
+  validateSessFileName(fileName);
 
   // Initialize the '_mainFileAbsPath' attribute to the concatenation
   // of the session's main directory with such file name
@@ -603,6 +655,43 @@ std::string SessMgr::loadMainSessMsgFileName()
 
   // Return file name embedded in the 'SessMsgFileName' session message
   return fileName;
+ }
+
+
+/**
+ * @brief Extracts and validates the old and new file names embedded within a 'SessMsgFileRename'
+ *        session message stored in the associated connection manager's secondary buffer
+ * @param oldFilenameDest The pointer to be initialized to the old file name
+ * @param newFilenameDest The pointer to be initialized to the new file name
+ * @throws ERR_SESS_MALFORMED_MESSAGE The old or new file name is not a valid Linux
+ *                                    file name or the two file names coincide
+ */
+void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string** newFilenameDest)
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileRename' session message
+  SessMsgFileRename* sessMsgFileRenameMsg = reinterpret_cast<SessMsgFileRename*>(_connMgr._secBuf);
+
+  // Determine the new file name length, '\0' character included
+  unsigned char newFilenameLen = sessMsgFileRenameMsg->msgLen - sizeof(SessMsgFileRename)
+                                 - sessMsgFileRenameMsg->oldFilenameLen + 1;
+
+  // Copy both the old and the new file names to their destination strings
+  *oldFilenameDest = new std::string(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName),
+                                     sessMsgFileRenameMsg->oldFilenameLen - 1);
+
+  *newFilenameDest = new std::string(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName +
+                                     sessMsgFileRenameMsg->oldFilenameLen),newFilenameLen);
+
+  // Assert both the old and new to consist of valid Linux file names
+  validateSessFileName(**oldFilenameDest);
+  validateSessFileName(**newFilenameDest);
+
+  // Assert the old and new file names to be different
+  if(**oldFilenameDest == **newFilenameDest)
+   {
+    sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Same old and new file names in the 'SessMsgFileRename' message");
+   }
  }
 
 

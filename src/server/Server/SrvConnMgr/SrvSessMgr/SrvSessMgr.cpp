@@ -85,51 +85,71 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  }
 
 
-// TODO
+
+/**
+ * @brief Dispatches a received session message to the callback method
+ *        associated with the server session manager current operation and step
+ */
 void SrvSessMgr::dispatchRecvSessMsg()
  {
+  // Depending on the current server session manager operation
   switch(_sessMgrOp)
    {
 
+    /* ---------------- 'IDLE' Server Session Manager Operation ---------------- */
     case SessMgr::IDLE:
+
+     // Set the session manager operation to the one associated with the received
+     // operation-starting session message and call its starting callback method
      switch(_recvSessMsgType)
       {
+       // 'UPLOAD' operation start
        case FILE_UPLOAD_REQ:
         _sessMgrOp = UPLOAD;
         srvUploadStart();
         break;
 
+       // 'DOWNLOAD' operation start
        case FILE_DOWNLOAD_REQ:
         _sessMgrOp = DOWNLOAD;
         srvDownloadStart();
         break;
 
+       // 'DELETE' operation start
        case FILE_DELETE_REQ:
         _sessMgrOp = DELETE;
         srvDeleteStart();
         break;
 
+       // 'RENAME' operation start
        case FILE_RENAME_REQ:
         _sessMgrOp = RENAME;
-        //srvRenameStart();
+        srvRenameStart();
         break;
 
+       // 'LIST' operation start
        case FILE_LIST_REQ:
         _sessMgrOp = LIST;
         //srvListStart();
         break;
 
+       // Unexpected session message type
        default:
-        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
-                                                         " message type received in the 'IDLE' operation");
+        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE, "Client: \"" + *_connMgr._name + "\", "
+                                                          "received session message type "
+                                                          + std::to_string(_recvSessMsgType) +
+                                                          " with the session manager being 'IDLE'");
       }
      break;
 
-    // 'UPLOAD' server session manager operation
+
+    /* --------------- 'UPLOAD' Server Session Manager Operation --------------- */
     case SessMgr::UPLOAD:
 
-     // Only the client confirmation of a pending upload can be received
-     // in the 'UPLOAD' operation with step 'WAITING_CONF'
+     // The only session message allowed in the 'UPLOAD' operation
+     // is a client confirmation message in step 'WAITING_CONF'
+
+
      if(_sessMgrOpStep == WAITING_CONF && _recvSessMsgType == CONFIRM)
       {
        /* [PATCH] */
@@ -506,7 +526,7 @@ void SrvSessMgr::srvDownloadStart()
   // If the file the client wants to download was not found in their storage pool
   if(_mainFileInfo == nullptr)
    {
-    // Notify the client that the file was not found
+    // Notify the client that the file to be downloaded was not found
     sendSrvSessSignalMsg(FILE_NOT_EXISTS);
 
     LOG_INFO("[" + *_connMgr._name + "] Attempting to download "
@@ -546,7 +566,7 @@ void SrvSessMgr::srvDownloadStart()
                + "\" (" + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
      }
 
-    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
+    // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
     // the information on the file to be downloaded and send it to the client
     sendSessMsgFileInfo(FILE_EXISTS);
    }
@@ -690,7 +710,7 @@ void SrvSessMgr::srvDeleteStart()
    // Otherwise, if the file the client wants to delete was found in their storage pool
   else
    {
-    // Prepare 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
+    // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
     // the information on the file to be deleted and send it to the client
     sendSessMsgFileInfo(FILE_EXISTS);
 
@@ -701,6 +721,118 @@ void SrvSessMgr::srvDeleteStart()
              + "\" (" + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
    }
  }
+
+
+/* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
+
+/**
+ * @brief  Starts a file rename operation, where:\n
+ *            1) If the file to be renamed does not exist in the user's storage
+ *               pool, notify them that the rename operation cannot proceed.\n
+ *            2) If a file with the same name of the one the user wants to rename
+ *               the file to exists in their storage pool, send them its
+ *               information, implying that the rename operation cannot proceed.\n
+ *            3) If the file to be renamed exists and a file with its new name does not,
+ *               rename the file and notify the client the success of the rename operation.\n
+ *         The session manager state is reset regardless of the outcome.
+ * @throws ERR_SESS_MALFORMED_MESSAGE   The old or new file name is not a valid Linux
+ *                                      file name or the two file names coincide
+ * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be renamed or the one with its
+ *                                      new name was found to be a directory (!)
+ * @throws ERR_SESS_INTERNAL_ERROR      Failed to rename the file from its old to its new name
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SrvSessMgr::srvRenameStart()
+ {
+  // The candidate old and new name of the file to be renamed
+  std::string* oldFilename = nullptr;
+  std::string* newFilename = nullptr;
+
+  // Retrieve the candidate old and new name of the file to be
+  // renamed, also loading their associated absolute paths into the
+  // '_mainFileAbsPath' and '_tmpFileAbsPath' attributes respectively
+  loadSessMsgFileRename(&oldFilename,&newFilename);
+
+  // Initialize the absolute paths associated with the old and the new file names
+  std::string oldFileNameAbsPath(*_mainDirAbsPath + *oldFilename);
+  std::string newFileNameAbsPath(*_mainDirAbsPath + *newFilename);
+
+  // TODO: Comment
+  // LOG: old and new file names absolute paths
+  std::cout << "oldFileNameAbsPath = " << oldFileNameAbsPath << std::endl;
+  std::cout << "newFileNameAbsPath = " << newFileNameAbsPath << std::endl;
+
+  // Check whether the file the client wants to rename exists in their storage
+  // pool by attempting to load its information into the '_mainFileInfo' attribute
+  _mainFileAbsPath = &oldFileNameAbsPath;
+  checkLoadMainFileInfo();
+
+  // If the file the client wants to rename was not found in their storage pool
+  if(_mainFileInfo == nullptr)
+   {
+    // Notify the client that the file to be renamed was not found
+    sendSrvSessSignalMsg(FILE_NOT_EXISTS);
+
+    LOG_INFO("[" + *_connMgr._name + "] Attempting to rename file \""
+             + *oldFilename + "\" not existing in the storage pool")
+   }
+
+  // Otherwise, if the file the client wants to rename was found in their storage pool
+  else
+   {
+    // Check whether a file with the same name of the one the user wants to rename the file to exists
+    // in their storage pool by attempting to load its information into the '_mainFileInfo' attribute
+    _mainFileAbsPath = &newFileNameAbsPath;
+    checkLoadMainFileInfo();
+
+    // If a file with the same name of the one the user wants
+    // to rename the file to exists in their storage pool
+    if(_mainFileInfo != nullptr)
+     {
+      // Prepare and send a 'SessMsgFileInfo' session message of type 'FILE_EXISTS'
+      // containing the information on the file with the same name of the
+      // one the user wants to rename the file to and send it to the client
+      sendSessMsgFileInfo(FILE_EXISTS);
+
+      LOG_INFO("[" + *_connMgr._name + "] Attempting to rename file \""+ *oldFilename + "\" to "
+               "\"" + *newFilename + "\", with the latter already existing in the storage pool")
+     }
+
+    // Otherwise, if a file with the same name of the one the user
+    // wants to rename the file to does not exist in their storage pool
+    else
+     {
+      // Attempt to rename the file in the user's storage pool
+      if(rename(oldFileNameAbsPath.c_str(),newFileNameAbsPath.c_str()))
+       sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to rename file \"" + *oldFilename
+                            + "\" to \"" + *newFilename + "\" in the storage pool");
+
+      // Notify the client of the success of the rename operation
+      sendSessSignalMsg(COMPLETED);
+
+      LOG_INFO("[" + *_connMgr._name + "] File \""+ *oldFilename
+               + "\" renamed to \"" + *newFilename + "\"")
+     }
+   }
+
+  // Delete the old and new file names strings
+  // and reset the '_mainFileAbsPath' attribute
+  delete oldFilename;
+  delete newFilename;
+  _mainFileAbsPath = nullptr;
+
+  // Reset the server session manager state and return
+  resetSessState();
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**

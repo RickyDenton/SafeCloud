@@ -173,6 +173,34 @@ class SrvSessMgr : public SessMgr
     */
    void srvDeleteStart();
 
+   /* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
+
+   /**
+    * @brief  Starts a file rename operation, where:\n
+    *            1) If the file to be renamed does not exist in the user's storage
+    *               pool, notify them that the rename operation cannot proceed.\n
+    *            2) If a file with the same name of the one the user wants to rename
+    *               the file to exists in their storage pool, send them its
+    *               information, implying that the rename operation cannot proceed.\n
+    *            3) If the file to be renamed exists and a file with its new name does not,
+    *               rename the file and notify the client the success of the rename operation.\n
+    *         The session manager state is reset regardless of the outcome.
+    * @throws ERR_SESS_MALFORMED_MESSAGE   The old or new file name is not a valid Linux
+    *                                      file name or the two file names coincide
+    * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be renamed or the one with its
+    *                                      new name was found to be a directory (!)
+    * @throws ERR_SESS_INTERNAL_ERROR      Failed to rename the file from its old to its new name
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void srvRenameStart();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

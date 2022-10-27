@@ -10,30 +10,36 @@
 enum SessMsgType : uint8_t
  {
   /* ---------------------- Payload Session Message Types ---------------------- */
+
+  /* ---- Operation-Starting Payload Session Message Types ---- */
   FILE_UPLOAD_REQ,    // File upload request                      (Client -> Server)
   FILE_DOWNLOAD_REQ,  // File download request                    (Client -> Server)
   FILE_DELETE_REQ,    // File delete request                      (Client -> Server)
   FILE_RENAME_REQ,    // File rename request                      (Client -> Server)
+
+  /* ---------- Other Payload Session Message Types ---------- */
   FILE_EXISTS,        // A file with such name already exists     (Client <- Server)
   POOL_SIZE,          // Client storage pool information raw size (Client <- Server)
 
-  /* -------------- Signaling Session Message Types (No Payload) -------------- */
 
-  /* ---- Non-error Signaling Session Messages ---- */
+  /* -------------- Signaling Session Message Types (no payload) -------------- */
+
+  /* --- Operation-Starting Signaling Session Message Types --- */
   FILE_LIST_REQ,       // Storage pool contents list request       (Client -> Server)
+
+  /* ---- Other Non-error Signaling Session Message Types ---- */
   FILE_NOT_EXISTS,     // A file with such name does not exist     (Client <- Server)
-  NEW_FILENAME_EXISTS, // A file with the new name already exists  (Client <- Server)
   CONFIRM,             // Session operation confirmation           (Client -> Server)
   CANCEL,              // Session operation cancellation           (Client -> Server)
   COMPLETED,           // Session operation completion             (Client <-> Server)
   BYE,                 // Peer graceful disconnection              (Client <-> Server)
 
-  /* ------ Error Signaling Session Messages ------ */
+  /* --------- Error Signaling Session Message Types --------- */
 
   /*
-   * These messages, that can be sent by both parties,
-   * cause upon reception the current session command
-   * to be aborted and the session state to be reset
+   * Error signaling session message types can be sent by both parties
+   * in any operation and state, and cause upon reception the current
+   * operation to be aborted and the session state to be reset
    */
 
   // An internal error has occurred on the peer
@@ -86,7 +92,18 @@ struct __attribute__((packed)) SessMsgFileInfo : public SessMsg
 
 struct __attribute__((packed)) SessMsgFileName : public SessMsg
  {
-  unsigned char fileName[];  // The file name (variable size)
+  unsigned char fileName[];  // The file name, '/0' character included (variable size)
+ };
+
+/* ------------------- 'SessMsgFileRename' Session Message ------------------- */
+
+// Used with type = FILE_RENAME_REQ
+
+struct __attribute__((packed)) SessMsgFileRename : public SessMsg
+ {
+  unsigned char oldFilenameLen;  // The old file name length
+  unsigned char oldFileName;     // The old file name, '/0' character included (placeholder, variable size)
+  unsigned char newFileName;     // The new file name, '/0' character included (placeholder, variable size)
  };
 
 
