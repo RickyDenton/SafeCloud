@@ -609,17 +609,17 @@ void SrvSessMgr::downloadStartCallback()
  * @brief 'DOWNLOAD' operation 'CONFIRM' session message callback, sending the raw contents of
  *        the file to be downloaded and its resulting integrity tag to the client, and setting
  *        the server session manager to expect the client download completion notification
- * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
- * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
- * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
- * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
- * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The plaintext block size is non-positive (probable overflow)
- * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
- * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
- * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
- * @throws ERR_SEND_OVERFLOW             Attempting to send a number of bytes > _priBufSize
- * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
- * @throws ERR_SEND_FAILED               send() fatal error
+ * @throws ERR_FILE_WRITE_FAILED              Error in reading from the main file
+ * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The main file raw contents that were read differ from its size
+ * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+ * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+ * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                    send() fatal error
  */
 void SrvSessMgr::downloadConfSendFileCallback()
  {
@@ -675,12 +675,14 @@ void SrvSessMgr::downloadConfSendFileCallback()
 
   /* ----------------------------- End File Download Loop ----------------------------- */
 
-  // Having sent to the client server a number of bytes different from the
-  // file size is a critical error that in the current session state cannot
-  // be notified to the client and so require their connection to be dropped
+  // Having sent to the client  a number of bytes different from the file
+  // size is a critical error that in the current session state cannot be
+  // notified to the client and so require their connection to be dropped
   if(totBytesSent != _mainFileInfo->meta->fileSizeRaw)
-   THROW_EXEC_EXCP(ERR_FILE_READ_UNEXPECTED_SIZE, "file: " + _mainFileInfo->fileName + "\", " + *_connMgr._name + "\" upload "
-                   "operation aborted", std::to_string(totBytesSent) + " != " + std::to_string(_mainFileInfo->meta->fileSizeRaw));
+   THROW_EXEC_EXCP(ERR_SESSABORT_UNEXPECTED_FILE_SIZE, "file: \"" + _mainFileInfo->fileName + "\", \""
+                                                       + *_connMgr._name + "\" upload operation aborted",
+                                                       std::to_string(totBytesSent) + " != "
+                                                       + std::to_string(_mainFileInfo->meta->fileSizeRaw));
 
   // Finalize the file encryption operation by writing the resulting
   // integrity tag at the start of the primary connection buffer
@@ -689,7 +691,7 @@ void SrvSessMgr::downloadConfSendFileCallback()
   // Send the file integrity tag to the client
   _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
 
-  // Set the server connection manager to expect the client download's completion
+  // Set the server session manager to expect the client download's completion
   _sessMgrOpStep = WAITING_COMPL;
  }
 
@@ -978,15 +980,16 @@ void SrvSessMgr::listStartCallback()
                                            "contents' size = " + std::to_string(_mainDirInfo->dirRawSize)
                                            + ", numFiles = " + std::to_string(_mainDirInfo->numFiles));
 
-  // Compute the serialized size of the user's storage pool
-  serPoolSize = _mainDirInfo->dirRawSize + _mainDirInfo->numFiles;
+  // Compute and write the serialized size of the user's
+  // storage pool in the '_rawBytesRem' attribute
+  _rawBytesRem = _mainDirInfo->dirRawSize + _mainDirInfo->numFiles;
 
   // Prepare and send a 'SessMsgPoolSize' session message of implicit 'POOL_SIZE' type
   // containing the serialized size of the user's storage pool and send it to the client
-  sendSessMsgPoolSize(serPoolSize);
+  sendSessMsgPoolSize();
 
   // If the user's storage pool is empty
-  if(serPoolSize == 0)
+  if(_rawBytesRem == 0)
    {
     // Log that the user requested the contents of its empty storage pool
     LOG_INFO("[" + *_connMgr._name + "] Requested the empty storage pool's contents")
@@ -1009,11 +1012,114 @@ void SrvSessMgr::listStartCallback()
    }
  }
 
-// TODO: Stub implementation
+
+
+
+
+// TODO
 void SrvSessMgr::sendPoolRawContents()
  {
-  std::cout << "in sendPoolRawContents() " << std::endl;
+  /*
+   * The maximum index of the secondary connection buffer at a which a 'PoolFileInfo' struct
+   * can be written before encrypting and sending the partial raw pool contents, which is
+   * obtained by subtracting its size-1 to the maximum size of a 'PoolFileInfo' struct
+   */
+  unsigned int maxSecBufIndWrite = _connMgr._secBufSize - NAME_MAX - 3 * sizeof(signed long) - 3;
+
+  // The serialized information size of a file in the user's storage pool
+  unsigned short serPoolFileSize;
+
+  // The index of the first available byte in the secondary
+  // connection buffer at which writing the serialized pool contents
+  unsigned int secBufInd = 0;
+
+  // The total serialized pool contents sent to the client
+  size_t totBytesSent = 0;
+
+  // Initialize the pool raw contents' encryption operation
+  _aesGCMMgr.encryptInit();
+
+  // For each file in the user's storage pool
+  for(const auto& poolFile : _mainDirInfo->dirFiles)
+   {
+    // -- FLUSH
+    if(secBufInd >= maxSecBufIndWrite)
+     {
+      // Encrypt the pool's raw contents from the secondary into the primary connection buffer
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
+
+      // Send the encrypted pool's raw contents to the client
+      _connMgr.sendRaw(secBufInd);
+
+      // Update the total number of bytes sent to the client
+      totBytesSent += secBufInd;
+
+      // Reset the index of the first available
+      // byte in the secondary connection buffer
+      secBufInd = 0;
+     }
+
+    // Interpret the index of the first available byte in the
+    // secondary connection buffer as a 'PoolFileInfo' struct
+    PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
+
+    /*
+    std::cout << "poolFile = " << poolFile << std::endl;
+    poolFile->printFileInfo();
+    std::cout << "poolFile.FileNamelength() = " << poolFile->fileName.length() << std::endl;
+    */
+
+    // Serialize the file information from the 'FileInfo' into the 'PoolFileInfo' struct
+    serPoolFile->filenameLen = poolFile->fileName.length();
+    serPoolFile->fileSizeRaw = poolFile->meta->fileSizeRaw;
+    serPoolFile->lastModTimeRaw = poolFile->meta->lastModTimeRaw;
+    serPoolFile->creationTimeRaw = poolFile->meta->creationTimeRaw;
+    memcpy(reinterpret_cast<char*>(serPoolFile->filename), poolFile->fileName.c_str(), poolFile->fileName.length());
+
+    // Compute the serialized file information size
+    serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFile->fileName.length();
+
+    // Update the index of the first available byte in the secondary connection buffer
+    secBufInd += serPoolFileSize;
+   }
+
+  // -- LAST flush
+  if(secBufInd > 0)
+   {
+    // Encrypt the pool's raw contents from the secondary into the primary connection buffer
+    _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
+
+    // Send the encrypted pool's raw contents to the client
+    _connMgr.sendRaw(secBufInd);
+
+    // Update the total number of bytes sent to the client
+    totBytesSent += secBufInd;
+   }
+
+  // Having sent to the client a number of bytes different from the serialized
+  // pool size is a critical error that in the current session state cannot
+  // be notified to the client and so require their connection to be dropped
+  if(totBytesSent != _rawBytesRem)
+   THROW_EXEC_EXCP(ERR_SESSABORT_UNEXPECTED_POOL_SIZE, "\"" + *_connMgr._name + "\" LIST operation"
+                                                       " aborted", std::to_string(totBytesSent) +
+                                                       " != " + std::to_string(_rawBytesRem));
+
+  // Finalize the pool raw contents' encryption operation by writing the
+  // resulting integrity tag at the start of the primary connection buffer
+  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
+
+  // Send the pool raw contents' integrity tag to the client
+  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
+
+  // Set the server session manager to expect the
+  // client pool contents' reception completion
+  _sessMgrOpStep = WAITING_COMPL;
+
+  std::cout << "sendPoolRawContents() END!" << std::endl;
  }
+
+
+
 
 
 /**

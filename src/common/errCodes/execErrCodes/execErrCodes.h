@@ -61,6 +61,7 @@ enum execErrCode : unsigned char
   ERR_SRV_PSELECT_FAILED,
 
   // Connection-aborting Session Errors
+  ERR_SESSABORT_UNEXPECTED_POOL_SIZE,
   ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE,
 
 
@@ -128,7 +129,6 @@ enum execErrCode : unsigned char
 
   ERR_FILE_OPEN_FAILED,
   ERR_FILE_READ_FAILED,
-  ERR_FILE_READ_UNEXPECTED_SIZE,
   ERR_FILE_WRITE_FAILED,
   ERR_FILE_DELETE_FAILED,
   ERR_FILE_TOO_LARGE,
@@ -213,6 +213,7 @@ enum execErrCode : unsigned char
   ERR_NON_POSITIVE_BUFFER_SIZE,
 
   // Connection-aborting Session Errors
+  ERR_SESSABORT_UNEXPECTED_FILE_SIZE,
   ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE,
 
   // Unknown execution error
@@ -270,6 +271,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_SRV_PSELECT_FAILED,                     {FATAL,    "Server pselect() failed"} },
 
     // Connection-aborting Session Errors
+    {ERR_SESSABORT_UNEXPECTED_POOL_SIZE,         {CRITICAL, "The serialized pool raw contents that were sent differ from their expected size"} },
     {ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "The client reported to have received a session message of unknown type"} },
 
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
@@ -336,7 +338,6 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
 
     {ERR_FILE_OPEN_FAILED,          {CRITICAL, "The file was not found"} },
     {ERR_FILE_READ_FAILED,          {CRITICAL, "Error in reading from the file"} },
-    {ERR_FILE_READ_UNEXPECTED_SIZE, {CRITICAL, "The file raw contents that were read differ from its size"} },
     {ERR_FILE_WRITE_FAILED,         {CRITICAL, "Error in writing to the file"} },
     {ERR_FILE_DELETE_FAILED,        {CRITICAL, "Error in deleting the file"} },
     {ERR_FILE_TOO_LARGE,            {CRITICAL, "The file is too large"} },
@@ -418,6 +419,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_NON_POSITIVE_BUFFER_SIZE,       {FATAL,    "A non-positive buffer size was passed (probable overflow)"} },
 
     // Connection-aborting Session Errors
+    {ERR_SESSABORT_UNEXPECTED_FILE_SIZE, {CRITICAL, "The file raw contents that were read differ from its expected size"} },
     {ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "A session message of unknown type has been received"} },
 
     // Unknown execution error

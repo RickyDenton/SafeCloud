@@ -595,10 +595,10 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
 
 
 /**
- * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgPoolSize' session
- *         message of implicit type 'POOL_SIZE' containing the serialized size of the user's storage pool,
- *         for then wrapping and sending the resulting session message wrapper to the connection peer
- * @param  serPoolSize The serialized size of the user's storage pool
+ * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgPoolSize'
+ *         session message of implicit type 'POOL_SIZE' containing the serialized size of
+ *         the user's storage pool store in the '_rawBytesRem' attribute, for then wrapping
+ *         and sending the resulting session message wrapper to the connection peer
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -608,7 +608,7 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
  * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED              send() fatal error
  */
-void SessMgr::sendSessMsgPoolSize(unsigned int serPoolSize)
+void SessMgr::sendSessMsgPoolSize()
  {
   // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgPoolSize' session message
   SessMsgPoolSize* sessMsgPoolSizeMsg = reinterpret_cast<SessMsgPoolSize*>(_connMgr._secBuf);
@@ -619,8 +619,9 @@ void SessMgr::sendSessMsgPoolSize(unsigned int serPoolSize)
   // Set the 'SessMsgPoolSize' message length
   sessMsgPoolSizeMsg->msgLen = sizeof(SessMsgPoolSize);
 
-  // Set the serialized size of the user's storage pool into the 'SessMsgPoolSize' message
-  sessMsgPoolSizeMsg->serPoolSize = serPoolSize;
+  // Set the serialized size of the user's storage pool into the
+  // 'SessMsgPoolSize' message to the value of the '_rawBytesRem' attribute
+  sessMsgPoolSizeMsg->serPoolSize = _rawBytesRem;
 
   // Wrap the 'SessMsgPoolSize' message into its associated
   // session message wrapper and send it to the connection peer

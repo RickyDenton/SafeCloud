@@ -308,10 +308,10 @@ class SessMgr
    void sendSessMsgFileRename(std::string& oldFilename, std::string& newFilename);
 
    /**
-    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgPoolSize' session
-    *         message of implicit type 'POOL_SIZE' containing the serialized size of the user's storage pool,
-    *         for then wrapping and sending the resulting session message wrapper to the connection peer
-    * @param  serPoolSize The serialized size of the user's storage pool
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgPoolSize'
+    *         session message of implicit type 'POOL_SIZE' containing the serialized size of
+    *         the user's storage pool store in the '_rawBytesRem' attribute, for then wrapping
+    *         and sending the resulting session message wrapper to the connection peer
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -321,7 +321,7 @@ class SessMgr
     * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
     * @throws ERR_SEND_FAILED              send() fatal error
     */
-   void sendSessMsgPoolSize(unsigned int serPoolSize);
+   void sendSessMsgPoolSize();
 
    /* ------------------------- Session Messages Reception ------------------------- */
 

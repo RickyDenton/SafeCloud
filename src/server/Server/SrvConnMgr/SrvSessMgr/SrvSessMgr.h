@@ -171,17 +171,17 @@ class SrvSessMgr : public SessMgr
     * @brief 'DOWNLOAD' operation 'CONFIRM' session message callback, sending the raw contents of
     *        the file to be downloaded and its resulting integrity tag to the client, and setting
     *        the server session manager to expect the client download completion notification
-    * @throws ERR_FILE_WRITE_FAILED         Error in reading from the main file
-    * @throws ERR_FILE_READ_UNEXPECTED_SIZE The main file raw contents that were read differ from its size
-    * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The plaintext block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE   EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL    EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED       Error in retrieving the resulting integrity tag
-    * @throws ERR_SEND_OVERFLOW             Attempting to send a number of bytes > _priBufSize
-    * @throws ERR_PEER_DISCONNECTED         The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED               send() fatal error
+    * @throws ERR_FILE_WRITE_FAILED              Error in reading from the main file
+    * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The main file raw contents that were read differ from its size
+    * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                    send() fatal error
     */
    void downloadConfSendFileCallback();
 
