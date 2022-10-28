@@ -58,16 +58,22 @@ void validateFileName(std::string& fileName)
  {
   // A file name cannot be null
   if(fileName.empty())
-   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME,fileName,"empty file name");
+
+  // A file name cannot exceed the Linux-defined maximum file name length
+  if(fileName.length() > NAME_MAX)
+   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME,fileName,"filename of length "
+                                                      + std::to_string(fileName.length())
+                                                      + " > NAME_MAX = " + std::to_string((NAME_MAX)));
 
   // A file name cannot consist of the current or the parent's directory
   if(fileName == "." || fileName == "..")
-   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+   THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME,fileName,"Current or parent directory referencing");
 
   // A file name cannot contain '/' or '\0' characters
   for(auto& ch : fileName)
    if(ch == '/' || ch == '\0')
-    THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME);
+    THROW_SESS_EXCP(ERR_SESS_FILE_INVALID_NAME,fileName,"invalid '/' or '\\0' characters");
  }
 
 

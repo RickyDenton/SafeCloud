@@ -1126,7 +1126,151 @@ void CliSessMgr::moveToBeginning(unsigned int secBufInd)
   _connMgr._priBufInd = 0;
  }
 
+
 // TODO
+//void CliSessMgr::recvPoolRawContents()
+// {
+//  // The number of raw pool contents bytes read from the
+//  // connection socket into the primary connection buffer
+//  size_t recvBytes;
+//
+//  // Leftovers buffer
+//  //char leftovers[1 + 3 + sizeof(signed long) + NAME_MAX];
+//  //unsigned short leftoversInd = 0;
+//  unsigned short leftOversSize = 0;
+//
+//  /*
+//   * The maximum index of the secondary connection buffer at a which a 'PoolFileInfo' struct can be
+//   * read before saving any leftover received bytes into the 'leftovers' buffer, which is obtained
+//   * by subtracting to the secondary connection buffer size the minimum size of a 'PoolFileInfo' struct
+//   */
+//  unsigned int maxSecBufIndRead = _connMgr._secBufSize - (1 + 3 * sizeof(signed long) + 1);
+//
+//  // The serialized information size of a file in the user's storage pool
+//  unsigned short serPoolFileSize;
+//
+//  // The index of the first available byte in the secondary
+//  // connection buffer at which reading the serialized pool contents
+//  unsigned int secBufInd = 0;
+//
+//  // The expected serial pool contents' size to be received
+//  size_t expectedBytesRecv = _rawBytesRem;
+//
+//  // Pool Contents initialization
+//  _mainDirInfo = new DirInfo();
+//
+//  // Information on a file in the pool
+//  FileInfo* fileInfo;
+//
+//  /* --- Raw recv() Initializations -- */
+//  // Update the session manager step so to expect raw data
+//  _sessMgrOpStep = WAITING_RAW;
+//
+//  // Set the reception mode of the associated connection manager to 'RECV_RAW'
+//  _connMgr._recvMode = ConnMgr::RECV_RAW;
+//
+//  // Set the associated connection manager's expected data
+//  // block size to the serialized pool contents' size
+//  _connMgr._recvBlockSize = _rawBytesRem;
+//
+//  // Initialize the pool raw contents' decryption operation
+//  _aesGCMMgr.decryptInit();
+//  /* --- Raw recv() Initializations -- */
+//
+//  do
+//   {
+//    // Set the index of the first available byte in the primary connection
+//    // buffer considering any leftovers bytes from the previous read
+//    _connMgr._priBufInd = leftOversSize;
+//
+//    // Receive any number of raw file bytes
+//    recvBytes = _connMgr.recvRaw();
+//
+//    // Decrypted the received file raw bytes from the primary into the secondary
+//    // connection buffer starting at the leftovers first available byte
+//    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[leftOversSize], (int)recvBytes, &_connMgr._secBuf[leftOversSize]);
+//
+//    // Update the number of remaining bytes of the pool's raw contents
+//    _rawBytesRem -= recvBytes;
+//
+//    do
+//     {
+//      // Minimum condition for a 'PoolFileInfo' struct to be available in the secondary connection buffer
+//      if(secBufInd >= maxSecBufIndRead)
+//       {
+//        leftOversSize = _connMgr._priBufInd - secBufInd;
+//
+//        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
+//
+//        _connMgr._recvBlockSize = _rawBytesRem;
+//
+//        _connMgr._priBufInd = leftOversSize;
+//
+//        break;
+//       }
+//
+//      /*
+//       * Interpret the index of the first available byte in the
+//       * secondary connection buffer as a 'PoolFileInfo' struct
+//       *
+//       * NOTE: The interpretation may still buffer overflow (accounted for later)
+//       */
+//      PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
+//
+//      // Compute the serialized file information size
+//      serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + serPoolFile->filenameLen;
+//
+//      // If the full 'PoolFileInfo' struct is not available in the secondary connection buffer
+//      if(secBufInd + serPoolFileSize > _connMgr._secBufSize -1)
+//       {
+//        leftOversSize = _connMgr._priBufInd - secBufInd;
+//
+//        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
+//
+//        _connMgr._recvBlockSize = _rawBytesRem;
+//
+//        _connMgr._priBufInd = leftOversSize;
+//
+//        break;
+//       }
+//
+//      std::string fileName(reinterpret_cast<char*>(serPoolFile->filename),serPoolFile->filenameLen);
+//      fileInfo = new FileInfo(fileName,serPoolFile->fileSizeRaw,serPoolFile->lastModTimeRaw,serPoolFile->creationTimeRaw);
+//      _mainDirInfo->addFileInfo(fileInfo);
+//
+//      secBufInd += serPoolFileSize;
+//
+//     } while(secBufInd != _connMgr._priBufInd);
+//
+//    leftOversSize = 0;
+//
+//   } while(_rawBytesRem > 0);
+//
+//
+//   std::cout << "in recvPoolRawContents()" << std::endl;
+//
+//   _mainDirInfo->printDirContents();
+//   std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
+//   std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
+//
+//  /* ------------------------ File Integrity Tag Verification ------------------------ */
+//
+//  _connMgr._priBufInd = 0;
+//
+//  // Block until the complete file integrity TAG has been received
+//  while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
+//   _connMgr.recvRaw();
+//
+//  // Finalize the upload decryption by verifying the file's integrity tag
+//  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
+//
+//
+//  // Notify the server that the storage pool's
+//  // contents were successfully received
+//  sendSessSignalMsg(COMPLETED);
+// }
+
+
 void CliSessMgr::recvPoolRawContents()
  {
   // The number of raw pool contents bytes read from the
@@ -1192,20 +1336,22 @@ void CliSessMgr::recvPoolRawContents()
     // Update the number of remaining bytes of the pool's raw contents
     _rawBytesRem -= recvBytes;
 
+    // Update the remaining expected size to be received
+    _connMgr._recvBlockSize = _rawBytesRem;
+
+    std:: cout << "_rawBytesRem = " << _rawBytesRem << std::endl;
+
+
+    int iter = 0;
+
     do
      {
-      // Minimum condition for a 'PoolFileInfo' struct to be available in the secondary connection buffer
-      if(secBufInd >= maxSecBufIndRead)
+//      std:: cout << "iter = " << ++iter << std::endl;
+//      std:: cout << "secBufInd = " << secBufInd << std::endl;
+
+      if(secBufInd == 65475)
        {
-        leftOversSize = _connMgr._priBufInd - secBufInd;
-
-        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
-
-        _connMgr._recvBlockSize = _rawBytesRem;
-
-        _connMgr._priBufInd = leftOversSize;
-
-        break;
+        std::cout << "here" << std::endl;
        }
 
       /*
@@ -1216,22 +1362,18 @@ void CliSessMgr::recvPoolRawContents()
        */
       PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
 
-      // Compute the serialized file information size
+      // Compute the candidate serialized file information size
       serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + serPoolFile->filenameLen;
 
-      // If the full 'PoolFileInfo' struct is not available in the secondary connection buffer
-      if(secBufInd + serPoolFileSize > _connMgr._secBufSize -1)
-       {
-        leftOversSize = _connMgr._priBufInd - secBufInd;
+      // A new 'PoolFileInfo' can be read if:
+      //  1) There is at the minimum space for a 'PoolFileInfo' struct in the secondary connection buffer
+      //     (otherwise the previously read information are invalid)
+      //  2) The serialized file information size do not overflow the secondary buffer
+      //
+      if(secBufInd > maxSecBufIndRead || secBufInd + serPoolFileSize > _connMgr._priBufInd)
+       break;
 
-        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
-
-        _connMgr._recvBlockSize = _rawBytesRem;
-
-        _connMgr._priBufInd = leftOversSize;
-
-        break;
-       }
+      // There is a full 'PoolFileInfo' available in the secondary connection buffer
 
       std::string fileName(reinterpret_cast<char*>(serPoolFile->filename),serPoolFile->filenameLen);
       fileInfo = new FileInfo(fileName,serPoolFile->fileSizeRaw,serPoolFile->lastModTimeRaw,serPoolFile->creationTimeRaw);
@@ -1241,7 +1383,20 @@ void CliSessMgr::recvPoolRawContents()
 
      } while(secBufInd != _connMgr._priBufInd);
 
-    leftOversSize = 0;
+    leftOversSize = _connMgr._priBufInd - secBufInd;
+    if(leftOversSize > 0)
+     {
+      // TODO: Remove
+      memset(&_connMgr._secBuf[0], 0, 1000);
+
+      // TODO: Attempt
+     // if(_connMgr._priBufInd > _connMgr._recvBlockSize)
+       _connMgr._recvBlockSize += leftOversSize;
+
+      memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
+     }
+
+    secBufInd = 0;
 
    } while(_rawBytesRem > 0);
 
@@ -1255,6 +1410,7 @@ void CliSessMgr::recvPoolRawContents()
   /* ------------------------ File Integrity Tag Verification ------------------------ */
 
   _connMgr._priBufInd = 0;
+  _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
 
   // Block until the complete file integrity TAG has been received
   while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
@@ -1268,6 +1424,8 @@ void CliSessMgr::recvPoolRawContents()
   // contents were successfully received
   sendSessSignalMsg(COMPLETED);
  }
+
+
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
