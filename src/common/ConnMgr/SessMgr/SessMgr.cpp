@@ -571,7 +571,7 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
   // secondary buffer as a 'SessMsgFileRename' session message
   SessMsgFileRename* sessMsgFileRenameMsg = reinterpret_cast<SessMsgFileRename*>(_connMgr._secBuf);
 
-  // Set the 'SessMsgFileRename' message type to 'FILE_RENAME_REQUEST'
+  // Set the 'SessMsgFileRename' message type to the implicit 'FILE_RENAME_REQUEST'
   sessMsgFileRenameMsg->msgType = FILE_RENAME_REQ;
 
   // Set the old filename length, '/0' character included, in the 'SessMsgFileRename' message
@@ -589,6 +589,40 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
   sessMsgFileRenameMsg->msgLen = sizeof(SessMsgFileRename) + oldFilename.length() + newFilename.length();
 
   // Wrap the 'SessMsgFileRename' message into its associated
+  // session message wrapper and send it to the connection peer
+  wrapSendSessMsg();
+ }
+
+
+/**
+ * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgPoolSize' session
+ *         message of implicit type 'POOL_SIZE' containing the serialized size of the user's storage pool,
+ *         for then wrapping and sending the resulting session message wrapper to the connection peer
+ * @param  serPoolSize The serialized size of the user's storage pool
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SessMgr::sendSessMsgPoolSize(unsigned int serPoolSize)
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgPoolSize' session message
+  SessMsgPoolSize* sessMsgPoolSizeMsg = reinterpret_cast<SessMsgPoolSize*>(_connMgr._secBuf);
+
+  // Set the 'SessMsgPoolSize' message type to the implicit 'POOL_SIZE'
+  sessMsgPoolSizeMsg->msgType = POOL_SIZE;
+
+  // Set the 'SessMsgPoolSize' message length
+  sessMsgPoolSizeMsg->msgLen = sizeof(SessMsgPoolSize);
+
+  // Set the serialized size of the user's storage pool into the 'SessMsgPoolSize' message
+  sessMsgPoolSizeMsg->serPoolSize = serPoolSize;
+
+  // Wrap the 'SessMsgPoolSize' message into its associated
   // session message wrapper and send it to the connection peer
   wrapSendSessMsg();
  }
@@ -692,6 +726,20 @@ void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string**
     sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
     THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Same old and new file names in the 'SessMsgFileRename' message");
    }
+ }
+
+
+/**
+ * @brief Reads the serialized size of a user's storage pool from a
+ *        'SessMsgPoolSize' session  message into the '_rawBytesRem' attribute
+ */
+void SessMgr::loadSessMsgPoolSize()
+ {
+  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgPoolSize' session message
+  SessMsgPoolSize* sessMsgPoolSizeMsg = reinterpret_cast<SessMsgPoolSize*>(_connMgr._secBuf);
+
+  // Copy the serialized contents' size of the user's storage pool into the '_rawBytesRem' attribute
+  _rawBytesRem = sessMsgPoolSizeMsg->serPoolSize;
  }
 
 

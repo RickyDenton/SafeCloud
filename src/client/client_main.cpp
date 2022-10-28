@@ -249,6 +249,23 @@ int main(int argc, char** argv)
 
   dirInf.printDirContents();
 
+  std::cout << "dirInf.numFiles = " << dirInf.numFiles << std::endl;
+
+  std::cout << "dirInf.dirRawSize = " << dirInf.dirRawSize << std::endl;
+
+
+  std::string extrFileName("EXTRANEOUS.txt");
+  FileInfo* extrFile = new FileInfo(extrFileName,100000,300000,200000);
+  dirInf.addFileInfo(extrFile);
+
+
+  dirInf.printDirContents();
+
+  std::cout << "dirInf.numFiles = " << dirInf.numFiles << std::endl;
+
+  std::cout << "dirInf.dirRawSize = " << dirInf.dirRawSize << std::endl;
+
+
   /* -------------------------------- TRIES -------------------------------- */
 
 

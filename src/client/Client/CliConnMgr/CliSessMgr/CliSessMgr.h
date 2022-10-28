@@ -17,7 +17,7 @@ class CliSessMgr : public SessMgr
 
    /* ================================= ATTRIBUTES ================================= */
 
-   /* Same of the base 'SessMgr' class */
+   /* Same of the 'SessMgr' base class */
 
    /* ============================== PRIVATE METHODS ============================== */
 
@@ -267,6 +267,11 @@ class CliSessMgr : public SessMgr
     */
    void parseRenameResponse(std::string& oldFileName, std::string& newFileName);
 
+   /* ------------------------------- 'LIST' Operation Methods ------------------------------- */
+
+   // TODO: Stub Implementation
+   void recvPoolRawContents();
+
   public:
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -327,7 +332,7 @@ class CliSessMgr : public SessMgr
    void renameFile(std::string& oldFilename, std::string& newFilename);
 
    // TODO: STUB
-   void listRemoteFiles();
+   void listPoolFiles();
 
    /**
     * @brief  Sends the 'BYE session signaling message to the

@@ -575,12 +575,12 @@ void Client::printCmdHelp()
  {
   std::cout << "\nAvailable Commands" << std::endl;
   std::cout << "------------------" << std::endl;
-  std::cout << "UP   filename                  - Uploads a file to the SafeCloud storage (< 4GB)" << std::endl;
-  std::cout << "DOWN filename                  - Downloads a file from the SafeCloud storage into the download directory" << std::endl;
-  std::cout << "DEL  filename                  - Deletes a file from the SafeCloud storage" << std::endl;
-  std::cout << "REN  old_filename new_filename - Renames a file within the SafeCloud storage" << std::endl;
-  std::cout << "LIST storage                   - List the files within the Safecloud storage" << std::endl;
-  std::cout << "LIST local                     - List the files in the local download directory" << std::endl;
+  std::cout << "UP   filename                  - Uploads a file to your SafeCloud storage pool (< 4GB)" << std::endl;
+  std::cout << "DOWN filename                  - Downloads a file from your SafeCloud storage pool into the download directory" << std::endl;
+  std::cout << "DEL  filename                  - Deletes a file from your SafeCloud storage pool" << std::endl;
+  std::cout << "REN  old_filename new_filename - Renames a file within your SafeCloud storage pool" << std::endl;
+  std::cout << "LIST pool                      - List the files within your Safecloud storage pool" << std::endl;
+  std::cout << "LIST local                     - List the files within your local download directory" << std::endl;
   std::cout << "HELP                           - Prints this list of available commands" << std::endl;
   std::cout << "LOGOUT/EXIT/QUIT/BYE           - Closes the application\n" << std::endl;
  }
@@ -664,25 +664,25 @@ void Client::parseUserCmd2(std::string& cmd, std::string& arg1)
     return;
    }
 
-  // LIST command (local or remote)
+  // LIST command (local or pool)
   if(cmd == "LIST")
    {
     // Convert the LIST argument to lower case
     transform(arg1.begin(), arg1.end(), arg1.begin(), ::tolower);
 
     // LIST local
-    if(arg1 == "local" || arg1 == "download")
+    if(arg1 == "local" || arg1 == "down"|| arg1 == "download")
 
      // List the files in the user's download directory
      listDownloadDir();
 
     else
 
-     // LIST remote
-     if(arg1 == "storage" || arg1 == "remote")
+     // LIST pool
+     if(arg1 == "pool" || arg1 == "remote" || arg1 == "storage")
       {
        // List the files in the SafeCloud storage pool
-       _cliConnMgr->getSession()->listRemoteFiles();
+       _cliConnMgr->getSession()->listPoolFiles();
 
        // Reset the client session manager state
        _cliConnMgr->getSession()->resetSessState();

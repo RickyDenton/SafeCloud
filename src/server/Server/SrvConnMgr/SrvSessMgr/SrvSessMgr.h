@@ -16,7 +16,7 @@ class SrvSessMgr : public SessMgr
 
    /* ================================= ATTRIBUTES ================================= */
 
-   /* Same of the base 'SessMgr' class */
+   /* Same of the 'SessMgr' base class */
 
    /* ============================== PRIVATE METHODS ============================== */
 
@@ -215,8 +215,8 @@ class SrvSessMgr : public SessMgr
    void deleteStartCallback();
 
    /**
-    * @brief  'DELETE' operation 'CONFIRM' session message callback, attempting to delete the
-    *         main file, notify the client of its deletion and resetting the server session state
+    * @brief  'DELETE' operation 'CONFIRM' session message callback, deleting the main file,
+    *         notifying the client of its deletion and resetting the server session manager state
     * @throws ERR_SESS_INTERNAL_ERROR      Failed to delete the main file
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -259,10 +259,16 @@ class SrvSessMgr : public SessMgr
 
    /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
 
-   // TODO: Stub implementation
+   // TODO
    void listStartCallback();
 
    // TODO: Stub implementation
+   void sendPoolRawContents();
+
+   /**
+    * @brief  'LIST' operation 'COMPLETED' session message callback, logging the success
+    *         of the 'LIST' operation and resetting the server session manager state
+    */
    void listComplCallback();
 
   public:

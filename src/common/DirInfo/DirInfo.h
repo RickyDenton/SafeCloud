@@ -20,16 +20,35 @@ class DirInfo
   public:
 
    /* ================================= ATTRIBUTES ================================= */
-   std::string* dirPath;                   // The directory's absolute path
-   std::forward_list<FileInfo*> dirFiles;  // The list of files (names + metadata) within the directory
+
+   // The directory's absolute path
+   std::string* dirPath;
+
+   // The list of information (names + metadata) of files in the directory
+   std::forward_list<FileInfo*> dirFiles;
+
+   // The directory contents' raw size, consisting in the sum of its files names' lengths
+   // ('\0' excluded) and their metadata (excluding the directory's absolute path)
+   unsigned int dirRawSize;
+
+   // The number of files in the directory
+   unsigned int numFiles;
 
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
-    * @brief  DirInfo object constructor, creating a snapshot of the files (names + metadata) within a directory
+    * @brief DirInfo empty constructor, creating an
+    *        empty object of implicit directory path
+    */
+   DirInfo();
+
+   /**
+    * @brief  DirInfo absolute path constructor, creating a snapshot
+    *         of the files (names + metadata) in a directory
     * @param  dirAbspath The absolute path of the directory to create the snapshot of
-    * @throws ERR_DIR_OPEN_FAILED       The target directory was not found
-    * @throws ERR_SESS_FILE_READ_FAILED Error in reading a file's metadata
+    * @throws ERR_DIR_OPEN_FAILED        The target directory was not found
+    * @throws ERR_SESS_FILE_READ_FAILED  Error in reading a file's metadata
+    * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
     */
    explicit DirInfo(std::string* dirAbspath);
 
@@ -41,10 +60,11 @@ class DirInfo
    /* ============================ OTHER PUBLIC METHODS ============================ */
 
    /**
-    * @brief  Returns the number of files in the directory
-    * @return The number of files in the directory
+    * @brief  Adds a file with its information in the directory
+    * @param  fileInfo The information on the file to be added to the directory
+    * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
     */
-   unsigned int numFiles();
+   void addFileInfo(FileInfo* fileInfo);
 
    /**
     * @brief  Prints the indented name and metadata of all files in the directory, if any

@@ -1112,6 +1112,19 @@ void CliSessMgr::parseRenameResponse(std::string& oldFileName, std::string& newF
  }
 
 
+/* ------------------------------- 'LIST' Operation Methods ------------------------------- */
+
+// TODO: Stub Implementation
+void CliSessMgr::recvPoolRawContents()
+ {
+   std::cout << "in recvPoolRawContents()" << std::endl;
+
+  // Notify the server that the storage pool's
+  // contents were successfully received
+  sendSessSignalMsg(COMPLETED);
+ }
+
+
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
 /**
@@ -1357,13 +1370,53 @@ void CliSessMgr::renameFile(std::string& oldFilename, std::string& newFilename)
  }
 
 
-
-// TODO: Placeholder implementation
-void CliSessMgr::listRemoteFiles()
+// TODO
+void CliSessMgr::listPoolFiles()
  {
-  std::cout << "In listRemoteFiles()" << std::endl;
- }
+  // Initialize the client session manager operation
+  _sessMgrOp = LIST;
 
+  // Send a 'FILE_LIST_REQ' signaling
+  // message to the SafeCloud server
+  sendCliSessSignalMsg(FILE_LIST_REQ);
+
+  LOG_DEBUG("Sent 'FILE_LIST_REQ' message to the server")
+
+  // Update the operation step so to expect a 'FILE_LIST_REQ' response
+  _sessMgrOpStep = WAITING_RESP;
+
+  // Block until the 'FILE_LIST_REQ' response is received from the SafeCloud server
+  recvCheckCliSessMsg();
+
+  // Ensure that a 'SessMsgPoolSize' session message
+  // of implicit 'POOL_SIZE' type was received
+  if(_recvSessMsgType != POOL_SIZE)
+   sendCliSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"Received a session message of type" +
+                                                    std::to_string(_recvSessMsgType) +
+                                                    " while awaiting for the server's 'FILE_LIST_REQ' response");
+
+  // Read the serialized size of the user's storage pool from
+  // the 'SessMsgPoolSize' into the '_rawBytesRem' attribute
+  loadSessMsgPoolSize();
+
+  // If the user's storage pool is empty, inform them and return
+  if(_rawBytesRem == 0)
+   {
+    std::cout << "\nYour storage pool is empty\n" << std::endl;
+    return;
+   }
+
+  // TODO: from here
+  // Otherwise, if the user's storage pool is NOT empty
+  else
+   {
+    // Receive the serialized contents of the user's storage pool
+    recvPoolRawContents();
+
+    // Display the storage pool's contents
+    //_mainDirInfo->printDirContents();
+   }
+ }
 
 
 /**

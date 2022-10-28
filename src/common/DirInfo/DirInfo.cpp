@@ -2,19 +2,40 @@
 
 /* ================================== INCLUDES ================================== */
 #include "DirInfo.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
 /**
- * @brief  DirInfo object constructor, creating a snapshot of the files (names + metadata) within a directory
- * @param  dirAbspath The absolute path of the directory to create the snapshot of
- * @throws ERR_DIR_OPEN_FAILED       The target directory was not found
- * @throws ERR_SESS_FILE_READ_FAILED Error in reading a file's metadata
+ * @brief DirInfo empty constructor, creating an
+ *        empty object of implicit directory path
  */
-DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
+DirInfo::DirInfo()
+ : dirPath(new std::string("(NO_PATH)")), dirFiles(), dirRawSize(0), numFiles(0)
+ {}
+
+/**
+ * @brief  DirInfo absolute path constructor, creating a snapshot
+ *         of the files (names + metadata) in a directory
+ * @param  dirAbspath The absolute path of the directory to create the snapshot of
+ * @throws ERR_DIR_OPEN_FAILED        The target directory was not found
+ * @throws ERR_SESS_FILE_READ_FAILED  Error in reading a file's metadata
+ * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
+ */
+DirInfo::DirInfo(std::string* dirAbspath)
+ : dirPath(dirAbspath), dirFiles(), dirRawSize(0), numFiles(0)
  {
-  DIR*           dir;           // Target directory file descriptor
-  struct dirent* dirFile;       // Information on a file in the target directory
+  // The file descriptor used for reading the target directory
+  DIR*           dir;
+
+  // Information on a file in the target directory as returned by the "dirent.h" library
+  struct dirent* dirFile;
+
+  // Information on a file (name + metadata) in the target directory
+  FileInfo*      fileInfo;
+
+  // The raw size of information of a file in the target directory
+  unsigned short fileInfoRawSize;
 
   // Convert the directory path to a C string
   const char* dirPathC = dirPath->c_str();
@@ -32,8 +53,25 @@ DirInfo::DirInfo(std::string* dirAbspath) : dirPath(dirAbspath), dirFiles()
       if(!strcmp(dirFile->d_name, ".") || !strcmp(dirFile->d_name, "..") || dirFile->d_type == DT_DIR)
        continue;
 
-      // Store the file's name and metadata in a FileInfo object
-      dirFiles.emplace_front(new FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name)));
+      // Initialize the information on the file in the target directory
+      fileInfo = new FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name));
+
+      // Compute the file information's raw size (name length, '\0' excluded, + metadata)
+      fileInfoRawSize = strlen(dirFile->d_name) + 3 * sizeof(long int);
+
+      // Ensure that adding the file information's raw size to the
+      // directory contents' raw size would not overflow an unsigned integer
+      if(dirRawSize > UINT_MAX - fileInfoRawSize)
+       THROW_SESS_EXCP(ERR_SESS_DIR_SIZE_OVERFLOW,*dirAbspath);
+
+      // Add the file's information to the list of directory's files information
+      dirFiles.emplace_front(fileInfo);
+
+      // Update the directory contents' raw size
+      dirRawSize += fileInfoRawSize;
+
+      // Increment the number of files in the directory
+      numFiles++;
      }
 
     // Close the target directory
@@ -56,11 +94,29 @@ DirInfo::~DirInfo()
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief  Returns the number of files in the directory
- * @return The number of files in the directory
+ * @brief  Adds a file with its information in the directory
+ * @param  fileInfo The information on the file to be added to the directory
+ * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
  */
-unsigned int DirInfo::numFiles()
- { return std::distance(dirFiles.begin(), dirFiles.end()); }
+void DirInfo::addFileInfo(FileInfo* fileInfo)
+ {
+  // Compute the file information's raw size (name length, '\0' excluded, + metadata)
+  unsigned short fileInfoRawSize = fileInfo->fileName.length() + 3 * sizeof(long int);
+
+  // Ensure that adding the file information's raw size to the
+  // directory contents' raw size would not overflow an unsigned integer
+  if(dirRawSize > UINT_MAX - fileInfoRawSize)
+   THROW_SESS_EXCP(ERR_SESS_DIR_SIZE_OVERFLOW,*dirPath);
+
+  // Add the file's information to the list of directory's files information
+  dirFiles.emplace_front(fileInfo);
+
+  // Update the directory contents' raw size
+  dirRawSize += fileInfoRawSize;
+
+  // Increment the number of files in the directory
+  numFiles++;
+ }
 
 
 /**
@@ -70,7 +126,7 @@ unsigned int DirInfo::numFiles()
 bool DirInfo::printDirContents()
  {
   // If there are no files in the directory, just return
-  if(numFiles() == 0)
+  if(numFiles == 0)
    return false;
 
    // Otherwise, if the directory contains at least 1 file

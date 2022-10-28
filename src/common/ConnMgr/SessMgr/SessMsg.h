@@ -105,5 +105,28 @@ struct __attribute__((packed)) SessMsgFileRename : public SessMsg
   unsigned char newFileName;     // The new file name, '/0' character included (placeholder, variable size)
  };
 
+/* -------------------- 'SessMsgPoolSize' Session Message -------------------- */
+
+// Used with type = POOL_SIZE
+
+struct __attribute__((packed)) SessMsgPoolSize : public SessMsg
+ {
+  unsigned int serPoolSize;  // The serialized contents' size of a user's storage pool
+ };
+
+
+/* ================= OTHER SAFECLOUD SESSION TYPE DEFINITIONS ================= */
+
+// The serialized information on a file in a user's storage pool
+
+struct __attribute__((packed)) PoolFileInfo
+ {
+  unsigned char filenameLen;      // The file name length ('\0' excluded)
+  long int      fileSizeRaw;      // The file size in bytes (max 9999GB)
+  long int      lastModTimeRaw;   // The file last modification time in UNIX epochs
+  long int      creationTimeRaw;  // The file creation time in UNIX epoch
+  char          filename[];       // The file name
+ };
+
 
 #endif //SAFECLOUD_SESSMSG_H

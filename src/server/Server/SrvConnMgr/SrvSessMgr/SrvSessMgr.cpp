@@ -221,7 +221,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
     case SessMgr::LIST:
 
      // -------------------- 'COMPLETED' Signaling Message -------------------- //
-     if(_recvSessMsgType == CONFIRM)
+     if(_recvSessMsgType == COMPLETED)
       listComplCallback();
 
      // ---------------------- Unexpected Session Message ---------------------- //
@@ -776,8 +776,8 @@ void SrvSessMgr::deleteStartCallback()
 
 
 /**
- * @brief  'DELETE' operation 'CONFIRM' session message callback, attempting to delete the
- *         main file, notify the client of its deletion and resetting the server session state
+ * @brief  'DELETE' operation 'CONFIRM' session message callback, deleting the main file,
+ *         notifying the client of its deletion and resetting the server session manager state
  * @throws ERR_SESS_INTERNAL_ERROR Failed to delete the main file
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
@@ -810,15 +810,15 @@ void SrvSessMgr::deleteConfCallback()
 /* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
 
 /**
- * @brief  Starts a file rename operation, where:\n
+ * @brief  'RENAME' operation 'START' callback, which:\n
  *            1) If the file to be renamed does not exist in the user's storage
- *               pool, notify them that the rename operation cannot proceed.\n
+ *               pool, notifies them that the rename operation cannot proceed.\n
  *            2) If a file with the same name of the one the user wants to rename
- *               the file to exists in their storage pool, send them its
+ *               the file to exists in their storage pool, sends them its
  *               information, implying that the rename operation cannot proceed.\n
  *            3) If the file to be renamed exists and a file with its new name does not,
- *               rename the file and notify the client the success of the rename operation.\n
- *         The session manager state is reset regardless of the outcome.
+ *               renames the file and notifies the client the success of the rename operation.\n
+ *         The server session manager state is reset regardless of the outcome.
  * @throws ERR_SESS_MALFORMED_MESSAGE   The old or new file name is not a valid Linux
  *                                      file name or the two file names coincide
  * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be renamed or the one with its
@@ -848,10 +848,11 @@ void SrvSessMgr::renameStartCallback()
   std::string oldFileNameAbsPath(*_mainDirAbsPath + *oldFilename);
   std::string newFileNameAbsPath(*_mainDirAbsPath + *newFilename);
 
-  // TODO: Comment
+  /*
   // LOG: old and new file names absolute paths
   std::cout << "oldFileNameAbsPath = " << oldFileNameAbsPath << std::endl;
   std::cout << "newFileNameAbsPath = " << newFileNameAbsPath << std::endl;
+  */
 
   // Check whether the file the client wants to rename exists in their storage
   // pool by attempting to load its information into the '_mainFileInfo' attribute
@@ -918,17 +919,114 @@ void SrvSessMgr::renameStartCallback()
 
 /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
 
-// TODO: Stub implementation
+/**
+ * @brief  'LIST' operation 'START' callback, building a snapshot of the user's
+ *         storage pool contents, sending its serialized size to the client and:\n
+ *            1) If the user's storage pool is empty, reset the server session state.\n
+ *            2) If the user's storage pool is NOT empty, send the client its
+ *               serialized contents and set the server session manager to
+ *               expect their completion notification.
+ * @throws ERR_DIR_OPEN_FAILED          The user's storage pool was not found (!)
+ * @throws ERR_SESS_FILE_READ_FAILED    Error in reading from the user's storage pool
+ * @throws ERR_SESS_DIR_SIZE_OVERFLOW   The storage pool contents' raw size exceeds 4GB
+ * @throws ERR_SESS_INTERNAL_ERROR      The serialized size of the user's storage pool exceeds 4GB
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ * TODO: Add pool sendPoolRawContents() exceptions
+ */
 void SrvSessMgr::listStartCallback()
  {
-  std::cout << "in listStartCallback() " << std::endl;
+  // Serialized size of the user's storage pool
+  unsigned int serPoolSize;
+
+  // Attempt to build a snapshot of the user storage
+  // pool's contents into the '_mainDirInfo' attribute
+  try
+   { _mainDirInfo = new DirInfo(_mainDirAbsPath); }
+  catch(sessErrExcp& poolDirExcp)
+   {
+    // Notify the client of the internal error
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+
+    // Rethrow the exception
+    throw;
+   }
+
+  // TODO: Comment
+  // LOG: User storage pool contents and information
+  _mainDirInfo->printDirContents();
+  std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
+  std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
+
+  /*
+   * The serialized size of the user's storage pool is given by the sum of
+   * its contents' raw size ('poolInfo.dirRawSize') + 1 for each file in
+   * the pool, which is due to the additional 'filenameLen''unsigned char'
+   * attribute storing the file name length in the 'PoolFileInfo' struct
+   */
+
+  // Assert the serialized contents' size of the user's
+  // storage pool not to overflow an unsigned integer
+  if(_mainDirInfo->dirRawSize > UINT_MAX - _mainDirInfo->numFiles)
+   sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Storage pool serialized contents' size overflow (raw "
+                                           "contents' size = " + std::to_string(_mainDirInfo->dirRawSize)
+                                           + ", numFiles = " + std::to_string(_mainDirInfo->numFiles));
+
+  // Compute the serialized size of the user's storage pool
+  serPoolSize = _mainDirInfo->dirRawSize + _mainDirInfo->numFiles;
+
+  // Prepare and send a 'SessMsgPoolSize' session message of implicit 'POOL_SIZE' type
+  // containing the serialized size of the user's storage pool and send it to the client
+  sendSessMsgPoolSize(serPoolSize);
+
+  // If the user's storage pool is empty
+  if(serPoolSize == 0)
+   {
+    // Log that the user requested the contents of its empty storage pool
+    LOG_INFO("[" + *_connMgr._name + "] Requested the empty storage pool's contents")
+
+    // Reset the session state and return
+    resetSessState();
+   }
+
+  // Otherwise, if the user's storage pool is NOT empty
+  else
+   {
+    // Send the client the serialized contents of its storage pool
+    sendPoolRawContents();
+
+    // Set the server session manager to expect the client completion notification
+    _sessMgrOpStep = WAITING_COMPL;
+
+    LOG_INFO("[" + *_connMgr._name + "] Sent the requested storage pool's contents ("
+             + std::to_string(_mainDirInfo->numFiles) + " files), awaiting client confirmation")
+   }
+ }
+
+// TODO: Stub implementation
+void SrvSessMgr::sendPoolRawContents()
+ {
+  std::cout << "in sendPoolRawContents() " << std::endl;
  }
 
 
-// TODO: Stub implementation
+/**
+ * @brief  'LIST' operation 'COMPLETED' session message callback, logging the success
+ *         of the 'LIST' operation and resetting the server session manager state
+ */
 void SrvSessMgr::listComplCallback()
  {
-  std::cout << "in listComplCallback() " << std::endl;
+  // Log the success of the 'LIST' operation
+  LOG_INFO("[" + *_connMgr._name + "] Successfully received the storage pool's contents")
+
+  // Reset the server session state
+  resetSessState();
  }
 
 
