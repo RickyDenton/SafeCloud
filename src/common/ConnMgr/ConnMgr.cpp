@@ -378,3 +378,11 @@ ConnMgr::~ConnMgr()
  */
 bool ConnMgr::shutdownConn() const
  { return _shutdownConn; }
+
+
+/**
+ * @brief  Returns whether the connection manager is in the session phase
+ * @return Whether the connection manager is in the session phase
+ */
+bool ConnMgr::isInSessionPhase() const
+ { return _connPhase == SESSION; }

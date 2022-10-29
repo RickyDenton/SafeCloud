@@ -988,8 +988,10 @@ void SessMgr::resetSessState()
   // manager's primary buffer as consumed
   _connMgr.clearPriBuf();
 
-  // TODO: Remove
+  /*
+  // LOG: Session state reset
   printf("in resetSessState()\n");
+  */
  }
 
 

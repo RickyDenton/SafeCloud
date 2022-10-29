@@ -1,6 +1,6 @@
 #include "Server.h"
 
-/* SafeCloud Application Server Implementation*/
+/* SafeCloud Application Server Implementation */
 
 /* ================================== INCLUDES ================================== */
 #include "errCodes/execErrCodes/execErrCodes.h"
@@ -40,7 +40,8 @@ void Server::setSrvEndpoint(uint16_t& srvPort)
  * @throws ERR_SRV_PRIVKFILE_NOT_FOUND   The server RSA private key file was not found
  * @throws ERR_SRV_PRIVKFILE_OPEN_FAILED Error in opening the server's RSA private key file
  * @throws ERR_FILE_CLOSE_FAILED         Error in closing the server's RSA private key file
- * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file could not be interpreted as a valid RSA key pair
+ * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file
+ *                                       could not be interpreted as a valid RSA key pair
  */
 void Server::getServerRSAKey()
  {
@@ -144,7 +145,8 @@ void Server::initLsk()
 
   LOG_DEBUG("Created listening socket with file descriptor '" + std::to_string(_lsk) + "'")
 
-  // Attempt to set the listening socket's SO_REUSEADDR option for enabling fast rebinds in case of failures
+  // Attempt to set the listening socket's SO_REUSEADDR
+  // option for enabling fast rebinds in case of failures
   if(setsockopt(_lsk, SOL_SOCKET, SO_REUSEADDR, &lskOptSet, sizeof(lskOptSet)) == -1)
    THROW_EXEC_EXCP(ERR_LSK_SO_REUSEADDR_FAILED, ERRNO_DESC);
 
@@ -198,9 +200,14 @@ void Server::closeConn(connMapIt cliIt)
  */
 void Server::newClientData(int ski)
  {
-  connMapIt connIt;        // _connMap iterator
-  SrvConnMgr* srvConnMgr;  // The client's assigned connection manager
-  bool shutdownCliConn;    // Whether the client connection should be terminated
+  // _connMap iterator
+  connMapIt connIt;
+
+  // The client's assigned connection manager
+  SrvConnMgr* srvConnMgr;
+
+  // Whether the client connection should be terminated
+  bool shutdownCliConn;
 
   // Retrieve the connection's map entry associated with "ski"
   connIt = _connMap.find(ski);
@@ -237,7 +244,7 @@ void Server::newClientData(int ski)
     if(excp.exErrcode == ERR_PEER_DISCONNECTED)
      excp.exErrcode = ERR_CLI_DISCONNECTED;
 
-    // TODO: Check
+    // Handle the execution exception that was raised
     handleExecErrException(excp);
 
     // The client connection must always be terminated
@@ -245,44 +252,70 @@ void Server::newClientData(int ski)
    }
   catch(sessErrExcp& sessExcp)
    {
-    // TODO
+    // Handle the session exception that was raised
     handleSessErrException(sessExcp);
 
     // Reset the server session manager's state
     srvConnMgr->getSession()->resetSessState();
-
-    // TODO: Probably unnecessary
-    // The connection must not be terminated
-    //shutdownCliConn = true;
    }
 
-  // If necessary terminate the client's connection and continue
-  // checking the next socket descriptor in the server's main loop
+  // If the client's connection should be terminated due to it gracefully
+  // disconnecting or because an execution exception has occurred
   if(shutdownCliConn)
    closeConn(connIt);
+  else
+
+   // Otherwise, if the client connection should be terminated because
+   // the SafeCloud server is shutting down, if the server session
+   // manager is in the session phase in the 'IDLE' operation
+   if(_shutdown && srvConnMgr->isInSessionPhase()
+      && srvConnMgr->getSession()->isIdle())
+    {
+      // Close the session with the client by
+      // sending the 'BYE' session signaling message
+      srvConnMgr->getSession()->closeSession();
+
+      // Close the client connection
+     closeConn(connIt);
+     }
+
+  // Continue checking the next socket descriptor in the server's main loop
  }
 
 
 /**
- * @brief Accepts an incoming client connection, creating its client object and entry in the connections' map
+ * @brief Accepts an incoming client connection, creating its
+ *       client object and entry in the connections' map
+ * @TODO: throws?
  */
 void Server::newClientConnection()
  {
   /* ----------------- Client Endpoint Information ----------------- */
-  struct sockaddr_in  cliAddr{};                         // The client socket type, IP and Port
-  static unsigned int cliAddrLen = sizeof(sockaddr_in);  // The (static) size of a sockaddr_in structure
-  char cliIP[16];                                        // The client IP address
-  int  cliPort;                                          // The client port
+
+  // The client socket type, IP and Port
+  struct sockaddr_in  cliAddr{};
+
+  // The (static) size of a sockaddr_in structure
+  static unsigned int cliAddrLen = sizeof(sockaddr_in);
+
+  // The client IP address and port
+  char cliIP[16];
+  int  cliPort;
 
   /* ----------------- Client SrvConnMgr Creation ----------------- */
-  int          csk = -1;     // The client's assigned connection socket
-  size_t       connClients;  // Number of connected clients BEFORE the client's connection
-  SrvConnMgr*  srvConnMgr;   // The client's assigned connection manager
+
+  // The client's assigned connection socket
+  int          csk = -1;
+
+  // Number of connected clients BEFORE the client's connection
+  size_t       connClients;
+
+  // The client's assigned connection manager object
+  SrvConnMgr*  srvConnMgr;
 
   // Used to check whether the newly created server connection
   // manager was successfully added to the connections' map
   std::pair<connMapIt,bool> empRet;
-
 
   // Attempt to accept the incoming client connection, obtaining
   // the file descriptor of its assigned connection socket
@@ -305,15 +338,16 @@ void Server::newClientConnection()
 
   // Ensure that the maximum number of client connections has not been reached
   /*
-   * NOTE: This constraint is due to the fact that the pselect() allows to monitor
-   *       up to FD_SETSIZE = 1024 file descriptors, listening socket included
+   * NOTE: This constraint is due to the select() allowing to monitor up to
+   *       FD_SETSIZE = 1024 file descriptors, listening socket included
    */
   if(connClients == SRV_MAX_CONN)
    {
     // Inform the client that the server cannot accept further connections
     // TODO: Implement in a SafeCloud Message
 
-    // Log the error and continue checking the next socket descriptor in the server's main loop
+    // Log the error and continue checking the next
+    // socket descriptor in the server's main loop
     LOG_EXEC_CODE(ERR_CSK_MAX_CONN, std::string(cliIP) + std::to_string(cliPort));
     return;
    }
@@ -337,33 +371,44 @@ void Server::newClientConnection()
   // If the temporary guest identifier would overflow, reset it to 1
   if(++_guestIdx == 0)
    {
-    LOG_INFO("Maximum number of guest identifiers reached (" + std::to_string(UINT_MAX) + "), starting back from \'1\'")
+    LOG_INFO("Maximum number of guest identifiers reached ("
+             + std::to_string(UINT_MAX) + "), starting back from \'1\'")
     _guestIdx = 1;
    }
 
   // Create the client's entry in the connections' map
   empRet = _connMap.emplace(csk, srvConnMgr);
 
-  // Ensure the newly assigned connection socket not to be already present in the connection map
-  // NOTE: With no errors in the server's logic this check is unnecessary, but it's still performed for its negligible cost
+  /*
+   * Ensure the newly assigned connection socket not
+   * to be already present in the connection map
+   *
+   * NOTE: With no errors in the server's logic this check is
+   *       unnecessary, but it's still performed for its negligible cost
+   */
   if(!empRet.second)
    {
-    LOG_CRITICAL("The connection socket assigned to a new client is already present in the connections' map! (" + std::to_string(csk) + ")")
+    LOG_CRITICAL("The connection socket assigned to a new client is already "
+                 "present in the connections' map! (" + std::to_string(csk) + ")")
 
-    // Close the pre-existing client connection and remove its entry from the connections' map as
-    // an error recovery mechanism (as the kernel is probably more right than the application)
+    // Close the pre-existing client connection and remove its entry
+    // from the connections' map as an error recovery mechanism
+    // (as the kernel is probably more right than the application)
     closeConn(empRet.first);
 
-    // Re-insert the new client manager into the connections' map (operation that in this case is always supposed to succeed)
+    // Re-insert the new client manager into the connections' map
+    // (operation that in this case is always supposed to succeed)
     _connMap.emplace(csk, srvConnMgr);
    }
 
-  // Add the new client's connection socket to the set of file descriptors of open sockets
-  // and, if it's the one of maximum value, update the "_skMax" variable accordingly
+  // Add the new client's connection socket to the set of
+  // file descriptors of open sockets and, if it's the one of
+  // maximum value, update the "_skMax" variable accordingly
   FD_SET(csk, &_skSet);
   _skMax = std::max(_skMax, csk);
 
-  // If this is the first client to have connected, set the "_connected" status variable
+  // If this is the first client to have connected,
+  // set the "_connected" status variable
   if(connClients == 0)
    _connected = true;
 
@@ -374,11 +419,10 @@ void Server::newClientConnection()
 
 
 /**
- * @brief  Server main loop, awaiting and serving input data on any open socket
- *         (listening + connection socket) and managing external shutdown requests
- * @note   This method returns only in case of errors or should the server
- *         be instructed to terminate via the shutdownSignal() method
- * @throws ERR_SRV_PSELECT_FAILED pselect() call failed
+ * @brief  Server main loop, awaiting and processing incoming data on any
+ *         open socket (listening + connection sockets)  until the SafeCloud
+ *         server has been instructed to shut down and no client is connected
+ * @throws ERR_SRV_SELECT_FAILED select() call failed
  */
 void Server::srvLoop()
  {
@@ -386,49 +430,52 @@ void Server::srvLoop()
   // for asynchronously reading incoming client data
   fd_set skReadSet;
 
-  // pselect() return
-  int pselRet;
-
-  // Structure used for specifying a pselect() timeout
-  struct timespec selTimeout = {SRV_PSELECT_TIMEOUT,0};
+  // select() return
+  int selRet;
 
   // Initialize the set of file descriptor of open sockets
   // used for asynchronously reading incoming client data
   FD_ZERO(&skReadSet);
 
+  // ----------------------------- SafeCloud Server Main Loop ----------------------------- //
+
   while(1)
    {
+    // If the SafeCloud server is shutting down and there are no
+    // clients connected, break the server main loop and terminate
+    if(_shutdown && !_connected)
+     break;
+
     // Reset the list of sockets to wait input data from to all open sockets
     skReadSet = _skSet;
 
-    // Wait for input data to be available on any open socket up to a predefined timeout
-    pselRet = pselect(_skMax + 1, &skReadSet, NULL, NULL, &selTimeout, NULL);
+    // Wait indefinitely for input data to be available on any open socket
+    selRet = select(_skMax + 1, &skReadSet, NULL, NULL, NULL);
 
-    // Depending on the pselect() return
-    switch(pselRet)
+    // Depending on the select() return
+    switch(selRet)
      {
-      /* pselect() error */
+      // -------------------------------- select() error -------------------------------- //
       case -1:
 
-       // The only allowed pselect() error is it being interrupted by receiving an OS signal
-       if(errno == EINTR)
-        {
-         // TODO: At this point _shutdown == 1, so perform the cleanup operations...
-        }
-
-       // Otherwise it is a fatal error, and the SafeCloud server must be aborted
-       else
-        THROW_EXEC_EXCP(ERR_SRV_PSELECT_FAILED, ERRNO_DESC);
-
-      /* pselect() timeout */
-      case 0:
-       // TODO: Check server shutdown (MAYBE NOT NECESSARY BECAUSE IT BECOMES INTERRUPTED? BUT DO SO ANYWAY)
+       // The only select() error that is allowed is being interrupted by an OS signal
+       if(errno != EINTR)
+        THROW_EXEC_EXCP(ERR_SRV_SELECT_FAILED, ERRNO_DESC);
        break;
 
-      /* pselRet = Number of open sockets with available input data */
+      // ------------------------------- select() timeout ------------------------------- //
+      case 0:
+
+       // As it is not implemented, a select() timeout is a fatal error
+       THROW_EXEC_EXCP(ERR_SRV_SELECT_FAILED, "select() timeout", ERRNO_DESC);
+
+      // ------------- selRet = Number of sockets with available input data ------------- //
       default:
 
-       LOG_DEBUG("Number of sockets with available input data: " + std::to_string(pselRet))
+       /*
+       // LOG: Number of sockets with available input data
+       LOG_DEBUG("Number of sockets with available input data: " + std::to_string(selRet))
+       */
 
        // Browse all sockets file descriptors from 0 to _skMax
        for(int ski = 0; ski <= _skMax; ski++)
@@ -446,12 +493,14 @@ void Server::srvLoop()
 
           // Once the listening or connection socket has been served, decrement the number of sockets with pending
           // input data and, if no other is present, break the "for" loop for restarting the main server loop
-          if(--pselRet == 0)
+          if(--selRet == 0)
            break;
          }
-     } // switch(pselRet)
+     } // switch(selRet)
    } // while(1)
- } // srvLoop()
+
+  // --------------------------- End SafeCloud Server Main Loop --------------------------- //
+ }
 
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
@@ -470,8 +519,7 @@ void Server::srvLoop()
  * @throws ERR_LSK_SO_REUSEADDR_FAILED   Error in setting the listening socket's SO_REUSEADDR option
  * @throws ERR_LSK_BIND_FAILED           Error in binding the listening socket on the specified host port
  */
-Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvCert(nullptr), _connMap(), _skSet(),
-                                   _skMax(-1), _guestIdx(1), _started(false), _connected(false), _shutdown(false)
+Server::Server(uint16_t srvPort) : SafeCloudApp(), _lsk(-1), _srvCert(nullptr), _connMap(), _skSet(), _skMax(-1), _guestIdx(1)
  {
   // Set the server endpoint parameters
   setSrvEndpoint(srvPort);
@@ -483,7 +531,7 @@ Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvC
   getServerCert();
 
   // Initialize the sets of file descriptors used for asynchronously
-  // reading client data from sockets via the pselect()
+  // reading client data from sockets via the select()
   FD_ZERO(&_skSet);
 
   // Initialize the server's listening socket and bind it on the specified OS port
@@ -492,17 +540,26 @@ Server::Server(uint16_t srvPort) : _srvAddr(), _lsk(-1), _rsaKey(nullptr), _srvC
 
 
 /**
- * @brief SafeCloud server object destructor, which closes open connections and safely deletes its sensitive attributes
+ * @brief SafeCloud server object destructor, closing open client
+ *        connections and safely deleting the server's sensitive attributes
  */
 Server::~Server()
  {
-  // Cycle through the entire connected clients' map and delete the associated SrvConnMgr objects
+  // Delete the SrvConnMgr object associated with each connected client
   for(connMapIt it = _connMap.begin(); it != _connMap.end(); ++it)
    { delete it->second; }
 
-  // If open, close the listening socket
-  if(_lsk != -1 && close(_lsk) != 0)
-   LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
+  // If the server is listening on its listening socket
+  if(_lsk != -1)
+   {
+    // Close the listening socket to prevent
+    // accepting further client connections
+    if(close(_lsk) != 0)
+     LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
+
+    // Reset the listening socket
+    _lsk = -1;
+   }
 
   // Safely erase all sensitive attributes
   EVP_PKEY_free(_rsaKey);
@@ -512,61 +569,66 @@ Server::~Server()
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
 
+// TODO
+bool Server::shutdownSignalHandler()
+ {
+  // If the server is listening on its listening socket
+  if(_lsk != -1)
+   {
+    // Close the listening socket to prevent
+    // accepting further client connections
+    if(close(_lsk) != 0)
+     LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
+
+    // Reset the listening socket
+    _lsk = -1;
+   }
+
+  // For each connected client
+  for(connMapIt it = _connMap.begin(); it != _connMap.end(); ++it)
+   {
+    // If the server session manager is in the session phase in the 'IDLE' operation
+    if(it->second != nullptr && it->second->isInSessionPhase()
+       && it->second->getSession()->isIdle())
+     {
+      // Close the session with the client by
+      // sending the 'BYE' session signaling message
+      it->second->getSession()->closeSession();
+
+      // Close the client connection
+      closeConn(it);
+     }
+   }
+
+  // If the server is no longer connected with
+  // any client, it can be shut down directly
+  if(!_connected)
+   return true;
+
+  // Otherwise set the '_shutdown' flag and return that the
+  // server application will shut down as soon as possible
+  _shutdown = true;
+  return false;
+ }
+
+
+// TODO: Update Descr
 /**
  * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
  * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method
- + @throws ERR_SRV_ALREADY_STARTED The server has already started listening on its listening socket
  * @throws ERR_LSK_LISTEN_FAILED   Failed to listen on the server's listening socket
- * @throws ERR_SRV_PSELECT_FAILED  pselect() call failed
+ * @throws ERR_SRV_SELECT_FAILED  select() call failed
  */
 void Server::start()
  {
-  // Check that the server has not already started
-  if(_started)
-   THROW_EXEC_EXCP(ERR_SRV_ALREADY_STARTED);
-
   // Start listening on the listening socket, allowing up to a predefined maximum number of queued connections
   if(listen(_lsk, SRV_MAX_QUEUED_CONN) < 0)
    THROW_EXEC_EXCP(ERR_LSK_LISTEN_FAILED, ERRNO_DESC);
 
-  // Set that the SafeCloud server has started
-  _started = true;
-
   // Log that the server is now listening on the listening socket
-  LOG_INFO("SafeCloud server now listening on all local network interfaces on port " + std::to_string(ntohs(_srvAddr.sin_port)) + ", awaiting client connections...")
+  LOG_INFO("SafeCloud server now listening on all local network interfaces on port "
+           + std::to_string(ntohs(_srvAddr.sin_port)) + ", awaiting client connections...")
 
   // Call the server main loop
   srvLoop();
  }
-
-/**
- * @brief Asynchronously instructs the server object to
- *        gracefully close all connections and terminate
- */
-void Server::shutdownSignal()
- { _shutdown = true; }
-
-
-/**
-  * @brief  Returns whether the server has started listening on its listening socket
-  * @return 'true' if it is listening, 'false' otherwise
-  */
-bool Server::isStarted() const
- { return _started; }
-
-
-/**
- * @brief  Returns whether the server is currently connected with at least one client
- * @return 'true' if connected with at least one client, 'false' otherwise
- */
-bool Server::isConnected() const
- { return _connected; }
-
-
-/**
-  * @brief   Returns whether the server object has been instructed
-  *          to gracefully close all connections and terminate
-  * @return 'true' if the server object is shutting down, 'false' otherwise
-  */
-bool Server::isShuttingDown() const
- { return _shutdown; }

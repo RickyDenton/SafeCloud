@@ -32,7 +32,6 @@ enum execErrCode : unsigned char
   ERR_LSK_SO_REUSEADDR_FAILED,
   ERR_LSK_BIND_FAILED,
   ERR_LSK_LISTEN_FAILED,
-  ERR_SRV_ALREADY_STARTED,
   ERR_LSK_CLOSE_FAILED,
 
   // Connection Sockets
@@ -58,7 +57,7 @@ enum execErrCode : unsigned char
   ERR_LOGIN_PUBKEY_INVALID,
 
   // Other
-  ERR_SRV_PSELECT_FAILED,
+  ERR_SRV_SELECT_FAILED,
 
   // Connection-aborting Session Errors
   ERR_SESSABORT_UNEXPECTED_POOL_SIZE,
@@ -242,7 +241,6 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_LSK_SO_REUSEADDR_FAILED,{FATAL,"Failed to set the listening socket's SO_REUSEADDR option"} },
     { ERR_LSK_BIND_FAILED,        {FATAL,"Failed to bind the listening socket on the specified OS port"} },
     { ERR_LSK_LISTEN_FAILED,      {FATAL,"Failed to listen on the listening socket"} },
-    { ERR_SRV_ALREADY_STARTED,    {CRITICAL,"The server has already started listening on its listening socket"} },
     { ERR_LSK_CLOSE_FAILED,       {FATAL,"Listening Socket Closing Failed"} },
 
     // Connection Sockets
@@ -268,7 +266,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     {ERR_LOGIN_PUBKEY_INVALID,                   {CRITICAL, "The contents of the client's RSA public key file do not represent a valid RSA public key"} },
 
     // Other
-    {ERR_SRV_PSELECT_FAILED,                     {FATAL,    "Server pselect() failed"} },
+    {ERR_SRV_SELECT_FAILED,                     {FATAL,    "Server select() failed"} },
 
     // Connection-aborting Session Errors
     {ERR_SESSABORT_UNEXPECTED_POOL_SIZE,         {CRITICAL, "The serialized pool raw contents that were sent differ from their expected size"} },

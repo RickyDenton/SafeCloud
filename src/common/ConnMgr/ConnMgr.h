@@ -193,6 +193,12 @@ class ConnMgr
     * @return A boolean indicating whether the connection manager should be terminated
     */
    bool shutdownConn() const;
+
+   /**
+    * @brief  Returns whether the connection manager is in the session phase
+    * @return Whether the connection manager is in the session phase
+    */
+   bool isInSessionPhase() const;
  };
 
 

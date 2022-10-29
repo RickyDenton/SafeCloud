@@ -941,11 +941,12 @@ void SrvSessMgr::listStartCallback()
     throw;
    }
 
-  // TODO: Comment
+  /*
   // LOG: User storage pool contents and information
   _mainDirInfo->printDirContents();
   std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
   std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
+  */
 
   /*
    * The serialized size of the user's storage pool is given by the sum of

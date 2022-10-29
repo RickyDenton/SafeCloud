@@ -3,7 +3,7 @@
 
 /* SafeCloud application default parameter values */
 
-/* ============================= SHARED PARAMETERS ============================= */
+/* ====================== CLIENT-SERVER COMMON PARAMETERS ====================== */
 
 // Connection Buffers
 #define CONN_BUF_SIZE (1 * 1024 * 1024)   // 1 MB
@@ -15,7 +15,8 @@
 // Server Connection Parameters
 #define SRV_DEFAULT_IP      "127.0.0.1"   // The server's default IP address
 #define SRV_DEFAULT_PORT    51234         // The server's default listening port
-#define SRV_PORT_MIN        49152         // The minimum value for the server's listening port (IANA standard for dynamic/private applications)
+#define SRV_PORT_MIN        49152         // The minimum value for the server's listening port
+                                          // (IANA standard for dynamic/private applications)
 
 // File upload maximum size (4GB - 1B, 2^32 - 1)
 #define FILE_UPLOAD_MAX_SIZE 4294967295
@@ -25,9 +26,13 @@
 
 /* ----------------------- Server Connection Parameters ----------------------- */
 
-#define SRV_MAX_QUEUED_CONN 30            // The maximum number of incoming client connection requests before further are refused (listen() argument)
-#define SRV_MAX_CONN        (FD_SETSIZE-1)  // The maximum number of concurrent client connections before further are rejected (select() limitation, 1024 (FD_SETSIZE) - 1 (Listening Socket))
-#define SRV_PSELECT_TIMEOUT 1             // The server's pselect() timeout in seconds
+// The maximum number of incoming client connection
+// requests before further are refused (listen() argument)
+#define SRV_MAX_QUEUED_CONN 30
+
+// The maximum number of concurrent client connections before further are
+// rejected (select() limitation, 1024 (FD_SETSIZE) - 1 (Listening Socket))
+#define SRV_MAX_CONN (FD_SETSIZE-1)
 
 /* -------------------------- Server Files Parameters -------------------------- */
 
@@ -51,6 +56,8 @@
 
 // Client Login
 #define CLI_MAX_LOGIN_ATTEMPTS 3
+
+/* -------------------------- Client Files Parameters -------------------------- */
 
 // CA Files
 #define CLI_CA_DIR_PATH                  "./CA/"

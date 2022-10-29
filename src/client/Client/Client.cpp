@@ -1,4 +1,4 @@
-/* SafeCloud Application Client Implementation*/
+/* SafeCloud Application Client Implementation */
 
 /* ================================== INCLUDES ================================== */
 #include "Client.h"
@@ -541,11 +541,11 @@ void Client::srvSecureConnect()
   // Initialize the connection's manager
   _cliConnMgr = new CliConnMgr(csk,&_name,&_tempDir,&_downDir,_rsaKey,_certStore);
 
-  // Establish a shared session key with the server
-  _cliConnMgr->startCliSTSM();
-
   // At this point the client has successfully connected with the server
   _connected = true;
+
+  // Establish a shared session key with the server
+  _cliConnMgr->startCliSTSM();
 
   // Log that a secure connection with the SafeCloud Server has been established
   LOG_INFO("Successfully established a secure connection with the SafeCloud Server")
@@ -608,9 +608,6 @@ void Client::parseUserCmd1(std::string& cmd)
    {
     // Send the 'BYE' session message to the server
     _cliConnMgr->getSession()->closeSession();
-    
-    // Set the Client object's shutdown flag
-    _shutdown = true;
     return;
    }
 
@@ -785,8 +782,8 @@ void Client::userCmdPrompt()
   // Command prompt contextual help suggestion
   std::cout << "Type \"help\" for the list of available commands\n" << std::endl;
 
-  // User command prompt loop, reading and executing user commands until
-  // the EXIT/QUIT command is provided (or an execution error occurs)
+  // ----------------------- User Command Prompt Loop ----------------------- //
+
   do
    {
     try
@@ -794,12 +791,26 @@ void Client::userCmdPrompt()
       // Print the command prompt
       std::cout << "> ";
 
+      // If a shutdown signal was received, terminate the
+      // application without prompting for the user command
+      if(_shutdown)
+       return;
+
       // Read the user command line
       getline(std::cin, cmdLine);
+
+      // If a shutdown signal was received while waiting for do not
+      // process the command line and terminate the application
+      if(_shutdown)
+       return;
 
       // Parse the user command line and execute
       // the associated SafeCloud command
       parseUserCmd(cmdLine);
+
+      // 'OR' the Client object's shutdown flag
+      // with the one of the CliConnMgr
+      _shutdown = _shutdown || _cliConnMgr->shutdownConn();
      }
     catch(sessErrExcp& sessErrExcp)
      {
@@ -818,7 +829,9 @@ void Client::userCmdPrompt()
         _cliConnMgr->getSession()->resetSessState();
        }
      }
-   } while(!_shutdown);
+   } while(!_shutdown); // While the application should not terminate
+
+  // ----------------------- User Command Prompt Loop ----------------------- //
  }
 
 
@@ -842,8 +855,9 @@ void Client::userCmdPrompt()
  * @throws ERR_STORE_ADD_CACRL_FAILED      Error in adding the CA CRL to the X.509 store
  * @throws ERR_STORE_REJECT_REVOKED_FAILED Error in configuring the X.509 store to reject revoked certificates
  */
-Client::Client(char* srvIP, uint16_t srvPort) : _srvAddr(), _certStore(nullptr), _cliConnMgr(nullptr), _remLoginAttempts(CLI_MAX_LOGIN_ATTEMPTS),
-                                                _name(), _downDir(), _tempDir(), _rsaKey(nullptr), _connected(false), _shutdown(false)
+Client::Client(char* srvIP, uint16_t srvPort)
+ : SafeCloudApp(), _certStore(nullptr), _cliConnMgr(nullptr),
+   _remLoginAttempts(CLI_MAX_LOGIN_ATTEMPTS), _name(), _downDir(), _tempDir()
  {
   // Attempt to set up the server endpoint parameters
   setSrvEndpoint(srvIP, srvPort);
@@ -871,8 +885,6 @@ Client::~Client()
 
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
-
-
 
 /**
  * @brief Starts the SafeCloud Client by:
@@ -917,7 +929,7 @@ void Client::start()
          { connError(connExcp); }
 
        } while(!_shutdown);
-       /* ----------------------  2) Server Connection Loop ---------------------- */
+       /* ----------------------  2- Server Connection Loop ---------------------- */
      }
 
     // Login error
@@ -934,22 +946,31 @@ void Client::start()
  * @brief Asynchronously instructs the client object to
  *        gracefully close the server connection and terminate
  */
-void Client::shutdownSignal()
- { _shutdown = true; }
 
+// TODO
+bool Client::shutdownSignalHandler()
+ {
+  // If the client is not connected with the
+  // SafeCloud server, it can be shut down directly
+  if(!_connected)
+   return true;
 
-/**
- * @brief  Returns whether the client is currently connected with the SafeCloud server
- * @return 'true' if connected, 'false' otherwise
- */
-bool Client::isConnected() const
- { return _connected; }
+  // If the client connection manager is the
+  // session phase in the 'IDLE' operation
+  if(_cliConnMgr != nullptr && _cliConnMgr->isInSessionPhase()
+     && _cliConnMgr->getSession()->isIdle())
+   {
+    // Close the session with the server by
+    // sending the 'BYE' session signaling message
+    _cliConnMgr->getSession()->closeSession();
 
+    // Return that the client application
+    // can be shut down directly
+    return true;
+   }
 
-/**
- * @brief   Returns whether the client object has been instructed
- *          to gracefully close all connections and terminate
- * @return 'true' if the client object is shutting down, 'false' otherwise
- */
-bool Client::isShuttingDown() const
- { return _shutdown; }
+   // Otherwise set the '_shutdown' flag and return that the
+   // client application will shut down as soon as possible
+  _shutdown = true;
+  return false;
+ }

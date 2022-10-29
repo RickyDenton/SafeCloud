@@ -1,24 +1,24 @@
 #ifndef SAFECLOUD_CLIENT_H
 #define SAFECLOUD_CLIENT_H
 
-/* SafeCloud Application Client */
+/* SafeCloud Application Client Declaration */
 
 /* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "CliConnMgr/CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
+#include "SafeCloudApp/SafeCloudApp.h"
 #include <string>
 
 
-class Client
+class Client : public SafeCloudApp
  {
   private:
 
    /* ================================= ATTRIBUTES ================================= */
 
    /* ---------------------------- General Information ---------------------------- */
-   struct sockaddr_in _srvAddr;           // The SafeCloud server listening socket type, IP and Port in network representation order
    X509_STORE*        _certStore;         // The client's X.509 certificates store
    CliConnMgr*        _cliConnMgr;        // The client's connection manager object
    unsigned char      _remLoginAttempts;  // The remaining number of client's login attempts
@@ -27,12 +27,6 @@ class Client
    std::string _name;     // The client's username (unique in the SafeCloud application)
    std::string _downDir;  // The client's download directory
    std::string _tempDir;  // The client's temporary files directory
-   EVP_PKEY*   _rsaKey;   // The client's long-term RSA key pair
-
-   /* ---------------------------- Client Object Flags ---------------------------- */
-   bool _connected;  // Whether the client is connected with the remote SafeCloud server
-   bool _shutdown;   // Whether the client object is shutting down
-
 
    /* =============================== PRIVATE METHODS =============================== */
 
@@ -242,6 +236,14 @@ class Client
    /* ============================= OTHER PUBLIC METHODS ============================= */
 
    /**
+    * @brief Asynchronously instructs the client object to
+    *        gracefully close the server connection and shut down
+    */
+
+   // TODO
+   bool shutdownSignalHandler();
+
+   /**
     * @brief Starts the SafeCloud Client by:
     *          1) Asking the user to locally login within the application via its username and password
     *          2) Attempting to connect with the SafeCloud server
@@ -251,23 +253,7 @@ class Client
     */
    void start();
 
-   /**
-    * @brief Asynchronously instructs the client object to
-    *        gracefully close the server connection and shut down
-    */
-   void shutdownSignal();
 
-   /**
-    * @brief  Returns whether the client is currently connected with the SafeCloud server
-    * @return 'true' if connected, 'false' otherwise
-    */
-   bool isConnected() const;
-
-   /**
-    * @brief   Returns whether the client object is shutting down
-    * @return 'true' if the client object is shutting down, 'false' otherwise
-    */
-   bool isShuttingDown() const;
  };
 
 

@@ -58,21 +58,16 @@ void terminate(int exitStatus)
  *                   is instructed gracefully close such connection and terminate
  * @param signum The OS signal identifier (unused)
  */
+
+// TODO
 void OSSignalsCallback(__attribute__((unused)) int signum)
  {
-  // If the client object does not exist or has not connected yet, directly terminate the application
-  if(cli == nullptr || !cli->isConnected())
-   {
-    LOG_INFO("Shutdown signal received, performing cleanup operations...")
-    terminate(EXIT_SUCCESS);
-   }
+  LOG_INFO("Shutdown signal received, performing cleanup operations...")
 
-  // Otherwise instruct the client object to gracefully close the server connection and terminate
-  else
-   {
-    LOG_INFO("Shutdown signal received, closing the server's connection...")
-    cli->shutdownSignal();
-   }
+  // If the client object does not exist yet or it can
+  // be shut down directly, terminate the application
+  if(cli == nullptr || cli->shutdownSignalHandler())
+   terminate(EXIT_SUCCESS);
 }
 
 

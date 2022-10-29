@@ -1,25 +1,22 @@
 #ifndef SAFECLOUD_SERVER_H
 #define SAFECLOUD_SERVER_H
 
-/* SafeCloud Application Server */
+/* SafeCloud Application Server Declarations */
 
 #include <openssl/evp.h>
 #include <netinet/in.h>
 #include "SrvConnMgr/SrvConnMgr.h"
+#include "SafeCloudApp/SafeCloudApp.h"
 
-class Server
+class Server : public SafeCloudApp
  {
   private:
 
    /* ================================= ATTRIBUTES ================================= */
 
-   /* ----------------------- Server Connection Parameters ----------------------- */
-   struct sockaddr_in _srvAddr;   // The server's listening socket type, IP and Port in network representation order
-   int                _lsk;       // The server listening socket's file descriptor
-
-   /* ---------------------- Server Cryptographic Quantities ---------------------- */
-   EVP_PKEY* _rsaKey;              // Long-term server RSA key pair
-   X509*     _srvCert;             // The server's X.509 certificate
+   /* ------------------------- General Server Parameters ------------------------- */
+   int   _lsk;       // The server listening socket's file descriptor
+   X509* _srvCert;   // The server's X.509 certificate
 
    /* ----------------------- Client Connections Management ----------------------- */
 
@@ -31,7 +28,7 @@ class Server
   // (listening socket + connection sockets)
    fd_set _skSet;
 
-   // The maximum socket file descriptor value in the server's execution (pselect() optimization purposes)
+   // The maximum socket file descriptor value in the server's execution (select() optimization purposes)
    /*
     * NOTE: This value may refer to a socket that is no longer open, as updating it in case
     *       the SrvConnMgr with the maximum "csk" value terminates would require searching for
@@ -43,12 +40,6 @@ class Server
 
    // Used as a temporary identifier for users that have not yet authenticated within the server
    unsigned int _guestIdx;
-
-   /* ---------------------------- Server Object Flags ---------------------------- */
-   bool _started;   // Whether the server object has started listening on its listening socket
-   bool _connected; // Whether at least one client is connected with the SafeCloud server
-   bool _shutdown;  // Whether the server object should gracefully close all connections and terminate
-
 
    /* =============================== PRIVATE METHODS =============================== */
 
@@ -66,7 +57,8 @@ class Server
     * @throws ERR_SRV_PRIVKFILE_NOT_FOUND   The server RSA private key file was not found
     * @throws ERR_SRV_PRIVKFILE_OPEN_FAILED Error in opening the server's RSA private key file
     * @throws ERR_FILE_CLOSE_FAILED         Error in closing the server's RSA private key file
-    * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file could not be interpreted as a valid RSA key pair
+    * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file
+    *                                       could not be interpreted as a valid RSA key pair
     */
    void getServerRSAKey();
 
@@ -103,16 +95,17 @@ class Server
   void newClientData(int ski);
 
   /**
-   * @brief Accepts an incoming client connection, creating its client object and entry in the connections' map
+   * @brief Accepts an incoming client connection, creating its
+   *       client object and entry in the connections' map
+   * @TODO: throws?
    */
   void newClientConnection();
 
   /**
-   * @brief  Server main loop, awaiting and serving input data on any open socket
-   *         (listening + connection socket) and managing external shutdown requests
-   * @note   This method returns only in case of errors or should the server
-   *         be instructed to terminate via the shutdownSignal() method
-   * @throws ERR_SRV_PSELECT_FAILED pselect() call failed
+   * @brief  Server main loop, awaiting and processing incoming data on any
+   *         open socket (listening + connection sockets)  until the SafeCloud
+   *         server has been instructed to shut down and no client is connected
+   * @throws ERR_SRV_SELECT_FAILED select() call failed
    */
   void srvLoop();
 
@@ -138,48 +131,23 @@ class Server
    explicit Server(uint16_t srvPort);
 
    /**
-    * @brief SafeCloud server object destructor, which closes open connections and safely deletes its sensitive attributes
+    * @brief SafeCloud server object destructor, closing open client
+    *        connections and safely deleting the server's sensitive attributes
     */
    ~Server();
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
+  // TODO
+  bool shutdownSignalHandler();
+
   /**
    * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
    * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method
-   + @throws ERR_SRV_ALREADY_STARTED The server has already started listening on its listening socket
-   * @throws ERR_LSK_LISTEN_FAILED   Failed to listen on the server's listening socket
-   * @throws ERR_SRV_PSELECT_FAILED  pselect() call failed
+   * @throws ERR_LSK_LISTEN_FAILED  Failed to listen on the server's listening socket
+   * @throws ERR_SRV_SELECT_FAILED  select() call failed
    */
   void start();
-
-  /**
-   * @brief Asynchronously instructs the server object to
-   *        gracefully close all connections and terminate
-   */
-  void shutdownSignal();
-
-  /**
-    * @brief  Returns whether the server has started listening on its listening socket
-    * @return 'true' if it is listening, 'false' otherwise
-    */
-  bool isStarted() const;
-
-  /**
-   * @brief  Returns whether the server is currently connected with at least one client
-   * @return 'true' if connected with at least one client, 'false' otherwise
-   */
-  bool isConnected() const;
-
-  /**
-    * @brief   Returns whether the server object has been instructed
-    *          to gracefully close all connections and terminate
-    * @return 'true' if the server object is shutting down, 'false' otherwise
-    */
-  bool isShuttingDown() const;
-
-  // TODO
-  // void serverBody();
  };
 
 
