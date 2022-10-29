@@ -20,7 +20,7 @@ DirInfo::DirInfo()
  * @param  dirAbspath The absolute path of the directory to create the snapshot of
  * @throws ERR_DIR_OPEN_FAILED        The target directory was not found
  * @throws ERR_SESS_FILE_READ_FAILED  Error in reading a file's metadata
- * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
+ * @throws ERR_SESS_DIR_INFO_OVERFLOW The directory information size exceeds 4GB
  */
 DirInfo::DirInfo(std::string* dirAbspath)
  : dirPath(dirAbspath), dirFiles(), dirRawSize(0), numFiles(0)
@@ -62,7 +62,7 @@ DirInfo::DirInfo(std::string* dirAbspath)
       // Ensure that adding the file information's raw size to the
       // directory contents' raw size would not overflow an unsigned integer
       if(dirRawSize > UINT_MAX - fileInfoRawSize)
-       THROW_SESS_EXCP(ERR_SESS_DIR_SIZE_OVERFLOW,*dirAbspath);
+       THROW_SESS_EXCP(ERR_SESS_DIR_INFO_OVERFLOW, *dirAbspath);
 
       // Add the file's information to the list of directory's files information
       dirFiles.emplace_front(fileInfo);
@@ -96,7 +96,7 @@ DirInfo::~DirInfo()
 /**
  * @brief  Adds a file with its information in the directory
  * @param  fileInfo The information on the file to be added to the directory
- * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
+ * @throws ERR_SESS_DIR_INFO_OVERFLOW The directory information size exceeds 4GB
  */
 void DirInfo::addFileInfo(FileInfo* fileInfo)
  {
@@ -106,7 +106,7 @@ void DirInfo::addFileInfo(FileInfo* fileInfo)
   // Ensure that adding the file information's raw size to the
   // directory contents' raw size would not overflow an unsigned integer
   if(dirRawSize > UINT_MAX - fileInfoRawSize)
-   THROW_SESS_EXCP(ERR_SESS_DIR_SIZE_OVERFLOW,*dirPath);
+   THROW_SESS_EXCP(ERR_SESS_DIR_INFO_OVERFLOW, *dirPath);
 
   // Add the file's information to the list of directory's files information
   dirFiles.emplace_front(fileInfo);

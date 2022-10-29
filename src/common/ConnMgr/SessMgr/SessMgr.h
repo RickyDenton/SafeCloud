@@ -159,8 +159,14 @@ class SessMgr
 
    /* --------------------------- Session Files Methods --------------------------- */
 
-   // TODO
-   void validateSessFileName(std::string& fileName);
+   /**
+    * @brief  Asserts a string received from the connection
+    *         peer to represent a valid Linux file name
+    * @param  fileName The received file name string to be validated
+    * @throws ERR_MALFORMED_SESS_MESSAGE The received string is not
+    *                                    a valid Linux file name
+    */
+   void validateRecvFileName(std::string& fileName);
 
    /**
     * @brief Attempts to load into the '_mainFileInfo' attribute the information
@@ -190,6 +196,20 @@ class SessMgr
     */
    void touchEmptyFile();
 
+   /* -------------------------- Session Raw Send/Receive -------------------------- */
+
+   /**
+    * @brief  Sends the AES_128_GCM integrity tag associated with
+    *         the raw data that has been sent to the connection peer
+    * @throws ERR_AESGCMMGR_INVALID_STATE Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED    Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW          Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED      The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED            send() fatal error
+    */
+   void sendRawTag();
+
    /**
     * @brief  Prepares the session manager to receive the raw
     *         contents of a file being uploaded or downloaded
@@ -207,7 +227,24 @@ class SessMgr
     * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
     * @throws ERR_SEND_FAILED               send() fatal error
     */
-   void prepRecvFileData();
+   void prepRecvFileRaw();
+
+   /**
+    * @brief Finalizes a received file, whether uploaded or downloaded, by:
+    *           1) Verifying its integrity tag
+    *           2) Moving it from the temporary into the main directory
+    *           3) Setting its last modified time to the one
+    *              specified in the '_remFileInfo' object
+    * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+    * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+    * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+    * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
+    */
+   void finalizeRecvFileRaw();
 
    /* -------------------- Session Messages Wrapping/Unwrapping -------------------- */
 
@@ -393,6 +430,20 @@ class SessMgr
     *        and by marking the contents of its primary connection buffer as consumed
     */
    void resetSessState();
+
+   /**
+    * @brief  Gracefully terminates the session and connection with the peer by sending the 'BYE'
+    *         session signaling message and setting the associated connection manager to be closed
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
+    */
+   void closeSession();
  };
 
 

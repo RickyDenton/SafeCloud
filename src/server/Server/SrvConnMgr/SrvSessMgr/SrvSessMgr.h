@@ -23,11 +23,11 @@ class SrvSessMgr : public SessMgr
    /* ------------------------ Server Session Manager Utility Methods ------------------------ */
 
    /**
-    * @brief Sends a session message signaling type to the client and performs the actions
-    *        appropriate to session signaling types resetting or terminating the session
+    * @brief Sends a session message signaling type to the client and throws the
+    *        associated exception in case of session error signaling message types
     * @param sessMsgSignalingType The session message signaling type to be sent to the client
-    * @param errReason            An optional error reason to be embedded with the exception that
-    *                             must be thrown after sending such session message signaling type
+    * @param errReason            An optional error reason to be embedded with the exception
+    *                             associated with the session error signaling message type
     * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
     * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
     *                                       invalid for its current operation or step
@@ -43,6 +43,7 @@ class SrvSessMgr : public SessMgr
     * @throws ERR_SEND_FAILED               send() fatal error
     */
    void sendSrvSessSignalMsg(SessMsgType sessMsgType);
+
    void sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const std::string& errReason);
 
    /**
@@ -126,12 +127,14 @@ class SrvSessMgr : public SessMgr
     *               success of the upload operation to the client and resets the server session manager state\n
     * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
     * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
-    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
     * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
     * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
     * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
     * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+    * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
     * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
     * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
@@ -172,7 +175,7 @@ class SrvSessMgr : public SessMgr
     *        the file to be downloaded and its resulting integrity tag to the client, and setting
     *        the server session manager to expect the client download completion notification
     * @throws ERR_FILE_WRITE_FAILED              Error in reading from the main file
-    * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The main file raw contents that were read differ from its size
+    * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The sent file raw contents differ from its expected size
     * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
@@ -259,15 +262,48 @@ class SrvSessMgr : public SessMgr
 
    /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
 
-   // TODO
+   /**
+    * @brief  'LIST' operation 'START' callback, building a snapshot of the user's
+    *         storage pool contents, sending its serialized size to the client and:\n
+    *            1) If the user's storage pool is empty, reset the server session state.\n
+    *            2) If the user's storage pool is NOT empty, send the client its
+    *               serialized contents and set the server session manager to
+    *               expect their completion notification.
+    * @throws ERR_DIR_OPEN_FAILED                The user's storage pool was not found (!)
+    * @throws ERR_SESS_FILE_READ_FAILED          Error in reading from the user's storage pool
+    * @throws ERR_SESS_DIR_INFO_OVERFLOW         The storage pool information size exceeds 4GB
+    * @throws ERR_SESS_INTERNAL_ERROR            The serialized size of the user's storage pool exceeds 4GB
+    * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                    send() fatal error
+    * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
+    */
    void listStartCallback();
 
-   // TODO: Stub implementation
+   /**
+    * @brief  Serializes and sends a user's pool contents and its associated integrity tag to the client
+    * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
+    * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+    * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+    * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED                    send() fatal error
+    */
    void sendPoolRawContents();
 
    /**
-    * @brief  'LIST' operation 'COMPLETED' session message callback, logging the success
-    *         of the 'LIST' operation and resetting the server session manager state
+    * @brief 'LIST' operation 'COMPLETED' session message callback, logging the success
+    *        of the 'LIST' operation and resetting the server session manager state
     */
    void listComplCallback();
 

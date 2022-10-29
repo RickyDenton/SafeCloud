@@ -159,9 +159,10 @@ class ConnMgr
     * @brief  Blocks until any number of bytes belonging to the data block to be received (message
     *         or raw) are read from the connection socket into the primary connection buffer
     * @return The number of bytes read from the connection socket into the primary connection buffer
-    * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is not known
     * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
     * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+    * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is unknown or not greater than the
+    *                                   index of the first available byte in the primary connection buffer
     */
    unsigned int recvRaw();
 

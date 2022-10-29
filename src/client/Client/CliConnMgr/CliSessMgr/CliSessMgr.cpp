@@ -13,11 +13,11 @@
 /* =============================== PRIVATE METHODS =============================== */
 
 /**
- * @brief Sends a session message signaling type to the server and performs the actions
- *        appropriate to session signaling types resetting or terminating the session
+ * @brief Sends a session message signaling type to the server and throws the
+ *        associated exception in case of session error signaling message types
  * @param sessMsgSignalingType The session message signaling type to be sent to the server
- * @param errReason            An optional error reason to be embedded with the exception that
- *                             must be thrown after sending such session message signaling type
+ * @param errReason            An optional error reason to be embedded with the exception
+ *                             associated with the session error signaling message type
  * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
  * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
  *                                       invalid for its current operation or step
@@ -40,17 +40,9 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
   // Attempt to send the signaling session message
   sendSessSignalMsg(sessMsgSignalingType);
 
-  // In case of signaling messages resetting or terminating the session,
-  // perform their associated actions or raise their associated exceptions
+  // If a session error signaling message type was sent, throw the associated exception
   switch(sessMsgSignalingType)
    {
-    // The client is gracefully shutting down the connection
-    case BYE:
-
-     // Set that the connection manager must be terminated
-     _connMgr._shutdownConn = true;
-     break;
-
     // The client session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
      if(!errReason.empty())
@@ -80,7 +72,7 @@ void CliSessMgr::sendCliSessSignalMsg(SessMsgType sessMsgSignalingType, const st
      else
       THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, abortedOpToStr());
 
-    // The other signaling message types require no further action
+    // A non-error signaling message type was sent
     default:
      break;
    }
@@ -550,7 +542,7 @@ void CliSessMgr::uploadFileData()
     uploadProgBar.update();
    }
 
-  /* -------------------------------- File Upload Loop -------------------------------- */
+  // -------------------------------- File Upload Loop -------------------------------- //
 
   do
    {
@@ -590,7 +582,11 @@ void CliSessMgr::uploadFileData()
      }
    } while(!feof(_mainFileDscr)); // While the main file has not been completely read
 
-  /* ------------------------------ End File Upload Loop ------------------------------ */
+  // Indentation
+  if(showProgBar)
+   printf("\n");
+
+  // ------------------------------ End File Upload Loop ------------------------------ //
 
   // Having sent to the SafeCloud server a number of bytes different from the
   // file size is a critical error that in the current session state cannot
@@ -600,16 +596,9 @@ void CliSessMgr::uploadFileData()
                                                        "operation aborted", std::to_string(totBytesSent) + " != "
                                                        + std::to_string(_mainFileInfo->meta->fileSizeRaw));
 
-  // Finalize the file encryption operation by writing the resulting
-  // integrity tag at the start of the primary connection buffer
-  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
-
-  // Send the file integrity tag to the SafeCloud server
-  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
-
-  // Indentation
-  if(showProgBar)
-   printf("\n");
+  // Finalize the file upload operation by sending
+  // the resulting integrity tag to the server
+  sendRawTag();
  }
 
 
@@ -802,12 +791,14 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
  * @throws ERR_SESS_FILE_OPEN_FAILED      Failed to open the temporary file
  *                                        descriptor in write-byte mode
  * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
- * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the downloaded file's metadata
  * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
  * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
  * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
  * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+ * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
  * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
  * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
@@ -821,7 +812,7 @@ void CliSessMgr::downloadFileData()
  {
   // Prepare the client session manager to receive
   // the raw contents of the file to be downloaded
-  prepRecvFileData();
+  prepRecvFileRaw();
 
   // The number of raw file bytes read from the
   // connection socket into the primary connection buffer
@@ -854,7 +845,8 @@ void CliSessMgr::downloadFileData()
     downloadProgBar.update();
    }
 
-  /* ------------------------------- File Download Loop ------------------------------- */
+  // ------------------------------- File Download Loop ------------------------------- //
+
   do
    {
     // Receive any number of raw file bytes
@@ -891,50 +883,40 @@ void CliSessMgr::downloadFileData()
       prevDownloadProg = currDownloadProg;
      }
 
-    // If the file being downloaded has not been completely received yet, update the associated
-    // connection manager's expected data block size to its number of remaining bytes
-    if(_rawBytesRem > 0)
-     _connMgr._recvBlockSize = _rawBytesRem;
-
-     // Otherwise, if the file has been completely received, set the associated connection
-     // manager's expected data block size to the size of an AES_128_GCM integrity tag
-    else
-     _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
+    // Update the associated connection manager's expected data block
+    // size to the number of remaining file bytes to be received
+    _connMgr._recvBlockSize = _rawBytesRem;
 
     // Reset the index of the most significant byte in the primary connection buffer
     _connMgr._priBufInd = 0;
+
    } while(_rawBytesRem != 0);
+
+  // ------------------------ File Integrity Tag Verification ------------------------ //
 
   // Indentation
   if(showProgBar)
    printf("\n");
 
-  /* ------------------------ File Integrity Tag Verification ------------------------ */
+  // Reset the index of the most significant byte in the primary connection buffer
+  _connMgr._priBufInd = 0;
 
-  // Block until the complete file integrity TAG has been received
+  // Set the associated connection manager primary buffer to
+  // receive bytes up to the size of an AES_128_GCM integrity tag
+  _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
+
+  // Block until the complete file integrity tag has been received
   while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
    _connMgr.recvRaw();
 
-  // Finalize the upload decryption by verifying the file's integrity tag
-  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
-
-  // Close and reset the temporary file descriptor
-  if(fclose(_tmpFileDscr) != 0)
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to close the downloaded temporary file "
-                                           "(" + *_tmpFileAbsPath + ") (reason = " + ERRNO_DESC + ")");
-  _tmpFileDscr = nullptr;
-
-  // Move the temporary file from the user's temporary directory
-  // into the associated main file in their download directory
-  if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
-   sendCliSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the downloaded temporary file from the client's temporary"
-                                           " directory to their download directory (" + *_tmpFileAbsPath + ")");
-
-  // Set the download file last modified time to the one specified in the '_remFileInfo' object
-  mainToRemLastModTime();
-
-  // Notify the server that the file download has been completed successfully
-  sendSessSignalMsg(COMPLETED);
+  /*
+   * Finalize the downloaded file by:
+   *    1) Verifying its integrity tag
+   *    2) Moving it from the temporary into the download directory
+   *    3) Setting its last modified time to the one
+   *       specified in the '_remFileInfo' object
+   */
+  finalizeRecvFileRaw();
  }
 
 
@@ -1115,317 +1097,220 @@ void CliSessMgr::parseRenameResponse(std::string& oldFileName, std::string& newF
 
 /* ------------------------------- 'LIST' Operation Methods ------------------------------- */
 
-
-void CliSessMgr::moveToBeginning(unsigned int secBufInd)
+/**
+ * @brief  Prepares the client session manager to receive the
+ *         serialized contents of the user's storage pool
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_DECRYPT_INIT    EVP_CIPHER decrypt initialization failed
+ * @throws ERR_SESSABORT_INTERNAL_ERROR Invalid session operation or expected
+ *                                      serialized pool contents' size
+ */
+void CliSessMgr::prepRecvPoolRaw()
  {
+  // Assert the client session manager to be in the 'LIST' operation
+  if(_sessMgrOp != LIST)
+   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Preparing to receive the serialized user pool contents with the "
+                                                 "client session manager in operation \"" + sessMgrOpToStrUpCase() +
+                                                 "\", step " + sessMgrOpStepToStrUpCase());
 
-  memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], (_connMgr._priBufInd - secBufInd));
+  // Assert the expected serialized pool contents' not to be empty as for the '_rawBytesRem' attribute
+  if(_rawBytesRem == 0)
+   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Attempting to receive the empty serialized user pool contents");
 
-  _connMgr._recvBlockSize = _rawBytesRem;
-
-  _connMgr._priBufInd = 0;
- }
-
-
-// TODO
-//void CliSessMgr::recvPoolRawContents()
-// {
-//  // The number of raw pool contents bytes read from the
-//  // connection socket into the primary connection buffer
-//  size_t recvBytes;
-//
-//  // Leftovers buffer
-//  //char leftovers[1 + 3 + sizeof(signed long) + NAME_MAX];
-//  //unsigned short leftoversInd = 0;
-//  unsigned short leftOversSize = 0;
-//
-//  /*
-//   * The maximum index of the secondary connection buffer at a which a 'PoolFileInfo' struct can be
-//   * read before saving any leftover received bytes into the 'leftovers' buffer, which is obtained
-//   * by subtracting to the secondary connection buffer size the minimum size of a 'PoolFileInfo' struct
-//   */
-//  unsigned int maxSecBufIndRead = _connMgr._secBufSize - (1 + 3 * sizeof(signed long) + 1);
-//
-//  // The serialized information size of a file in the user's storage pool
-//  unsigned short serPoolFileSize;
-//
-//  // The index of the first available byte in the secondary
-//  // connection buffer at which reading the serialized pool contents
-//  unsigned int secBufInd = 0;
-//
-//  // The expected serial pool contents' size to be received
-//  size_t expectedBytesRecv = _rawBytesRem;
-//
-//  // Pool Contents initialization
-//  _mainDirInfo = new DirInfo();
-//
-//  // Information on a file in the pool
-//  FileInfo* fileInfo;
-//
-//  /* --- Raw recv() Initializations -- */
-//  // Update the session manager step so to expect raw data
-//  _sessMgrOpStep = WAITING_RAW;
-//
-//  // Set the reception mode of the associated connection manager to 'RECV_RAW'
-//  _connMgr._recvMode = ConnMgr::RECV_RAW;
-//
-//  // Set the associated connection manager's expected data
-//  // block size to the serialized pool contents' size
-//  _connMgr._recvBlockSize = _rawBytesRem;
-//
-//  // Initialize the pool raw contents' decryption operation
-//  _aesGCMMgr.decryptInit();
-//  /* --- Raw recv() Initializations -- */
-//
-//  do
-//   {
-//    // Set the index of the first available byte in the primary connection
-//    // buffer considering any leftovers bytes from the previous read
-//    _connMgr._priBufInd = leftOversSize;
-//
-//    // Receive any number of raw file bytes
-//    recvBytes = _connMgr.recvRaw();
-//
-//    // Decrypted the received file raw bytes from the primary into the secondary
-//    // connection buffer starting at the leftovers first available byte
-//    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[leftOversSize], (int)recvBytes, &_connMgr._secBuf[leftOversSize]);
-//
-//    // Update the number of remaining bytes of the pool's raw contents
-//    _rawBytesRem -= recvBytes;
-//
-//    do
-//     {
-//      // Minimum condition for a 'PoolFileInfo' struct to be available in the secondary connection buffer
-//      if(secBufInd >= maxSecBufIndRead)
-//       {
-//        leftOversSize = _connMgr._priBufInd - secBufInd;
-//
-//        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
-//
-//        _connMgr._recvBlockSize = _rawBytesRem;
-//
-//        _connMgr._priBufInd = leftOversSize;
-//
-//        break;
-//       }
-//
-//      /*
-//       * Interpret the index of the first available byte in the
-//       * secondary connection buffer as a 'PoolFileInfo' struct
-//       *
-//       * NOTE: The interpretation may still buffer overflow (accounted for later)
-//       */
-//      PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
-//
-//      // Compute the serialized file information size
-//      serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + serPoolFile->filenameLen;
-//
-//      // If the full 'PoolFileInfo' struct is not available in the secondary connection buffer
-//      if(secBufInd + serPoolFileSize > _connMgr._secBufSize -1)
-//       {
-//        leftOversSize = _connMgr._priBufInd - secBufInd;
-//
-//        memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
-//
-//        _connMgr._recvBlockSize = _rawBytesRem;
-//
-//        _connMgr._priBufInd = leftOversSize;
-//
-//        break;
-//       }
-//
-//      std::string fileName(reinterpret_cast<char*>(serPoolFile->filename),serPoolFile->filenameLen);
-//      fileInfo = new FileInfo(fileName,serPoolFile->fileSizeRaw,serPoolFile->lastModTimeRaw,serPoolFile->creationTimeRaw);
-//      _mainDirInfo->addFileInfo(fileInfo);
-//
-//      secBufInd += serPoolFileSize;
-//
-//     } while(secBufInd != _connMgr._priBufInd);
-//
-//    leftOversSize = 0;
-//
-//   } while(_rawBytesRem > 0);
-//
-//
-//   std::cout << "in recvPoolRawContents()" << std::endl;
-//
-//   _mainDirInfo->printDirContents();
-//   std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
-//   std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
-//
-//  /* ------------------------ File Integrity Tag Verification ------------------------ */
-//
-//  _connMgr._priBufInd = 0;
-//
-//  // Block until the complete file integrity TAG has been received
-//  while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
-//   _connMgr.recvRaw();
-//
-//  // Finalize the upload decryption by verifying the file's integrity tag
-//  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
-//
-//
-//  // Notify the server that the storage pool's
-//  // contents were successfully received
-//  sendSessSignalMsg(COMPLETED);
-// }
-
-
-void CliSessMgr::recvPoolRawContents()
- {
-  // The number of raw pool contents bytes read from the
-  // connection socket into the primary connection buffer
-  size_t recvBytes;
-
-  // Leftovers buffer
-  //char leftovers[1 + 3 + sizeof(signed long) + NAME_MAX];
-  //unsigned short leftoversInd = 0;
-  unsigned short leftOversSize = 0;
-
-  /*
-   * The maximum index of the secondary connection buffer at a which a 'PoolFileInfo' struct can be
-   * read before saving any leftover received bytes into the 'leftovers' buffer, which is obtained
-   * by subtracting to the secondary connection buffer size the minimum size of a 'PoolFileInfo' struct
-   */
-  unsigned int maxSecBufIndRead = _connMgr._secBufSize - (1 + 3 * sizeof(signed long) + 1);
-
-  // The serialized information size of a file in the user's storage pool
-  unsigned short serPoolFileSize;
-
-  // The index of the first available byte in the secondary
-  // connection buffer at which reading the serialized pool contents
-  unsigned int secBufInd = 0;
-
-  // The expected serial pool contents' size to be received
-  size_t expectedBytesRecv = _rawBytesRem;
-
-  // Pool Contents initialization
-  _mainDirInfo = new DirInfo();
-
-  // Information on a file in the pool
-  FileInfo* fileInfo;
-
-  /* --- Raw recv() Initializations -- */
-  // Update the session manager step so to expect raw data
+  // Update the client session manager step so to expect raw data
   _sessMgrOpStep = WAITING_RAW;
 
   // Set the reception mode of the associated connection manager to 'RECV_RAW'
   _connMgr._recvMode = ConnMgr::RECV_RAW;
 
-  // Set the associated connection manager's expected data
-  // block size to the serialized pool contents' size
+  // Set the associated connection manager's expected block size to the
+  // serialized pool contents' size stored in the '_rawBytesRem' attribute
   _connMgr._recvBlockSize = _rawBytesRem;
 
-  // Initialize the pool raw contents' decryption operation
+  // Initialize the 'DirInfo' object used for
+  // storing the contents of the user's storage pool
+  _mainDirInfo = new DirInfo();
+
+  // Initialize the serialized pool contents' decryption operation
   _aesGCMMgr.decryptInit();
-  /* --- Raw recv() Initializations -- */
-
-  do
-   {
-    // Set the index of the first available byte in the primary connection
-    // buffer considering any leftovers bytes from the previous read
-    _connMgr._priBufInd = leftOversSize;
-
-    // Receive any number of raw file bytes
-    recvBytes = _connMgr.recvRaw();
-
-    // Decrypted the received file raw bytes from the primary into the secondary
-    // connection buffer starting at the leftovers first available byte
-    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[leftOversSize], (int)recvBytes, &_connMgr._secBuf[leftOversSize]);
-
-    // Update the number of remaining bytes of the pool's raw contents
-    _rawBytesRem -= recvBytes;
-
-    // Update the remaining expected size to be received
-    _connMgr._recvBlockSize = _rawBytesRem;
-
-    std:: cout << "_rawBytesRem = " << _rawBytesRem << std::endl;
-
-
-    int iter = 0;
-
-    do
-     {
-//      std:: cout << "iter = " << ++iter << std::endl;
-//      std:: cout << "secBufInd = " << secBufInd << std::endl;
-
-      if(secBufInd == 65475)
-       {
-        std::cout << "here" << std::endl;
-       }
-
-      /*
-       * Interpret the index of the first available byte in the
-       * secondary connection buffer as a 'PoolFileInfo' struct
-       *
-       * NOTE: The interpretation may still buffer overflow (accounted for later)
-       */
-      PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
-
-      // Compute the candidate serialized file information size
-      serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + serPoolFile->filenameLen;
-
-      // A new 'PoolFileInfo' can be read if:
-      //  1) There is at the minimum space for a 'PoolFileInfo' struct in the secondary connection buffer
-      //     (otherwise the previously read information are invalid)
-      //  2) The serialized file information size do not overflow the secondary buffer
-      //
-      if(secBufInd > maxSecBufIndRead || secBufInd + serPoolFileSize > _connMgr._priBufInd)
-       break;
-
-      // There is a full 'PoolFileInfo' available in the secondary connection buffer
-
-      std::string fileName(reinterpret_cast<char*>(serPoolFile->filename),serPoolFile->filenameLen);
-      fileInfo = new FileInfo(fileName,serPoolFile->fileSizeRaw,serPoolFile->lastModTimeRaw,serPoolFile->creationTimeRaw);
-      _mainDirInfo->addFileInfo(fileInfo);
-
-      secBufInd += serPoolFileSize;
-
-     } while(secBufInd != _connMgr._priBufInd);
-
-    leftOversSize = _connMgr._priBufInd - secBufInd;
-    if(leftOversSize > 0)
-     {
-      // TODO: Remove
-      memset(&_connMgr._secBuf[0], 0, 1000);
-
-      // TODO: Attempt
-     // if(_connMgr._priBufInd > _connMgr._recvBlockSize)
-       _connMgr._recvBlockSize += leftOversSize;
-
-      memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], leftOversSize);
-     }
-
-    secBufInd = 0;
-
-   } while(_rawBytesRem > 0);
-
-
-   std::cout << "in recvPoolRawContents()" << std::endl;
-
-   _mainDirInfo->printDirContents();
-   std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
-   std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
-
-  /* ------------------------ File Integrity Tag Verification ------------------------ */
-
-  _connMgr._priBufInd = 0;
-  _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
-
-  // Block until the complete file integrity TAG has been received
-  while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
-   _connMgr.recvRaw();
-
-  // Finalize the upload decryption by verifying the file's integrity tag
-  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
-
-
-  // Notify the server that the storage pool's
-  // contents were successfully received
-  sendSessSignalMsg(COMPLETED);
  }
 
 
+/**
+ * @brief  Receives the serialized contents of the user's storage
+ *         pool and validates their associated integrity tag
+ * @throws ERR_SESS_FILE_INVALID_NAME     Received a file of name
+ * @throws ERR_SESS_FILE_META_NEGATIVE    Received a file with negative metadata values
+ * @throws ERR_FILE_TOO_LARGE             Received a too large file (> 9999GB)
+ * @throws ERR_SESS_DIR_INFO_OVERFLOW     The storage pool information size exceeds 4GB
+ * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+ * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected integrity tag
+ * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED Plaintext integrity verification failed
+ * @throws ERR_CSK_RECV_FAILED            Error in receiving data from the connection socket
+ * @throws ERR_PEER_DISCONNECTED          The connection peer has abruptly disconnected
+ */
+void CliSessMgr::recvPoolRawContents()
+ {
+  // The number of serialized pool contents' bytes read from
+  // the connection socket into the primary connection buffer
+  size_t recvBytes;
+
+  // The index of the first available byte in the secondary
+  // connection buffer at which reading the serialized pool contents
+  unsigned int secBufInd;
+
+  // The maximum secondary connection buffer index at which a
+  // complete 'PoolFileInfo' struct MAY be present (secondary
+  // connection buffer size - minimum 'PoolFileInfo' struct size)
+  unsigned int maxSecBufIndRead = _connMgr._secBufSize - (1 + 3 * sizeof(signed long) + 1);
+
+  // The serialized information size of a file in the user's storage pool
+  unsigned short poolFileInfoSize;
+
+  // Name and metadata of a file in the user's storage pool
+  FileInfo* fileInfo;
+
+  // The number of bytes of an incomplete 'PoolFileInfo' struct in the
+  // secondary connection buffer which have to be moved at its beginning
+  // in order to read the complete struct in the next raw reception cycle
+  unsigned short carryOverBytes = 0;
+
+  // ----------------- Serialized Pool Contents Reception Cycle ----------------- //
+
+  do
+   {
+    // Set the index of the first available byte in the primary connection buffer to
+    // the number of bytes of the incomplete 'PoolFileInfo' struct that were moved
+    // at the beginning of the secondary connection buffer in the previous cycle
+    _connMgr._priBufInd = carryOverBytes;
+
+    // Receive any number of serialized raw pool contents bytes
+    recvBytes = _connMgr.recvRaw();
+
+    // Decrypted the received serialized pool contents bytes
+    // from the primary into the secondary connection buffer
+    // after any bytes carried out from the previous cycle
+    _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[carryOverBytes], (int)recvBytes,
+                            &_connMgr._secBuf[carryOverBytes]);
+
+    // Update the number of serialized pool contents' bytes to be received
+    _rawBytesRem -= recvBytes;
+
+    // Update the associated connection manager's expected block size
+    // to the number of serialized pool contents' bytes to be received
+    _connMgr._recvBlockSize = _rawBytesRem;
+
+    // Reset the index of the first available byte in the secondary connection buffer
+    secBufInd = 0;
+
+    // ----------------- Secondary Connection Buffer Scan Cycle ----------------- //
+
+    do
+     {
+      // If the index of the first available byte in the secondary connection
+      // buffer is greater than the maximum index at which a complete
+      // 'PoolFileInfo' struct can be read, stop the buffer scan cycle
+      if(secBufInd > maxSecBufIndRead)
+       break;
+
+      /*
+       * Interpret the contents starting at the index of the first available
+       * byte in the secondary connection buffer as a 'PoolFileInfo' struct
+       *
+       * NOTE: This may lead to interpreting as the struct 'filename' attribute bytes that
+       *       are either not significant or even overflow beyond the secondary connection
+       *       buffer, a condition that are accounted in the following 'if' statement
+       */
+      PoolFileInfo* poolFileInfo = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
+
+      // Compute the 'PoolFileInfo' struct size from its 'filenameLen' member
+      poolFileInfoSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFileInfo->filenameLen;
+
+      // If the 'PoolFileInfo' struct overflows the remaining number of significant
+      // bytes in the secondary connection buffer, which is equal to the number of
+      // significant bytes in the primary connection buffer, a complete 'PoolFileInfo'
+      // struct has not been received yet and so the buffer scan cycle must be stopped
+      if(secBufInd + poolFileInfoSize > _connMgr._priBufInd)
+       break;
+
+      /*
+       * At this point a complete 'PoolFileInfo' struct
+       * is available in the secondary connection buffer
+       */
+
+      // Read the file name from the 'PoolFileInfo' struct
+      std::string fileName(reinterpret_cast<char*>(poolFileInfo->filename), poolFileInfo->filenameLen);
+
+      // Initialize a FileInfo object containing the pool's file information
+      fileInfo = new FileInfo(fileName, poolFileInfo->fileSizeRaw, poolFileInfo->lastModTimeRaw, poolFileInfo->creationTimeRaw);
+
+      // Add the FileInfo to the DirInfo object storing the contents of the user's storage pool
+      _mainDirInfo->addFileInfo(fileInfo);
+
+      // Increment the index of the first available byte in the secondary connection
+      // buffer of the size of the 'PoolFileInfo' struct that has been just read
+      secBufInd += poolFileInfoSize;
+
+       // While there are significant bytes in the secondary connection buffer
+     } while(secBufInd != _connMgr._priBufInd);
+
+     // --------------- Secondary Connection Buffer Scan Cycle End --------------- //
+
+    /*
+     * Determine as the difference between the primary and the secondary connection
+     * buffers' first available bytes indexes whether bytes of an incomplete 'PoolFileInfo'
+     * struct should be moved at the beginning of the secondary connection buffer
+     * in order to be read in the next raw reception cycle (a quantity that will be
+     * != 0 if the secondary connection buffer scan cycle exited with a 'break')
+     */
+    carryOverBytes = _connMgr._priBufInd - secBufInd;
+
+    // If there are significant bytes to be moved at
+    // the beginning of the secondary connection buffer
+    if(carryOverBytes > 0)
+     {
+      // Move the significant bytes that were not processed in the
+      // secondary connection buffer scan cycle at its beginning
+      memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], carryOverBytes);
+
+      /* [PATCH] */
+      // Increment the associated connection manager's expected
+      // block size of the number of significant bytes that were
+      // moved at the beginning of the secondary connection buffer
+      _connMgr._recvBlockSize += carryOverBytes;
+     }
+
+     // While the user's serialized pool contents have not been completely received
+   } while(_rawBytesRem > 0);
+
+  // --------------- End Serialized Pool Contents Reception Cycle --------------- //
+
+  /*
+  // LOG: User's storage pool contents
+  _mainDirInfo->printDirContents();
+  std::cout << "N° files = " << _mainDirInfo->numFiles << std::endl;
+  std::cout << "Pool contents' raw size = " << _mainDirInfo->dirRawSize << std::endl;
+  std::cout << "_connMgr._recvBlockSize = " << _connMgr._recvBlockSize << std::endl;
+  */
+
+  // ------------------- Pool Contents Integrity Tag Verification ------------------- //
+
+  // Reset the index of the most significant byte in the primary connection buffer
+  _connMgr._priBufInd = 0;
+
+  // Set the associated connection manager primary buffer to
+  // receive bytes up to the size of an AES_128_GCM integrity tag
+  _connMgr._recvBlockSize = AES_128_GCM_TAG_SIZE;
+
+  // Block until the complete pool contents' integrity tag has been received
+  while(_connMgr._priBufInd != AES_128_GCM_TAG_SIZE)
+   _connMgr.recvRaw();
+
+  // Finalize the pool contents' decryption by verifying their integrity tag
+  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
+ }
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -1562,6 +1447,9 @@ void CliSessMgr::downloadFile(std::string& fileName)
     // Receive the file's raw contents
     downloadFileData();
 
+    // Notify the server that the file download has been completed successfully
+    sendSessSignalMsg(COMPLETED);
+
     // Inform the user that the file has been successfully downloaded to their download directory
     std::cout << "\nFile \"" + _remFileInfo->fileName + "\" (" + _remFileInfo->meta->fileSizeStr +
                  ") successfully downloaded into the download directory\n" << std::endl;
@@ -1673,7 +1561,11 @@ void CliSessMgr::renameFile(std::string& oldFilename, std::string& newFilename)
  }
 
 
-// TODO
+/**
+ * @brief Prints on stdout the list of files in the user's storage pool
+ * @throws Most of the session and OpenSSL exceptions (see
+ *         "execErrCode.h" and "sessErrCodes.h" for more details)
+ */
 void CliSessMgr::listPoolFiles()
  {
   // Initialize the client session manager operation
@@ -1709,31 +1601,21 @@ void CliSessMgr::listPoolFiles()
     return;
    }
 
-  // TODO: from here
   // Otherwise, if the user's storage pool is NOT empty
   else
    {
+    // Prepare the client session manager to receive the
+    // serialized contents of the user's storage pool
+    prepRecvPoolRaw();
+
     // Receive the serialized contents of the user's storage pool
     recvPoolRawContents();
 
-    // Display the storage pool's contents
-    //_mainDirInfo->printDirContents();
+    // Notify the server that the storage pool's
+    // contents were successfully received
+    sendSessSignalMsg(COMPLETED);
+
+    // Print the user's storage pool contents on stdout
+    _mainDirInfo->printDirContents();
    }
  }
-
-
-/**
- * @brief  Sends the 'BYE session signaling message to the
- *         SafeCloud server, gracefully terminating the session
- * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
- * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
- * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
- * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
- * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
- * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
- * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
- * @throws ERR_SEND_FAILED              send() fatal error
- */
-void CliSessMgr::sendByeMsg()
- { sendSessSignalMsg(BYE); }
-

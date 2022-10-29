@@ -134,19 +134,26 @@ std::string SessMgr::abortedOpToStr()
 
 /* --------------------------- Session Files Methods --------------------------- */
 
-// TODO
-void SessMgr::validateSessFileName(std::string& fileName)
+/**
+ * @brief  Asserts a string received from the connection
+ *         peer to represent a valid Linux file name
+ * @param  fileName The received file name string to be validated
+ * @throws ERR_MALFORMED_SESS_MESSAGE The received string is not
+ *                                    a valid Linux file name
+ */
+void SessMgr::validateRecvFileName(std::string& fileName)
  {
-  // Assert the file name string to consist of a valid Linux file name
+  // Assert the received file name string
+  // to consist of a valid Linux file name
   try
    {  validateFileName(fileName); }
   catch(sessErrExcp& invalidFileNameExcp)
    {
-    // If the received file name string does not represent a
-    // valid Linux file name, the received message is malformed
+    // If the file name string does not represent a valid
+    // Linux file name, then the received message is malformed
     sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
-    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the 'SessMsgFileName'"
-                                               " message (\"" + fileName + "\")");
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the received session "
+                                               "message (\"" + fileName + "\")");
    }
  }
 
@@ -272,6 +279,29 @@ void SessMgr::touchEmptyFile()
  }
 
 
+/* -------------------------- Session Raw Send/Receive -------------------------- */
+
+/**
+ * @brief  Sends the AES_128_GCM integrity tag associated with
+ *         the raw data that has been sent to the connection peer
+ * @throws ERR_AESGCMMGR_INVALID_STATE Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED    Error in retrieving the resulting integrity tag
+ * @throws ERR_SEND_OVERFLOW          Attempting to send a number of bytes > _priBufSize
+ * @throws ERR_PEER_DISCONNECTED      The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED            send() fatal error
+ */
+void SessMgr::sendRawTag()
+ {
+  // Finalize the file encryption operation by writing the resulting
+  // integrity tag at the start of the primary connection buffer
+  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
+
+  // Send the file integrity tag to the client
+  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
+ }
+
+
 /**
  * @brief  Prepares the session manager to receive the raw
  *         contents of a file being uploaded or downloaded
@@ -289,7 +319,7 @@ void SessMgr::touchEmptyFile()
  * @throws ERR_CLI_DISCONNECTED          The client disconnected during the send()
  * @throws ERR_SEND_FAILED               send() fatal error
  */
-void SessMgr::prepRecvFileData()
+void SessMgr::prepRecvFileRaw()
  {
   // Assert the session manager to be in the 'UPLOAD' or 'DOWNLOAD' operation
   if(_sessMgrOp != UPLOAD && _sessMgrOp != DOWNLOAD)
@@ -320,6 +350,51 @@ void SessMgr::prepRecvFileData()
 
   // Initialize the file AES_128_GCM decryption operation
   _aesGCMMgr.decryptInit();
+ }
+
+
+/**
+ * @brief Finalizes a received file, whether uploaded or downloaded, by:
+ *           1) Verifying its integrity tag
+ *           2) Moving it from the temporary into the main directory
+ *           3) Setting its last modified time to the one
+ *              specified in the '_remFileInfo' object
+ * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+ * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
+ * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+ * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
+ */
+void SessMgr::finalizeRecvFileRaw()
+ {
+  // Finalize the file reception's decryption by verifying its
+  // integrity tag available in the primary connection buffer
+  // Finalize the upload decryption by verifying the file's integrity tag
+  _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
+
+  // Close and reset the temporary file descriptor
+  if(fclose(_tmpFileDscr) != 0)
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_FILE_CLOSE_FAILED,"Received file \"" + *_tmpFileAbsPath + "\"", ERRNO_DESC);
+   }
+  _tmpFileDscr = nullptr;
+
+  // Move the temporary file from the temporary
+  // directory into the main file in the main directory
+  if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
+   {
+    sendSessSignalMsg(ERR_INTERNAL_ERROR);
+    THROW_SESS_EXCP(ERR_SESS_FILE_RENAME_FAILED,"source: \"" + *_tmpFileAbsPath + "\", dest: "
+                                                                                  "\"" + *_mainFileAbsPath + "\"", ERRNO_DESC);
+   }
+
+  // Set the received file last modified time to
+  // the one specified in the '_remFileInfo' object
+  mainToRemLastModTime();
  }
 
 
@@ -681,8 +756,8 @@ std::string SessMgr::loadMainSessMsgFileName()
   // Extract the file name from the 'SessMsgFileName' message
   std::string fileName(reinterpret_cast<char*>(sessFileNameMsg->fileName), fileNameLength);
 
-  // Assert the file name string to consist of a valid Linux file name
-  validateSessFileName(fileName);
+  // Assert the received file name string to consist of a valid Linux file name
+  validateRecvFileName(fileName);
 
   // Initialize the '_mainFileAbsPath' attribute to the concatenation
   // of the session's main directory with such file name
@@ -718,8 +793,8 @@ void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string**
                                      sessMsgFileRenameMsg->oldFilenameLen),newFilenameLen);
 
   // Assert both the old and new to consist of valid Linux file names
-  validateSessFileName(**oldFilenameDest);
-  validateSessFileName(**newFilenameDest);
+  validateRecvFileName(**oldFilenameDest);
+  validateRecvFileName(**newFilenameDest);
 
   // Assert the old and new file names to be different
   if(**oldFilenameDest == **newFilenameDest)
@@ -915,4 +990,26 @@ void SessMgr::resetSessState()
 
   // TODO: Remove
   printf("in resetSessState()\n");
+ }
+
+
+/**
+ * @brief  Gracefully terminates the session and connection with the peer by sending the 'BYE'
+ *         session signaling message and setting the associated connection manager to be closed
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
+ */
+void SessMgr::closeSession()
+ {
+  // Send the 'BYE' session signaling message to the connection peer
+  sendSessSignalMsg(BYE);
+
+  // Set the associated connection manager to be closed
+  _connMgr._shutdownConn = true;
  }

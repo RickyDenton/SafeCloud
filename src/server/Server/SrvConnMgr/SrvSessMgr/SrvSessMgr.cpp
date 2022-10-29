@@ -13,11 +13,11 @@
 /* ------------------------ Server Session Manager Utility Methods ------------------------ */
 
 /**
- * @brief Sends a session message signaling type to the client and performs the actions
- *        appropriate to session signaling types resetting or terminating the session
+ * @brief Sends a session message signaling type to the client and throws the
+ *        associated exception in case of session error signaling message types
  * @param sessMsgSignalingType The session message signaling type to be sent to the client
- * @param errReason            An optional error reason to be embedded with the exception that
- *                             must be thrown after sending such session message signaling type
+ * @param errReason            An optional error reason to be embedded with the exception
+ *                             associated with the session error signaling message type
  * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
  * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
  *                                       invalid for its current operation or step
@@ -40,17 +40,9 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
   // Attempt to send the signaling session message
   sendSessSignalMsg(sessMsgSignalingType);
 
-  // In case of signaling messages resetting or terminating the session,
-  // perform their associated actions or raise their associated exceptions
+  // If a session error signaling message type was sent, throw the associated exception
   switch(sessMsgSignalingType)
    {
-    // The connection manager (and the SafeCloud server as a whole) is terminating
-    case BYE:
-
-     // Set that this client connection must be closed
-     _connMgr._shutdownConn = true;
-     break;
-
     // The server session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
      if(!errReason.empty())
@@ -80,7 +72,7 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
      else
       THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
 
-    // The other signaling message types require no further action
+    // A non-error signaling message type was sent
     default:
      break;
    }
@@ -335,7 +327,7 @@ void SrvSessMgr::uploadStartCallback()
 
     // Prepare the server session manager to receive
     // the raw contents of the file to be uploaded
-    prepRecvFileData();
+    prepRecvFileRaw();
 
     LOG_INFO("[" + *_connMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
              "\" not existing in the storage pool, awaiting the raw file contents")
@@ -390,7 +382,7 @@ void SrvSessMgr::uploadConfCallback()
    {
     // Prepare the server session manager to receive
     // the raw contents of the file to be uploaded
-    prepRecvFileData();
+    prepRecvFileRaw();
 
     LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName + "\" "
              "confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
@@ -408,12 +400,14 @@ void SrvSessMgr::uploadConfCallback()
  *               success of the upload operation to the client and resets the server session manager state\n
  * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
  * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
- * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the uploaded file's metadata
  * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
  * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
  * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
  * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+ * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+ * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+ * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
  * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
  * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
@@ -492,23 +486,14 @@ void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
    // Otherwise, if the file integrity tag has been fully received
    else
     {
-     // Finalize the upload decryption by verifying the file's integrity tag
-     _aesGCMMgr.decryptFinal(&_connMgr._priBuf[0]);
-
-     // Close and reset the temporary file descriptor
-     if(fclose(_tmpFileDscr) != 0)
-      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to close the uploaded temporary file "
-                                              "(" + *_tmpFileAbsPath + ") (reason = " + ERRNO_DESC + ")");
-     _tmpFileDscr = nullptr;
-
-     // Move the temporary file from the user's temporary directory into the associated main file in their storage pool
-     if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
-      sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Failed to move the uploaded temporary file from the client's temporary"
-                                              "directory to their storage pool (" + *_tmpFileAbsPath + ")");
-
-     // Set the uploaded main file last modified time
-     // to the one specified in the '_remFileInfo' object
-     mainToRemLastModTime();
+     /*
+      * Finalize the uploaded file by:
+      *    1) Verifying its integrity tag
+      *    2) Moving it from the temporary into the user's storage pool
+      *    3) Setting its last modified time to the one
+      *       specified in the '_remFileInfo' object
+      */
+     finalizeRecvFileRaw();
 
      // Notify the client that the file upload has been completed successfully
      sendSessSignalMsg(COMPLETED);
@@ -610,7 +595,7 @@ void SrvSessMgr::downloadStartCallback()
  *        the file to be downloaded and its resulting integrity tag to the client, and setting
  *        the server session manager to expect the client download completion notification
  * @throws ERR_FILE_WRITE_FAILED              Error in reading from the main file
- * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The main file raw contents that were read differ from its size
+ * @throws ERR_SESSABORT_UNEXPECTED_FILE_SIZE The sent file raw contents differ from its expected size
  * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
@@ -638,7 +623,7 @@ void SrvSessMgr::downloadConfSendFileCallback()
   // Initialize the file encryption operation
   _aesGCMMgr.encryptInit();
 
-  /* ------------------------------- File Download Loop ------------------------------- */
+  // ------------------------------- File Download Loop ------------------------------- //
 
   do
    {
@@ -673,7 +658,7 @@ void SrvSessMgr::downloadConfSendFileCallback()
      }
    } while(!feof(_mainFileDscr)); // While the main file has not been completely read
 
-  /* ----------------------------- End File Download Loop ----------------------------- */
+  // ----------------------------- End File Download Loop ----------------------------- //
 
   // Having sent to the client  a number of bytes different from the file
   // size is a critical error that in the current session state cannot be
@@ -684,12 +669,9 @@ void SrvSessMgr::downloadConfSendFileCallback()
                                                        std::to_string(totBytesSent) + " != "
                                                        + std::to_string(_mainFileInfo->meta->fileSizeRaw));
 
-  // Finalize the file encryption operation by writing the resulting
-  // integrity tag at the start of the primary connection buffer
-  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
-
-  // Send the file integrity tag to the client
-  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
+  // Finalize the file download operation by sending
+  // the resulting integrity tag to the client
+  sendRawTag();
 
   // Set the server session manager to expect the client download's completion
   _sessMgrOpStep = WAITING_COMPL;
@@ -919,6 +901,7 @@ void SrvSessMgr::renameStartCallback()
   resetSessState();
  }
 
+
 /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
 
 /**
@@ -928,25 +911,23 @@ void SrvSessMgr::renameStartCallback()
  *            2) If the user's storage pool is NOT empty, send the client its
  *               serialized contents and set the server session manager to
  *               expect their completion notification.
- * @throws ERR_DIR_OPEN_FAILED          The user's storage pool was not found (!)
- * @throws ERR_SESS_FILE_READ_FAILED    Error in reading from the user's storage pool
- * @throws ERR_SESS_DIR_SIZE_OVERFLOW   The storage pool contents' raw size exceeds 4GB
- * @throws ERR_SESS_INTERNAL_ERROR      The serialized size of the user's storage pool exceeds 4GB
- * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
- * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
- * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
- * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
- * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
- * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
- * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
- * @throws ERR_SEND_FAILED              send() fatal error
- * TODO: Add pool sendPoolRawContents() exceptions
+ * @throws ERR_DIR_OPEN_FAILED                The user's storage pool was not found (!)
+ * @throws ERR_SESS_FILE_READ_FAILED          Error in reading from the user's storage pool
+ * @throws ERR_SESS_DIR_INFO_OVERFLOW         The storage pool information size exceeds 4GB
+ * @throws ERR_SESS_INTERNAL_ERROR            The serialized size of the user's storage pool exceeds 4GB
+ * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+ * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+ * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                    send() fatal error
+ * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
  */
 void SrvSessMgr::listStartCallback()
  {
-  // Serialized size of the user's storage pool
-  unsigned int serPoolSize;
-
   // Attempt to build a snapshot of the user storage
   // pool's contents into the '_mainDirInfo' attribute
   try
@@ -973,8 +954,8 @@ void SrvSessMgr::listStartCallback()
    * attribute storing the file name length in the 'PoolFileInfo' struct
    */
 
-  // Assert the serialized contents' size of the user's
-  // storage pool not to overflow an unsigned integer
+  // Assert the serialized size of the user's storage
+  // pool not to overflow an unsigned integer
   if(_mainDirInfo->dirRawSize > UINT_MAX - _mainDirInfo->numFiles)
    sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Storage pool serialized contents' size overflow (raw "
                                            "contents' size = " + std::to_string(_mainDirInfo->dirRawSize)
@@ -1004,7 +985,8 @@ void SrvSessMgr::listStartCallback()
     // Send the client the serialized contents of its storage pool
     sendPoolRawContents();
 
-    // Set the server session manager to expect the client completion notification
+    // Set the server session manager to expect the
+    // client pool contents' reception completion
     _sessMgrOpStep = WAITING_COMPL;
 
     LOG_INFO("[" + *_connMgr._name + "] Sent the requested storage pool's contents ("
@@ -1013,21 +995,27 @@ void SrvSessMgr::listStartCallback()
  }
 
 
-
-
-
-// TODO
+/**
+ * @brief  Serializes and sends a user's pool contents and its associated integrity tag to the client
+ * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
+ * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE        EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL         EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED            Error in retrieving the resulting integrity tag
+ * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
+ * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED                    send() fatal error
+ */
 void SrvSessMgr::sendPoolRawContents()
  {
-  /*
-   * The maximum index of the secondary connection buffer at a which a 'PoolFileInfo' struct
-   * can be written before encrypting and sending the partial raw pool contents, which is
-   * obtained by subtracting its size-1 to the maximum size of a 'PoolFileInfo' struct
-   */
+  // The maximum secondary buffer index at which a 'PoolFileInfo'
+  // struct of maximum size (filenameLen = 255) can be written
   unsigned int maxSecBufIndWrite = _connMgr._secBufSize - NAME_MAX - 3 * sizeof(signed long) - 3;
 
   // The serialized information size of a file in the user's storage pool
-  unsigned short serPoolFileSize;
+  unsigned short poolFileInfoSize;
 
   // The index of the first available byte in the secondary
   // connection buffer at which writing the serialized pool contents
@@ -1039,19 +1027,24 @@ void SrvSessMgr::sendPoolRawContents()
   // Initialize the pool raw contents' encryption operation
   _aesGCMMgr.encryptInit();
 
+  // ------------------ Serialized Pool Contents Sending Cycle ------------------ //
+
   // For each file in the user's storage pool
   for(const auto& poolFile : _mainDirInfo->dirFiles)
    {
-    // -- FLUSH
+    // If the index of the first available byte in the secondary
+    // connection buffer is greater than the maximum index at which
+    // a 'PoolFileInfo' struct of maximum size can be written
     if(secBufInd >= maxSecBufIndWrite)
      {
-      // Encrypt the pool's raw contents from the secondary into the primary connection buffer
+      // Encrypt the pool's serialized contents from the
+      // secondary into the primary connection buffer
       _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
 
-      // Send the encrypted pool's raw contents to the client
+      // Send the encrypted serialized pool contents to the client
       _connMgr.sendRaw(secBufInd);
 
-      // Update the total number of bytes sent to the client
+      // Update the total number of serialized pool bytes sent to the client
       totBytesSent += secBufInd;
 
       // Reset the index of the first available
@@ -1059,67 +1052,52 @@ void SrvSessMgr::sendPoolRawContents()
       secBufInd = 0;
      }
 
-    // Interpret the index of the first available byte in the
-    // secondary connection buffer as a 'PoolFileInfo' struct
+    // Interpret the contents starting at the index of the first available
+    // byte in the secondary connection buffer as a 'PoolFileInfo' struct
     PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
 
-    /*
-    std::cout << "poolFile = " << poolFile << std::endl;
-    poolFile->printFileInfo();
-    std::cout << "poolFile.FileNamelength() = " << poolFile->fileName.length() << std::endl;
-    */
-
-    // Serialize the file information from the 'FileInfo' into the 'PoolFileInfo' struct
+    // Initialize the 'PoolFileInfo' struct with the file information
     serPoolFile->filenameLen = poolFile->fileName.length();
     serPoolFile->fileSizeRaw = poolFile->meta->fileSizeRaw;
     serPoolFile->lastModTimeRaw = poolFile->meta->lastModTimeRaw;
     serPoolFile->creationTimeRaw = poolFile->meta->creationTimeRaw;
     memcpy(reinterpret_cast<char*>(serPoolFile->filename), poolFile->fileName.c_str(), poolFile->fileName.length());
 
-    // Compute the serialized file information size
-    serPoolFileSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFile->fileName.length();
+    // Compute the 'PoolFileInfo' struct size from its 'filenameLen' member
+    poolFileInfoSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFile->fileName.length();
 
     // Update the index of the first available byte in the secondary connection buffer
-    secBufInd += serPoolFileSize;
+    secBufInd += poolFileInfoSize;
    }
 
-  // -- LAST flush
+  // If there are serialized pool contents remaining to be sent to the client
   if(secBufInd > 0)
    {
-    // Encrypt the pool's raw contents from the secondary into the primary connection buffer
+    // Encrypt the pool's serialized contents from the
+    // secondary into the primary connection buffer
     _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
 
-    // Send the encrypted pool's raw contents to the client
+    // Send the encrypted serialized pool contents to the client
     _connMgr.sendRaw(secBufInd);
 
-    // Update the total number of bytes sent to the client
+    // Update the total number of serialized pool bytes sent to the client
     totBytesSent += secBufInd;
    }
 
-  // Having sent to the client a number of bytes different from the serialized
-  // pool size is a critical error that in the current session state cannot
-  // be notified to the client and so require their connection to be dropped
+  // ---------------- End Serialized Pool Contents Sending Cycle ---------------- //
+
+  // Having sent the client a number of bytes different that the previously computed
+  // serialized pool size is a critical error that in the current session state
+  // cannot be notified to the client and so require their connection to be dropped
   if(totBytesSent != _rawBytesRem)
    THROW_EXEC_EXCP(ERR_SESSABORT_UNEXPECTED_POOL_SIZE, "\"" + *_connMgr._name + "\" LIST operation"
                                                        " aborted", std::to_string(totBytesSent) +
                                                        " != " + std::to_string(_rawBytesRem));
 
-  // Finalize the pool raw contents' encryption operation by writing the
-  // resulting integrity tag at the start of the primary connection buffer
-  _aesGCMMgr.encryptFinal(&_connMgr._priBuf[0]);
-
-  // Send the pool raw contents' integrity tag to the client
-  _connMgr.sendRaw(AES_128_GCM_TAG_SIZE);
-
-  // Set the server session manager to expect the
-  // client pool contents' reception completion
-  _sessMgrOpStep = WAITING_COMPL;
-
-  std::cout << "sendPoolRawContents() END!" << std::endl;
+  // Finalize the serialized pool contents transmission
+  // by sending the resulting integrity tag to the client
+  sendRawTag();
  }
-
-
-
 
 
 /**

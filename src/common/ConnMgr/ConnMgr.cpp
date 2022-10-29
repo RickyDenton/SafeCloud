@@ -255,9 +255,10 @@ void ConnMgr::sendRaw(unsigned int numBytes)
  * @brief  Blocks until any number of bytes belonging to the data block to be received (message
  *         or raw) are read from the connection socket into the primary connection buffer
  * @return The number of bytes read from the connection socket into the primary connection buffer
- * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is not known
  * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
  * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+ * @throws ERR_CONNMGR_INVALID_STATE The expected data block size is unknown or not greater than the
+ *                                   index of the first available byte in the primary connection buffer
  */
 unsigned int ConnMgr::recvRaw()
  {
@@ -271,7 +272,15 @@ unsigned int ConnMgr::recvRaw()
 
   // Assert the expected data block size be known
   if(_recvBlockSize == 0)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Expected data block size unknown in receiving raw data");
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive raw data with"
+                                              "an unknown expected data block size");
+
+  // Assert the expected data block size to be greater than the
+  // index of the first available byte in the primary connection buffer
+  if(_recvBlockSize <= _priBufInd)
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive raw data with an  expected data"
+                                              "block size smaller or equal than the index of the "
+                                              "first available byte in the primary connection buffer");
 
   /*
    * Determine the maximum number of bytes that can be read from the connection socket into the primary

@@ -22,11 +22,11 @@ class CliSessMgr : public SessMgr
    /* ============================== PRIVATE METHODS ============================== */
 
    /**
-    * @brief Sends a session message signaling type to the server and performs the actions
-    *        appropriate to session signaling types resetting or terminating the session
+    * @brief Sends a session message signaling type to the server and throws the
+    *        associated exception in case of session error signaling message types
     * @param sessMsgSignalingType The session message signaling type to be sent to the server
-    * @param errReason            An optional error reason to be embedded with the exception that
-    *                             must be thrown after sending such session message signaling type
+    * @param errReason            An optional error reason to be embedded with the exception
+    *                             associated with the session error signaling message type
     * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
     * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
     *                                       invalid for its current operation or step
@@ -199,12 +199,14 @@ class CliSessMgr : public SessMgr
     * @throws ERR_SESS_FILE_OPEN_FAILED      Failed to open the temporary file
     *                                        descriptor in write-byte mode
     * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
-    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the downloaded file's metadata
     * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
     * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
     * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
     * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected file integrity tag
     * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED File integrity verification failed
+    * @throws ERR_SESS_FILE_CLOSE_FAILED     Error in closing the temporary file
+    * @throws ERR_SESS_FILE_RENAME_FAILED    Error in moving the temporary file to the main directory
+    * @throws ERR_SESS_FILE_META_SET_FAILED  Error in setting the main file's last modification time
     * @throws ERR_OSSL_EVP_ENCRYPT_INIT      EVP_CIPHER encrypt initialization failed
     * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE    EVP_CIPHER encrypt update failed
     * @throws ERR_OSSL_EVP_ENCRYPT_FINAL     EVP_CIPHER encrypt final failed
@@ -269,10 +271,31 @@ class CliSessMgr : public SessMgr
 
    /* ------------------------------- 'LIST' Operation Methods ------------------------------- */
 
-   // TODO
-   void moveToBeginning(unsigned int secBufInd);
+   /**
+    * @brief  Prepares the client session manager to receive the
+    *         serialized contents of the user's storage pool
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_DECRYPT_INIT    EVP_CIPHER decrypt initialization failed
+    * @throws ERR_SESSABORT_INTERNAL_ERROR Invalid session operation or expected
+    *                                      serialized pool contents' size
+    */
+   void prepRecvPoolRaw();
 
-   // TODO
+   /**
+    * @brief  Receives the serialized contents of the user's storage
+    *         pool and validates their associated integrity tag
+    * @throws ERR_SESS_FILE_INVALID_NAME     Received a file of name
+    * @throws ERR_SESS_FILE_META_NEGATIVE    Received a file with negative metadata values
+    * @throws ERR_FILE_TOO_LARGE             Received a too large file (> 9999GB)
+    * @throws ERR_SESS_DIR_INFO_OVERFLOW     The storage pool information size exceeds 4GB
+    * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed
+    * @throws ERR_OSSL_SET_TAG_FAILED        Error in setting the expected integrity tag
+    * @throws ERR_OSSL_DECRYPT_VERIFY_FAILED Plaintext integrity verification failed
+    * @throws ERR_CSK_RECV_FAILED            Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED          The connection peer has abruptly disconnected
+    */
    void recvPoolRawContents();
 
   public:
@@ -334,22 +357,12 @@ class CliSessMgr : public SessMgr
     */
    void renameFile(std::string& oldFilename, std::string& newFilename);
 
-   // TODO: STUB
-   void listPoolFiles();
-
    /**
-    * @brief  Sends the 'BYE session signaling message to the
-    *         SafeCloud server, gracefully terminating the session
-    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
-    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
-    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
-    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
-    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
-    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
-    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
-    * @throws ERR_SEND_FAILED              send() fatal error
+    * @brief Prints on stdout the list of files in the user's storage pool
+    * @throws Most of the session and OpenSSL exceptions (see
+    *         "execErrCode.h" and "sessErrCodes.h" for more details)
     */
-   void sendByeMsg();
+   void listPoolFiles();
  };
 
 

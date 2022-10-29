@@ -48,7 +48,7 @@ class DirInfo
     * @param  dirAbspath The absolute path of the directory to create the snapshot of
     * @throws ERR_DIR_OPEN_FAILED        The target directory was not found
     * @throws ERR_SESS_FILE_READ_FAILED  Error in reading a file's metadata
-    * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
+    * @throws ERR_SESS_DIR_INFO_OVERFLOW The directory information size exceeds 4GB
     */
    explicit DirInfo(std::string* dirAbspath);
 
@@ -62,7 +62,7 @@ class DirInfo
    /**
     * @brief  Adds a file with its information in the directory
     * @param  fileInfo The information on the file to be added to the directory
-    * @throws ERR_SESS_DIR_SIZE_OVERFLOW The directory contents' raw size exceeds 4GB
+    * @throws ERR_SESS_DIR_INFO_OVERFLOW The directory information size exceeds 4GB
     */
    void addFileInfo(FileInfo* fileInfo);
 
