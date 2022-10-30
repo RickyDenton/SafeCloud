@@ -1,4 +1,4 @@
-/* SafeCloud Client main driver */
+/* SafeCloud Client application main driver */
 
 /* ================================== INCLUDES ================================== */
 
@@ -18,10 +18,8 @@
 #include "defaults.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "Client/Client.h"
-#include "utils.h"
+#include "sanUtils.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
-#include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
-#include "DirInfo/DirInfo.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 Client* cli;  // The singleton Client object
@@ -234,35 +232,6 @@ int main(int argc, char** argv)
   // Determine the IP and port of the SafeCloud server the client
   // application should connect to by parsing the command-line arguments
   parseCmdArgs(argc,argv,srvIP,srvPort);
-
-
-  /* -------------------------------- TRIES -------------------------------- */
-
-  std::string dirPath = "/home/rickydenton/CLionProjects/SafeCloud/release/client";
-
-  DirInfo dirInf(&dirPath);
-
-  dirInf.printDirContents();
-
-  std::cout << "dirInf.numFiles = " << dirInf.numFiles << std::endl;
-
-  std::cout << "dirInf.dirRawSize = " << dirInf.dirRawSize << std::endl;
-
-
-  std::string extrFileName("EXTRANEOUS.txt");
-  FileInfo* extrFile = new FileInfo(extrFileName,100000,300000,200000);
-  dirInf.addFileInfo(extrFile);
-
-
-  dirInf.printDirContents();
-
-  std::cout << "dirInf.numFiles = " << dirInf.numFiles << std::endl;
-
-  std::cout << "dirInf.dirRawSize = " << dirInf.dirRawSize << std::endl;
-
-
-  /* -------------------------------- TRIES -------------------------------- */
-
 
   // Attempt to initialize the SafeCloud Client object by passing
   // it the IP and port of the SafeCloud server to connect to

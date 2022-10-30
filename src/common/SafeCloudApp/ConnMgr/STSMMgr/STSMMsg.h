@@ -6,7 +6,7 @@
 /* ================================== INCLUDES ================================== */
 #include <cstdint>
 #include "defaults.h"
-#include "ConnMgr/IV/IV.h"
+#include "SafeCloudApp/ConnMgr/IV/IV.h"
 
 /* ======================= STSM MESSAGE TYPES DEFINITIONS ======================= */
 enum STSMMsgType : uint8_t

@@ -153,7 +153,7 @@ class errExcp : public std::exception
  * @param lineNumber (DEBUG MODE ONLY) The line number at which the error has occurred
  */
 #ifdef DEBUG_MODE
-void handleErrCode(const errCodeInfo errInf, const std::string* addDscr, const std::string* reason, const std::string* srcFile, const unsigned int lineNumber);
+void handleErrCode(errCodeInfo errInf, const std::string* addDscr, const std::string* reason, const std::string* srcFile, unsigned int lineNumber);
 #else
 void handleErrCode(const errCodeInfo errInf,const std::string* addDscr,const std::string* reason);
 #endif

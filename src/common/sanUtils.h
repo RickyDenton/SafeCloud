@@ -1,10 +1,12 @@
-#ifndef SAFECLOUD_UTILS_H
-#define SAFECLOUD_UTILS_H
+#ifndef SAFECLOUD_SANUTILS_H
+#define SAFECLOUD_SANUTILS_H
 
+/* SafeCloud Application sanitization utility functions declarations */
+
+/* ================================== INCLUDES ================================== */
 #include <stdlib.h>
 #include <string>
 
-/* SafeCloud Application common utility functions declarations */
 
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
@@ -49,4 +51,4 @@ void validateFileName(std::string& fileName);
 void sanitizeUsername(std::string& username);
 
 
-#endif //SAFECLOUD_UTILS_H
+#endif //SAFECLOUD_SANUTILS_H

@@ -6,7 +6,7 @@
 /* ================================== INCLUDES ================================== */
 #include <openssl/evp.h>
 #include <openssl/pem.h>
-#include "ConnMgr/IV/IV.h"
+#include "SafeCloudApp/ConnMgr/IV/IV.h"
 
 #define AES_128_KEY_SIZE 16      // The AES_128 key size in bytes    (128 bit)
 #define AES_BLOCK_SIZE 16        // The AES block size in bytes      (128 bit)

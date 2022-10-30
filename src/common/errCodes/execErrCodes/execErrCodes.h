@@ -74,7 +74,7 @@ enum execErrCode : unsigned char
   ERR_STORE_INIT_FAILED,
   ERR_STORE_ADD_CACERT_FAILED,
   ERR_STORE_ADD_CACRL_FAILED,
-  ERR_STORE_REJECT_REVOKED_FAILED,
+  ERR_STORE_REJECT_SET_FAILED,
 
   // Client Login
   ERR_LOGIN_PWD_EMPTY,
@@ -275,23 +275,23 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     /* -------------------------- CLIENT-SPECIFIC ERRORS -------------------------- */
 
     // X.509 Store Creation
-    {ERR_CA_CERT_OPEN_FAILED,                    {FATAL,    "The CA certificate file could not be opened"} },
-    {ERR_CA_CERT_INVALID,                        {FATAL,    "The CA certificate file does not contain a valid X.509 certificate"} },
-    {ERR_CA_CRL_OPEN_FAILED,                     {FATAL,    "The CA CRL file could not be opened"} },
-    {ERR_CA_CRL_INVALID,                         {FATAL,    "The CA CRL file does not contain a valid X.509 certificate revocation list"} },
-    {ERR_STORE_INIT_FAILED,                      {FATAL,    "Error in initializing the X.509 certificates store"} },
-    {ERR_STORE_ADD_CACERT_FAILED,                {FATAL,    "Error in adding the CA certificate to the X.509 store"} },
-    { ERR_STORE_ADD_CACRL_FAILED,      {FATAL,"Error in adding the CA CRL to the X.509 store"} },
-    { ERR_STORE_REJECT_REVOKED_FAILED, {FATAL,"Error in configuring the store so to reject revoked certificates"} },
+    {ERR_CA_CERT_OPEN_FAILED,         {FATAL,    "The CA certificate file could not be opened"} },
+    {ERR_CA_CERT_INVALID,             {FATAL,    "The CA certificate file does not contain a valid X.509 certificate"} },
+    {ERR_CA_CRL_OPEN_FAILED,          {FATAL,    "The CA CRL file could not be opened"} },
+    {ERR_CA_CRL_INVALID,              {FATAL,    "The CA CRL file does not contain a valid X.509 certificate revocation list"} },
+    {ERR_STORE_INIT_FAILED,           {FATAL,    "Error in initializing the X.509 certificates store"} },
+    {ERR_STORE_ADD_CACERT_FAILED,     {FATAL,    "Error in adding the CA certificate to the X.509 store"} },
+    {ERR_STORE_ADD_CACRL_FAILED,      {FATAL,    "Error in adding the CA CRL to the X.509 store"} },
+    {ERR_STORE_REJECT_SET_FAILED,     {FATAL,    "Error in setting the store so to reject revoked certificates"} },
 
     // Client Login
-    { ERR_LOGIN_PWD_EMPTY,              {ERROR,   "The user-provided password is empty"} },
-    { ERR_LOGIN_PWD_TOO_LONG,           {ERROR,   "The user-provided password is too long"} },
-    { ERR_LOGIN_PRIVKFILE_NOT_FOUND,    {ERROR,   "The user RSA private key file was not found"} },
-    { ERR_LOGIN_PRIVKFILE_OPEN_FAILED,  {ERROR,   "Error in opening the user's RSA private key file"} },
-    { ERR_LOGIN_PRIVK_INVALID,          {ERROR,   "The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
-    { ERR_DOWNDIR_NOT_FOUND,            {CRITICAL,"The client's download directory was not found"} },
-    { ERR_CLI_LOGIN_FAILED,             {CRITICAL,"Maximum number of login attempts reached, please try again later"} },
+    {ERR_LOGIN_PWD_EMPTY,             {ERROR,    "The user-provided password is empty"} },
+    {ERR_LOGIN_PWD_TOO_LONG,          {ERROR,    "The user-provided password is too long"} },
+    {ERR_LOGIN_PRIVKFILE_NOT_FOUND,   {ERROR,    "The user RSA private key file was not found"} },
+    {ERR_LOGIN_PRIVKFILE_OPEN_FAILED, {ERROR,    "Error in opening the user's RSA private key file"} },
+    {ERR_LOGIN_PRIVK_INVALID,         {ERROR,    "The contents of the user's private key file could not be interpreted as a valid RSA key pair"} },
+    {ERR_DOWNDIR_NOT_FOUND,           {CRITICAL, "The client's download directory was not found"} },
+    {ERR_CLI_LOGIN_FAILED,            {CRITICAL, "Maximum number of login attempts reached, please try again later"} },
 
     // Connection Socket
     { ERR_CSK_INIT_FAILED,   {FATAL,  "Connection socket creation failed"} },

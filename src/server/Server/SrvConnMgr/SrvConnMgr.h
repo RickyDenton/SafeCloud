@@ -4,7 +4,7 @@
 /* SafeCloud Server Connection Manager  */
 
 /* ================================== INCLUDES ================================== */
-#include "ConnMgr/ConnMgr.h"
+#include "SafeCloudApp/ConnMgr/ConnMgr.h"
 #include "SrvSTSMMgr/SrvSTSMMgr.h"
 #include "SrvSessMgr/SrvSessMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"

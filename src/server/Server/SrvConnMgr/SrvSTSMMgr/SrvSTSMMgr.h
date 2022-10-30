@@ -3,7 +3,7 @@
 
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Server Manager */
 
-#include "ConnMgr/STSMMgr/STSMMgr.h"
+#include "SafeCloudApp/ConnMgr/STSMMgr/STSMMgr.h"
 
 // Forward Declaration
 class SrvConnMgr;

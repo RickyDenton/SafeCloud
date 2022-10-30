@@ -1,4 +1,4 @@
-/* SafeCloud Server main driver */
+/* SafeCloud Server application main driver */
 
 /* ================================== INCLUDES ================================== */
 

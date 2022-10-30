@@ -1,13 +1,13 @@
-/* SafeCloud Application common utility functions definitions */
+/* SafeCloud Application sanitization utility functions definitions */
 
+/* ================================== INCLUDES ================================== */
 #include <cctype>
 #include <string>
-#include "utils.h"
+#include "sanUtils.h"
 #include "defaults.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include <bits/stdc++.h>
-//#include <string.h>
 
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */

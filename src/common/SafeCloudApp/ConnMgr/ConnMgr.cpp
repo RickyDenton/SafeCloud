@@ -6,7 +6,7 @@
 #include "ConnMgr.h"
 #include "defaults.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
-#include "ConnMgr/STSMMgr/STSMMsg.h"
+#include "SafeCloudApp/ConnMgr/STSMMgr/STSMMsg.h"
 #include <dirent.h>
 #include <arpa/inet.h>
 
@@ -42,6 +42,10 @@ void ConnMgr::cleanTmpDir()
      {
       // Skip the directory and its parent's pointers
       if(!strcmp(tmpFile->d_name,".") ||!strcmp(tmpFile->d_name,".."))
+       continue;
+
+      // TODO: Github '.gitkeep' exclusion (usability purposes)
+      if(!strcmp(tmpFile->d_name,".gitkeep"))
        continue;
 
       // Build the file's absolute path

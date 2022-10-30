@@ -441,10 +441,29 @@ void Server::srvLoop()
 
   while(1)
    {
-    // If the SafeCloud server is shutting down and there are no
-    // clients connected, break the server main loop and terminate
-    if(_shutdown && !_connected)
-     break;
+    // If the SafeCloud server is shutting down
+    if(_shutdown)
+     {
+      // If there are no more clients connected, break the main
+      // loop and terminate the SafeCloud server application
+      if(!_connected)
+       break;
+
+      // Otherwise, if the server is listening on its listening socket
+      else
+       if(_lsk != -1)
+        {
+         // Close the listening socket to prevent accepting further client connections
+         if(close(_lsk) != 0)
+          LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
+
+         // Remove the listening socket from the list of open file descriptors
+         FD_CLR(_lsk, &_skSet);
+
+         // Reset the listening socket
+         _lsk = -1;
+        }
+     }
 
     // Reset the list of sockets to wait input data from to all open sockets
     skReadSet = _skSet;
@@ -569,41 +588,41 @@ Server::~Server()
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
 
-// TODO
+// TODO: Write better descriptions
 bool Server::shutdownSignalHandler()
  {
-  // If the server is listening on its listening socket
-  if(_lsk != -1)
-   {
-    // Close the listening socket to prevent
-    // accepting further client connections
-    if(close(_lsk) != 0)
-     LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
-
-    // Reset the listening socket
-    _lsk = -1;
-   }
+  // List of iterators to 'SrvConnMgr' objects whose associated connections
+  // are in the session 'IDLE' state, and so can be terminated directly
+  std::forward_list<connMapIt> idleSrvConnMgrList;
 
   // For each connected client
   for(connMapIt it = _connMap.begin(); it != _connMap.end(); ++it)
    {
-    // If the server session manager is in the session phase in the 'IDLE' operation
+    // If the server session manager is in the session phase in the 'IDLE' operation,
+    // add it to the list of 'SrvConnMgr' objects that can be terminated directly
     if(it->second != nullptr && it->second->isInSessionPhase()
        && it->second->getSession()->isIdle())
-     {
-      // Close the session with the client by
-      // sending the 'BYE' session signaling message
-      it->second->getSession()->closeSession();
-
-      // Close the client connection
-      closeConn(it);
-     }
+     idleSrvConnMgrList.emplace_front(it);
    }
+
+  // Print the attributes of each file in the directory
+  for(const auto& it : idleSrvConnMgrList)
+   {
+    // Close the session with the client by
+    // sending the 'BYE' session signaling message
+    it->second->getSession()->closeSession();
+
+    // Close the client connection
+    closeConn(it);
+   }
+
 
   // If the server is no longer connected with
   // any client, it can be shut down directly
   if(!_connected)
    return true;
+
+  std::cout << "Returning FALSE" << std::endl;
 
   // Otherwise set the '_shutdown' flag and return that the
   // server application will shut down as soon as possible

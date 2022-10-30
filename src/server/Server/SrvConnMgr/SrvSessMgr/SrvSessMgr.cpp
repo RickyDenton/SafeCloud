@@ -3,7 +3,7 @@
 /* ================================== INCLUDES ================================== */
 #include <fstream>
 #include "SrvSessMgr.h"
-#include "ConnMgr/SessMgr/SessMsg.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/SessMsg.h"
 #include "../SrvConnMgr.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 

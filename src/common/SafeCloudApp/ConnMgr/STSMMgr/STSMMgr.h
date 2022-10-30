@@ -9,7 +9,7 @@
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include "STSMMsg.h"
-#include "ConnMgr/ConnMgr.h"
+#include "SafeCloudApp/ConnMgr/ConnMgr.h"
 
 /* Base STSM information used by client and server alike */
 class STSMMgr

@@ -4,7 +4,7 @@
 /* SafeCloud Client Connection Manager  */
 
 /* ================================== INCLUDES ================================== */
-#include "ConnMgr/ConnMgr.h"
+#include "SafeCloudApp/ConnMgr/ConnMgr.h"
 #include "CliSTSMMgr/CliSTSMMgr.h"
 #include "CliSessMgr/CliSessMgr.h"
 #include <openssl/evp.h>

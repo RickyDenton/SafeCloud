@@ -5,9 +5,9 @@
 
 /* ================================== INCLUDES ================================== */
 #include "defaults.h"
-#include "ConnMgr/IV/IV.h"
+#include "SafeCloudApp/ConnMgr/IV/IV.h"
 #include "ossl_crypto/AES_128_CBC.h"
-#include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include <string>
 
 // The size in bytes of SafeCloud Message

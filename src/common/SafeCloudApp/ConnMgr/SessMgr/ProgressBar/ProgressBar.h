@@ -84,24 +84,27 @@ class ProgressBar
   void reset();
 
   // set number of loop iterations
-  void set_niter(int iter);
+  __attribute__((unused)) void set_niter(int iter);
 
   // chose your style
-  inline void set_done_char(const std::string& sym)
+  __attribute__((unused)) inline void set_done_char(const std::string& sym)
    {done_char = sym;}
-  inline void set_todo_char(const std::string& sym)
+
+  __attribute__((unused)) inline void set_todo_char(const std::string& sym)
    {todo_char = sym;}
-  inline void set_opening_bracket_char(const std::string& sym)
+
+  __attribute__((unused)) inline void set_opening_bracket_char(const std::string& sym)
    {opening_bracket_char = sym;}
-  inline void set_closing_bracket_char(const std::string& sym)
+
+  __attribute__((unused)) inline void set_closing_bracket_char(const std::string& sym)
    {closing_bracket_char = sym;}
 
   // to show only the percentage
-  inline void show_bar(bool flag = true)
+  __attribute__((unused)) inline void show_bar(bool flag = true)
    {do_show_bar = flag;}
 
   // set the output stream
-  inline void set_output_stream(const std::ostream& stream)
+  __attribute__((unused)) inline void set_output_stream(const std::ostream& stream)
    {output.rdbuf(stream.rdbuf());}
 
   // main function

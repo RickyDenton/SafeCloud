@@ -38,7 +38,7 @@ void ProgressBar::reset()
   last_perc = 0;
  }
 
-void ProgressBar::set_niter(int niter)
+__attribute__((unused)) void ProgressBar::set_niter(int niter)
  {
   if (niter <= 0)
    throw std::invalid_argument("ProgressBar::set_niter: number of iterations null or negative");
@@ -78,11 +78,8 @@ void ProgressBar::update()
    if(perc <= 10)
     output << "\b\b"   << perc << '%';
    else
-    if(perc < 100)
+    if(perc <= 100)
      output << "\b\b\b" << perc << '%';
-    else
-     if (perc == 100)
-      output << "\b\b\b" << perc << '%';
   }
  if(do_show_bar)
   {

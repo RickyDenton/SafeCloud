@@ -2,12 +2,12 @@
 
 /* ================================== INCLUDES ================================== */
 #include "SrvSTSMMgr.h"
-#include "ConnMgr/STSMMgr/STSMMsg.h"
+#include "SafeCloudApp/ConnMgr/STSMMgr/STSMMsg.h"
 #include "../SrvConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "ossl_crypto/DigSig.h"
 #include "ossl_crypto/AES_128_CBC.h"
-#include "utils.h"
+#include "sanUtils.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 

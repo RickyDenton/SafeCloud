@@ -4,8 +4,8 @@
 /* SafeCloud Client Session Manager Class Declaration */
 
 /* ================================== INCLUDES ================================== */
-#include "ConnMgr/SessMgr/SessMgr.h"
-#include "ConnMgr/SessMgr/SessMsg.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/SessMgr.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/SessMsg.h"
 
 
 // Forward Declaration

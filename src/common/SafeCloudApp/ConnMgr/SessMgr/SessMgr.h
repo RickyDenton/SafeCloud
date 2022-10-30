@@ -23,9 +23,9 @@
 #include <string>
 #include <unordered_map>
 #include "DirInfo/FileInfo/FileInfo.h"
-#include "ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
-#include "ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
-#include "ConnMgr/ConnMgr.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
+#include "SafeCloudApp/ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
+#include "SafeCloudApp/ConnMgr/ConnMgr.h"
 #include "SessMsg.h"
 #include "DirInfo/DirInfo.h"
 

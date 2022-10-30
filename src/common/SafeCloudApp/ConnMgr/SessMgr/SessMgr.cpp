@@ -8,7 +8,7 @@
 #include "SessMsg.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
-#include "utils.h"
+#include "sanUtils.h"
 
 
 /* ============================= PROTECTED METHODS ============================= */

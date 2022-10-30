@@ -7,8 +7,8 @@
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "../CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
-#include "../../../client_utils.h"
-#include "utils.h"
+#include "sanUtils.h"
+#include "../../Client.h"
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -282,7 +282,7 @@ bool CliSessMgr::askFileOpConf()
   std::string fileOpContinueQuestion("Do you want to continue " + sessMgrOpToStrLowCase() + "ing the file?");
 
   // Ask the user the file operation confirmation question and, if they confirm
-  if(askUser(fileOpContinueQuestion.c_str()))
+  if(Client::askUser(fileOpContinueQuestion.c_str()))
    {
     // Confirm the file operation to the SafeCloud server
     sendCliSessSignalMsg(CONFIRM);
@@ -711,7 +711,7 @@ bool CliSessMgr::parseDownloadResponse(std::string& fileName)
          _mainFileInfo->compareMetadata(_remFileInfo);
 
          // Ask the user whether the download operation should proceed
-         if(askUser("Do you want to continue downloading the file?"))
+         if(Client::askUser("Do you want to continue downloading the file?"))
           return true;
 
           // Otherwise, if the download operation should not proceed
@@ -979,7 +979,7 @@ bool CliSessMgr::parseDeleteResponse(std::string& fileName)
      _remFileInfo->printFileInfo();
 
      // Ask for user confirmation on whether proceeding deleting the file
-     if(askUser("Are you sure to delete this file from your storage pool?"))
+     if(Client::askUser("Are you sure to delete this file from your storage pool?"))
       {
        // Confirm the delete operation to the SafeCloud server
        sendCliSessSignalMsg(CONFIRM);
