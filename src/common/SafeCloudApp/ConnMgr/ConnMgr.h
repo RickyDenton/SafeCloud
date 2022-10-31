@@ -114,6 +114,15 @@ class ConnMgr
     */
    void clearPriBuf();
 
+   /**
+    * @brief  Checks whether input data is available on
+    *         the connection socket without consuming it
+    * @return A boolean indicating whether input data is available on the connection socket
+    * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+    */
+   bool isRecvDataAvailable() const;
+
    /* ----------------------- SafeCloud Messages Send/Receive ----------------------- */
 
    /**
@@ -193,6 +202,12 @@ class ConnMgr
     * @return A boolean indicating whether the connection manager should be terminated
     */
    bool shutdownConn() const;
+
+   /*
+    * Returns the name of the user
+    * associated with the connection manager
+    */
+   std::string* getName();
 
    /**
     * @brief  Returns whether the connection manager is in the session phase

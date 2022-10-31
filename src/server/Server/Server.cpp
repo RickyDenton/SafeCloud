@@ -275,9 +275,12 @@ void Server::newClientData(int ski)
       // sending the 'BYE' session signaling message
       srvConnMgr->getSession()->closeSession();
 
+      LOG_DEBUG("Sent 'BYE' session message to user \""
+                + *srvConnMgr->getName() + "\"")
+
       // Close the client connection
-     closeConn(connIt);
-     }
+      closeConn(connIt);
+    }
 
   // Continue checking the next socket descriptor in the server's main loop
  }
@@ -588,50 +591,68 @@ Server::~Server()
 
 /* ============================= OTHER PUBLIC METHODS ============================= */
 
-// TODO: Write better descriptions
+/**
+ * @brief  Server object shutdown signal handler, returning, depending on whether
+ *         there are client requests pending, if it can be terminated directly or
+ *         if it will autonomously terminate as soon as such requests are served
+ * @return A boolean indicating whether the server object can be terminated directly
+ * @note   If the Server object cannot be terminated directly, its listening socket
+ *         will be closed in the next server loop iteration to prevent accepting
+ *         further client connections
+ */
 bool Server::shutdownSignalHandler()
  {
-  // List of iterators to 'SrvConnMgr' objects whose associated connections
-  // are in the session 'IDLE' state, and so can be terminated directly
-  std::forward_list<connMapIt> idleSrvConnMgrList;
+  // List of iterators of the connected clients' map whose
+  // associated 'SrvConnMgr' objects are in the session 'IDLE' state
+  std::forward_list<connMapIt> idleCliConnList;
 
-  // For each connected client
+  // Cycle the entire connected clients' map
   for(connMapIt it = _connMap.begin(); it != _connMap.end(); ++it)
    {
-    // If the server session manager is in the session phase in the 'IDLE' operation,
-    // add it to the list of 'SrvConnMgr' objects that can be terminated directly
+    // If the client's server session manager is in the session 'IDLE'
+    // state, add its associated iterator to the 'idleCliConnList'
     if(it->second != nullptr && it->second->isInSessionPhase()
        && it->second->getSession()->isIdle())
-     idleSrvConnMgrList.emplace_front(it);
+     idleCliConnList.emplace_front(it);
    }
 
-  // Print the attributes of each file in the directory
-  for(const auto& it : idleSrvConnMgrList)
+  // For each iterator of the connected clients' map whose
+  // associated 'SrvConnMgr' object is in the session 'IDLE' state
+  for(const auto& it : idleCliConnList)
    {
-    // Close the session with the client by
-    // sending the 'BYE' session signaling message
-    it->second->getSession()->closeSession();
+    // Attempt to close the client session by sending
+    // them the 'BYE' session signaling message
+    try
+     {
+      it->second->getSession()->closeSession();
 
-    // Close the client connection
+      LOG_DEBUG("Sent 'BYE' session message to user \""
+                + *it->second->getName() + "\"")
+     }
+
+    // If an execution exception has occurred, handle it
+    catch(execErrExcp& cliExecExcp)
+     { handleExecErrException(cliExecExcp); }
+
+    // In any case, close the client connection
     closeConn(it);
    }
 
-
-  // If the server is no longer connected with
-  // any client, it can be shut down directly
+  // If the SafeCloud server is no longer connected with
+  // any client, return that it can be terminated directly
   if(!_connected)
    return true;
 
-  std::cout << "Returning FALSE" << std::endl;
-
-  // Otherwise set the '_shutdown' flag and return that the
-  // server application will shut down as soon as possible
+  // Otherwise set the '_shutdown' flag and return that
+  // the server object will autonomously terminate once
+  // the clients' pending requests will have been served
   _shutdown = true;
   return false;
  }
 
 
 // TODO: Update Descr
+
 /**
  * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
  * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method

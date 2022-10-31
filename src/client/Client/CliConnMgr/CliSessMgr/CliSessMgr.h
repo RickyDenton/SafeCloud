@@ -21,6 +21,8 @@ class CliSessMgr : public SessMgr
 
    /* ============================== PRIVATE METHODS ============================== */
 
+   /* ------------------------ Client Session Manager Utility Methods ------------------------ */
+
    /**
     * @brief Sends a session message signaling type to the server and throws the
     *        associated exception in case of session error signaling message types
@@ -312,6 +314,27 @@ class CliSessMgr : public SessMgr
    /* Same destructor of the 'SessMgr' base class */
 
    /* ============================= OTHER PUBLIC METHODS ============================= */
+
+   /* ---------------- Client Session Manager Public Utility Methods ---------------- */
+
+   /**
+    * @brief  Checks and parses a possible asynchronous session message received from the SafeCloud server
+    * @throws ERR_PEER_DISCONNECTED                      The SafeCloud server has abruptly disconnected
+    * @throws ERR_SESSABORT_SRV_GRACEFUL_DISCONNECT      The SafeCloud server has gracefully disconnected
+    * @throws ERR_UNKNOWN_SESSMSG_TYPE                   Received a session message of unknown type
+    * @throws ERR_UNEXPECTED_SESS_MESSAGE                An unexpected session message for the client session
+    *                                                    manager current operation and state was received
+    * @throws ERR_SESS_CLI_SRV_INTERNAL_ERROR            The SafeCloud server reported to have
+    *                                                    experienced a recoverable internal error
+    * @throws ERR_SESS_CLI_SRV_UNEXPECTED_MESSAGE        The SafeCloud server reported to have
+    *                                                    received an unexpected session message
+    * @throws ERR_SESS_CLI_SRV_MALFORMED_MESSAGE         The SafeCloud server reported to have
+    *                                                    received a malformed session message
+    * @throws ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE The SafeCloud server reported to have
+    *                                                    received a session message of unknown type
+    * @throws ERR_CSK_RECV_FAILED                        Error in receiving data from the connection socket
+    */
+   void checkAsyncSrvMsg();
 
    /* ---------------------------- Session Operations API ---------------------------- */
 

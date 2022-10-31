@@ -904,6 +904,10 @@ void Client::userCmdPrompt()
       // Read the user command line
       getline(std::cin, cmdLine);
 
+      // Check whether an asynchronous session
+      // message was received from the server
+      _cliConnMgr->getSession()->checkAsyncSrvMsg();
+
       // Parse the user command line and execute
       // the associated SafeCloud command
       parseUserCmd(cmdLine);
@@ -1026,17 +1030,24 @@ bool Client::askUser(const char* question)
  }
 
 
-// TODO
-
 /**
- * @brief Asynchronously instructs the client object to
- *        gracefully close the server connection and terminate
+ * @brief  Client object shutdown signal handler, returning, depending on whether it has
+ *         requests pending, if it can be terminated directly or if it will autonomously
+ *         terminate as soon as such requests will have been served
+ * @return A boolean indicating whether the client object can be terminated immediately
+ * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+ * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+ * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+ * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+ * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+ * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+ * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+ * @throws ERR_SEND_FAILED              send() fatal error
  */
-
 bool Client::shutdownSignalHandler()
  {
   // If the client is not connected with the
-  // SafeCloud server, it can be shut down directly
+  // SafeCloud server, it can be terminated directly
   if(!_connected)
    return true;
 
@@ -1045,17 +1056,19 @@ bool Client::shutdownSignalHandler()
   if(_cliConnMgr != nullptr && _cliConnMgr->isInSessionPhase()
      && _cliConnMgr->getSession()->isIdle())
    {
-    // Close the session with the server by
-    // sending the 'BYE' session signaling message
+    // Close the session by sending the 'BYE' session
+    // signaling message to the SafeCloud server
     _cliConnMgr->getSession()->closeSession();
 
-    // Return that the client application
-    // can be shut down directly
+    LOG_DEBUG("Sent 'BYE' session message to the SafeCloud server")
+
+    // Return that the client object can be terminated directly
     return true;
    }
 
-  // Otherwise set the '_shutdown' flag and return that the
-  // client application will shut down as soon as possible
+  // Otherwise set the '_shutdown' flag and return
+  // that the client object will autonomously terminate
+  // once its pending requests will have been served
   _shutdown = true;
   return false;
  }

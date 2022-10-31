@@ -75,6 +75,71 @@ void ConnMgr::clearPriBuf()
  }
 
 
+/**
+ * @brief  Checks whether input data is available on
+ *         the connection socket without consuming it
+ * @return A boolean indicating whether input data is available on the connection socket
+ * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
+ * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+ */
+bool ConnMgr::isRecvDataAvailable() const
+ {
+  // Connection socket recv() return, used in this case to check
+  // whether input data is available on the connection socket
+  ssize_t recvDataAvailable;
+
+  // A stub array used for reading 1 byte from the connection socket
+  unsigned char testByte[1];
+
+  // Check whether there is input data available on the connection
+  // socket without actually consuming it in the kernel's buffer
+  recvDataAvailable = recv(_csk, &testByte[0], 1, MSG_DONTWAIT | MSG_PEEK);
+
+  // Depending on the recv() return
+  switch(recvDataAvailable)
+   {
+    /* ------------------ recv() error ------------------ */
+    case -1:
+
+     // Depending on the error that has occurred
+     switch(errno)
+      {
+       // No input data available on the connection socket
+       case EWOULDBLOCK:
+
+        // Return that no input data is
+        // available on the connection socket
+        return false;
+
+       // The peer has abruptly disconnected
+       case ECONNRESET:
+        THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
+
+       // recv() FATAL error
+       default:
+        THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, ERRNO_DESC);
+      }
+    break;
+
+    /* ------------ Abrupt peer disconnection ------------ */
+    case 0:
+     THROW_EXEC_EXCP(ERR_PEER_DISCONNECTED);
+
+    /* -------------- Input Data Available -------------- */
+    case 1:
+
+     // Return that input data is available
+     // on the connection socket
+     return true;
+
+    // recvDataAvailable > 1 is a FATAL error in this case
+    default:
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, "The recv() returned more bytes than allowed ("
+                                          + std::to_string(recvDataAvailable) + " > 1",ERRNO_DESC);
+   }
+ }
+
+
 /* ----------------------- SafeCloud Messages Send/Receive ----------------------- */
 
 /**
@@ -382,6 +447,14 @@ ConnMgr::~ConnMgr()
  */
 bool ConnMgr::shutdownConn() const
  { return _shutdownConn; }
+
+
+/*
+ * Returns the name of the user
+ * associated with the connection manager
+ */
+std::string* ConnMgr::getName()
+ { return _name; }
 
 
 /**

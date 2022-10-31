@@ -138,7 +138,15 @@ class Server : public SafeCloudApp
 
   /* ============================= OTHER PUBLIC METHODS ============================= */
 
-  // TODO
+  /**
+   * @brief  Server object shutdown signal handler, returning, depending on whether
+   *         there are client requests pending, if it can be terminated directly or
+   *         if it will autonomously terminate as soon as such requests are served
+   * @return A boolean indicating whether the server object can be terminated directly
+   * @note   If the Server object cannot be terminated directly, its listening socket
+   *         will be closed in the next server loop iteration to prevent accepting
+   *         further client connections
+   */
   bool shutdownSignalHandler();
 
   /**

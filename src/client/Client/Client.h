@@ -298,10 +298,19 @@ class Client : public SafeCloudApp
     */
    static bool askUser(const char* question);
 
-   // TODO
    /**
-    * @brief Asynchronously instructs the client object to
-    *        gracefully close the server connection and shut down
+    * @brief  Client object shutdown signal handler, returning, depending on whether it has
+    *         requests pending, if it can be terminated directly or if it will autonomously
+    *         terminate as soon as such requests will have been served
+    * @return A boolean indicating whether the client object can be terminated immediately
+    * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
+    * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
+    * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
+    * @throws ERR_OSSL_EVP_ENCRYPT_UPDATE  EVP_CIPHER encrypt update failed
+    * @throws ERR_OSSL_EVP_ENCRYPT_FINAL   EVP_CIPHER encrypt final failed
+    * @throws ERR_OSSL_GET_TAG_FAILED      Error in retrieving the resulting integrity tag
+    * @throws ERR_PEER_DISCONNECTED        The connection peer disconnected during the send()
+    * @throws ERR_SEND_FAILED              send() fatal error
     */
    bool shutdownSignalHandler();
 
