@@ -1159,10 +1159,6 @@ void CliSessMgr::recvPoolRawContents()
   // the connection socket into the primary connection buffer
   size_t recvBytes;
 
-  // The index of the first available byte in the secondary
-  // connection buffer at which reading the serialized pool contents
-  unsigned int secBufInd;
-
   // The maximum secondary connection buffer index at which a
   // complete 'PoolFileInfo' struct MAY be present (secondary
   // connection buffer size - minimum 'PoolFileInfo' struct size)
@@ -1178,6 +1174,10 @@ void CliSessMgr::recvPoolRawContents()
   // secondary connection buffer which have to be moved at its beginning
   // in order to read the complete struct in the next raw reception cycle
   unsigned short carryOverBytes = 0;
+
+  // Reset the index of the first available byte in the secondary
+  // connection buffer at which reading the serialized pool contents
+  _connMgr._secBufInd = 0;
 
   // ----------------- Serialized Pool Contents Reception Cycle ----------------- //
 
@@ -1204,8 +1204,9 @@ void CliSessMgr::recvPoolRawContents()
     // to the number of serialized pool contents' bytes to be received
     _connMgr._recvBlockSize = _rawBytesRem;
 
-    // Reset the index of the first available byte in the secondary connection buffer
-    secBufInd = 0;
+    // Reset the index of the first available byte in the secondary
+    // connection buffer at which reading the serialized pool' contents
+    _connMgr._secBufInd = 0;
 
     // ----------------- Secondary Connection Buffer Scan Cycle ----------------- //
 
@@ -1214,7 +1215,7 @@ void CliSessMgr::recvPoolRawContents()
       // If the index of the first available byte in the secondary connection
       // buffer is greater than the maximum index at which a complete
       // 'PoolFileInfo' struct can be read, stop the buffer scan cycle
-      if(secBufInd > maxSecBufIndRead)
+      if(_connMgr._secBufInd > maxSecBufIndRead)
        break;
 
       /*
@@ -1225,7 +1226,7 @@ void CliSessMgr::recvPoolRawContents()
        *       are either not significant or even overflow beyond the secondary connection
        *       buffer, a condition that are accounted in the following 'if' statement
        */
-      PoolFileInfo* poolFileInfo = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
+      PoolFileInfo* poolFileInfo = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[_connMgr._secBufInd]);
 
       // Compute the 'PoolFileInfo' struct size from its 'filenameLen' member
       poolFileInfoSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFileInfo->filenameLen;
@@ -1234,7 +1235,7 @@ void CliSessMgr::recvPoolRawContents()
       // bytes in the secondary connection buffer, which is equal to the number of
       // significant bytes in the primary connection buffer, a complete 'PoolFileInfo'
       // struct has not been received yet and so the buffer scan cycle must be stopped
-      if(secBufInd + poolFileInfoSize > _connMgr._priBufInd)
+      if(_connMgr._secBufInd + poolFileInfoSize > _connMgr._priBufInd)
        break;
 
       /*
@@ -1253,10 +1254,10 @@ void CliSessMgr::recvPoolRawContents()
 
       // Increment the index of the first available byte in the secondary connection
       // buffer of the size of the 'PoolFileInfo' struct that has been just read
-      secBufInd += poolFileInfoSize;
+      _connMgr._secBufInd += poolFileInfoSize;
 
        // While there are significant bytes in the secondary connection buffer
-     } while(secBufInd != _connMgr._priBufInd);
+     } while(_connMgr._secBufInd != _connMgr._priBufInd);
 
      // --------------- Secondary Connection Buffer Scan Cycle End --------------- //
 
@@ -1267,7 +1268,7 @@ void CliSessMgr::recvPoolRawContents()
      * in order to be read in the next raw reception cycle (a quantity that will be
      * != 0 if the secondary connection buffer scan cycle exited with a 'break')
      */
-    carryOverBytes = _connMgr._priBufInd - secBufInd;
+    carryOverBytes = _connMgr._priBufInd - _connMgr._secBufInd;
 
     // If there are significant bytes to be moved at
     // the beginning of the secondary connection buffer
@@ -1275,7 +1276,7 @@ void CliSessMgr::recvPoolRawContents()
      {
       // Move the significant bytes that were not processed in the
       // secondary connection buffer scan cycle at its beginning
-      memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[secBufInd], carryOverBytes);
+      memcpy(&_connMgr._secBuf[0], &_connMgr._secBuf[_connMgr._secBufInd], carryOverBytes);
 
       /* [PATCH] */
       // Increment the associated connection manager's expected

@@ -54,12 +54,6 @@ class ConnMgr
    // Primary communication buffer
    unsigned char      _priBuf[CONN_BUF_SIZE];
 
-  // TODO: _priBuf[CONN_BUF_SIZE + AES_128_GCM_TAG_SIZE] causes a buffer overflow in receiving a message.
-  // TODO: Ensure that it works like this (Session messages must be < 1MB
-  // TODO: Remember in case to also change the '_priBufInd' and '_secBufInd' values in the constructor
-  // unsigned char      _priBuf[CONN_BUF_SIZE + AES_128_GCM_TAG_SIZE];
-
-
   // Primary communication buffer size
    const unsigned int _priBufSize;
 
@@ -79,6 +73,10 @@ class ConnMgr
 
    // Secondary communication buffer
    unsigned char      _secBuf[CONN_BUF_SIZE];
+
+   // Index of the first available byte (or number of
+   // significant bytes) in the secondary communication buffer
+   unsigned int       _secBufInd;
 
    // Secondary communication buffer size
    const unsigned int _secBufSize;

@@ -1018,12 +1018,12 @@ void SrvSessMgr::sendPoolRawContents()
   // The serialized information size of a file in the user's storage pool
   unsigned short poolFileInfoSize;
 
-  // The index of the first available byte in the secondary
-  // connection buffer at which writing the serialized pool contents
-  unsigned int secBufInd = 0;
-
   // The total serialized pool contents sent to the client
   size_t totBytesSent = 0;
+
+  // Reset the index of the first available byte in the secondary
+  // connection buffer at which writing the serialized pool contents
+  _connMgr._secBufInd = 0;
 
   // Initialize the pool raw contents' encryption operation
   _aesGCMMgr.encryptInit();
@@ -1036,26 +1036,26 @@ void SrvSessMgr::sendPoolRawContents()
     // If the index of the first available byte in the secondary
     // connection buffer is greater than the maximum index at which
     // a 'PoolFileInfo' struct of maximum size can be written
-    if(secBufInd >= maxSecBufIndWrite)
+    if(_connMgr._secBufInd >= maxSecBufIndWrite)
      {
       // Encrypt the pool's serialized contents from the
       // secondary into the primary connection buffer
-      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(_connMgr._secBufInd), &_connMgr._priBuf[0]);
 
       // Send the encrypted serialized pool contents to the client
-      _connMgr.sendRaw(secBufInd);
+      _connMgr.sendRaw(_connMgr._secBufInd);
 
       // Update the total number of serialized pool bytes sent to the client
-      totBytesSent += secBufInd;
+      totBytesSent += _connMgr._secBufInd;
 
       // Reset the index of the first available
       // byte in the secondary connection buffer
-      secBufInd = 0;
+      _connMgr._secBufInd = 0;
      }
 
     // Interpret the contents starting at the index of the first available
     // byte in the secondary connection buffer as a 'PoolFileInfo' struct
-    PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[secBufInd]);
+    PoolFileInfo* serPoolFile = reinterpret_cast<PoolFileInfo*>(&_connMgr._secBuf[_connMgr._secBufInd]);
 
     // Initialize the 'PoolFileInfo' struct with the file information
     serPoolFile->filenameLen = poolFile->fileName.length();
@@ -1068,21 +1068,21 @@ void SrvSessMgr::sendPoolRawContents()
     poolFileInfoSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFile->fileName.length();
 
     // Update the index of the first available byte in the secondary connection buffer
-    secBufInd += poolFileInfoSize;
+    _connMgr._secBufInd += poolFileInfoSize;
    }
 
   // If there are serialized pool contents remaining to be sent to the client
-  if(secBufInd > 0)
+  if(_connMgr._secBufInd > 0)
    {
     // Encrypt the pool's serialized contents from the
     // secondary into the primary connection buffer
-    _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(secBufInd), &_connMgr._priBuf[0]);
+    _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(_connMgr._secBufInd), &_connMgr._priBuf[0]);
 
     // Send the encrypted serialized pool contents to the client
-    _connMgr.sendRaw(secBufInd);
+    _connMgr.sendRaw(_connMgr._secBufInd);
 
     // Update the total number of serialized pool bytes sent to the client
-    totBytesSent += secBufInd;
+    totBytesSent += _connMgr._secBufInd;
    }
 
   // ---------------- End Serialized Pool Contents Sending Cycle ---------------- //
