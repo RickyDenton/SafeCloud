@@ -28,7 +28,6 @@ class SrvConnMgr : public ConnMgr
     // The child server Session Manager object
     SrvSessMgr*        _srvSessMgr;
 
-
     /* =============================== FRIEND CLASSES =============================== */
     friend class SrvSTSMMgr;
     friend class SrvSessMgr;

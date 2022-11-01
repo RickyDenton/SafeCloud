@@ -3,7 +3,13 @@
 
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Server Manager */
 
+/* ================================== INCLUDES ================================== */
 #include "SafeCloudApp/ConnMgr/STSMMgr/STSMMgr.h"
+
+// The maximum delay in seconds from when the server sent its last STSM
+// message for a received client STSM message to be considered valid
+#define STSM_STEP_TIMEOUT 10
+
 
 // Forward Declaration
 class SrvConnMgr;
@@ -23,25 +29,23 @@ class SrvSTSMMgr : public STSMMgr
      };
 
     /* ================================= ATTRIBUTES ================================= */
-    enum STSMSrvState _stsmSrvState;  // Current server state in the STSM key exchange protocol
-    SrvConnMgr&       _srvConnMgr;    // The parent SrvConnMgr instance managing this object
-    X509*             _srvCert;       // The server's X.509 certificate
+    enum STSMSrvState _stsmSrvState;        // Current server state in the STSM key exchange protocol
+    SrvConnMgr&       _srvConnMgr;          // The parent SrvConnMgr instance managing this object
+    X509*             _srvCert;             // The server's X.509 certificate
+    unsigned long     _lastSrvSTSMMsgTime;  // The time in Unix epochs at which the server sent its
+                                            // last STSM message to the client (STSM timeout purposes)
+
 
     /* =============================== PRIVATE METHODS =============================== */
 
     /* ------------------------- Error Checking and Handling ------------------------- */
 
-    /*
-     * TODO: Rewrite the errDesc() so to be a std::string& parameter whose default
-     * TODO: value is passed by a new sendSrvSTSMErrMsg() function with just the
-     * TODO: errMsgType parameter (like for the sendSrvSessSignalMsg() function)
-     */
-
     /**
      * @brief  Sends a STSM error message to the server and throws the
      *         associated exception on the client, aborting the connection
      * @param  errMsgType The STSM error message type to be sent to the server
-     * @param  errDesc    An optional description of the error that has occurred
+     * @param  errReason  An optional error reason to be embedded with the exception
+     *                    associated with the STSM error that has occurred
      * @throws ERR_STSM_SRV_CLI_INVALID_PUBKEY  The client has provided an invalid ephemeral public key
      * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized username on the server
      * @throws ERR_STSM_SRV_CLI_AUTH_FAILED     The client has failed the STSM authentication
@@ -50,7 +54,9 @@ class SrvSTSMMgr : public STSMMgr
      * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE    Received a STSM message of unknown type
      * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR   Attempting to send an STSM error message of unknown type
      */
-    void sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc);
+    void sendSrvSTSMErrMsg(STSMMsgType errMsgType);
+
+    void sendSrvSTSMErrMsg(STSMMsgType errMsgType,const std::string& errReason);
 
 
     /**
@@ -178,8 +184,8 @@ class SrvSTSMMgr : public STSMMgr
     /* ============================= OTHER PUBLIC METHODS ============================= */
 
     /**
-     * @brief  Server STSM message handler, parsing a STSM message received from the
-     *         client stored in the associated connection manager's primary buffer
+     * @brief  Server STSM message handler, processing a supposed STSM message received
+     *         from the client stored in the associated connection manager's primary buffer
      * @return A boolean indicating the associated connection manager whether the STSM
      *         key exchange protocol with the client has successfully completed and so
      *         connection can switch to the session phase ('true') or not ('false')

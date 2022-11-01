@@ -13,17 +13,12 @@
 
 /* ------------------------- Error Checking and Handling ------------------------- */
 
-/*
- * TODO: Rewrite the errDesc() so to be a std::string& parameter whose default
- * TODO: value is passed by a new sendSrvSTSMErrMsg() function with just the
- * TODO: errMsgType parameter (like for the sendSrvSessSignalMsg() function)
- */
-
 /**
  * @brief  Sends a STSM error message to the server and throws the
  *         associated exception on the client, aborting the connection
  * @param  errMsgType The STSM error message type to be sent to the server
- * @param  errDesc    An optional description of the error that has occurred
+ * @param  errReason  An optional error reason to be embedded with the exception
+ *                    associated with the STSM error that has occurred
  * @throws ERR_STSM_SRV_CLI_INVALID_PUBKEY  The client has provided an invalid ephemeral public key
  * @throws ERR_STSM_SRV_CLIENT_LOGIN_FAILED Unrecognized username on the server
  * @throws ERR_STSM_SRV_CLI_AUTH_FAILED     The client has failed the STSM authentication
@@ -32,7 +27,10 @@
  * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE    Received a STSM message of unknown type
  * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR   Attempting to send an STSM error message of unknown type
  */
-void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = "")
+void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType)
+ { sendSrvSTSMErrMsg(errMsgType,""); }
+
+void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const std::string& errReason)
  {
   // Interpret the associated connection manager's primary connection buffer as a STSMsg
   STSMMsg* errMsg = reinterpret_cast<STSMMsg*>(_srvConnMgr._priBuf);
@@ -49,29 +47,55 @@ void SrvSTSMMgr::sendSrvSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
    {
     /* ------------------------ Error STSM Messages  ------------------------ */
 
+    // The server received a STSM message from the client after
+    // the predefined maximum delay from its previous message
+    case ERR_CLI_TIMEOUT:
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_SRV_TIMEOUT, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_SRV_TIMEOUT);
+
     // The client has provided an invalid ephemeral public key
     case ERR_INVALID_PUBKEY:
-     THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_INVALID_PUBKEY, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_INVALID_PUBKEY, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_INVALID_PUBKEY);
 
     // Unrecognized username on the server
     case ERR_CLIENT_LOGIN_FAILED:
-     THROW_EXEC_EXCP(ERR_STSM_SRV_CLIENT_LOGIN_FAILED, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLIENT_LOGIN_FAILED, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLIENT_LOGIN_FAILED);
 
     // The client has failed the STSM authentication
     case ERR_CLI_AUTH_FAILED:
-     THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_AUTH_FAILED, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_AUTH_FAILED, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_SRV_CLI_AUTH_FAILED);
 
     // An out-of-order STSM message has been received
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE);
 
     // A malformed STSM message has been received
     case ERR_MALFORMED_MESSAGE:
-     THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE);
 
     // A STSM message of unknown type has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE);
 
     // Unknown error type
     default:
@@ -537,8 +561,6 @@ void SrvSTSMMgr::recv_cli_auth()
   delete _srvConnMgr._name;
   _srvConnMgr._name = new std::string(cliName);
 
-  // TODO: Check from errors in setting the directories?
-
   // Set the connection's temporary directory
   _srvConnMgr._tmpDir = new std::string(SRV_USER_TEMP_DIR_PATH(cliName));
 
@@ -579,14 +601,15 @@ void SrvSTSMMgr::send_srv_ok()
  * @param srvCert          The server's X.509 certificate
  */
 SrvSTSMMgr::SrvSTSMMgr(EVP_PKEY* myRSALongPrivKey, SrvConnMgr& srvConnMgr, X509* srvCert)
-                       : STSMMgr(myRSALongPrivKey), _stsmSrvState(WAITING_CLI_HELLO), _srvConnMgr(srvConnMgr), _srvCert(srvCert)
+ : STSMMgr(myRSALongPrivKey), _stsmSrvState(WAITING_CLI_HELLO), _srvConnMgr(srvConnMgr),
+   _srvCert(srvCert), _lastSrvSTSMMsgTime(time(NULL))
  {}
 
 /* ============================ OTHER PUBLIC METHODS ============================ */
 
 /**
- * @brief  Server STSM message handler, parsing a STSM message received from the
- *         client stored in the associated connection manager's primary buffer
+ * @brief  Server STSM message handler, processing a supposed STSM message received
+ *         from the client stored in the associated connection manager's primary buffer
  * @return A boolean indicating the associated connection manager whether the STSM
  *         key exchange protocol with the client has successfully completed and so
  *         connection can switch to the session phase ('true') or not ('false')
@@ -595,6 +618,11 @@ SrvSTSMMgr::SrvSTSMMgr(EVP_PKEY* myRSALongPrivKey, SrvConnMgr& srvConnMgr, X509*
  */
 bool SrvSTSMMgr::STSMMsgHandler()
  {
+  // Assert the supposed client's STSM message to have been received within
+  // the maximum delay from when the server last STSM message was sent
+  if((unsigned long)time(NULL) - _lastSrvSTSMMsgTime > STSM_STEP_TIMEOUT)
+   sendSrvSTSMErrMsg(ERR_CLI_TIMEOUT,"\"" + *_srvConnMgr._name + "\"");
+
   // Verifies the received message to consist of the STSM handshake message
   // appropriate for the current server's STSM state, throwing an error otherwise
   checkSrvSTSMMsg();
@@ -625,6 +653,10 @@ bool SrvSTSMMgr::STSMMsgHandler()
 
     // Update the STSM server state
     _stsmSrvState = WAITING_CLI_AUTH;
+
+    // Update the time at which the
+    // server sent its last STSM message
+    _lastSrvSTSMMsgTime = time(NULL);
 
     // Inform the connection manager that the STSM
     // key exchange protocol is still in progress

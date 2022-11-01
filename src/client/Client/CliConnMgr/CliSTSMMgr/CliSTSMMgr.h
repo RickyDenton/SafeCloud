@@ -34,17 +34,12 @@ class CliSTSMMgr : public STSMMgr
 
    /* ------------------------- Error Checking and Handling ------------------------- */
 
-   /*
-    * TODO: Rewrite the errDesc() so to be a std::string& parameter whose default
-    * TODO: value is passed by a new sendCliSTSMErrMsg() function with just the
-    * TODO: errMsgType parameter (like for the sendCliSessSignalMsg() function)
-    */
-
    /**
     * @brief  Sends a STSM error message to the server and throws the
     *         associated exception on the client, aborting the connection
     * @param  errMsgType The STSM error message type to be sent to the server
-    * @param  errDesc    An optional description of the error that has occurred
+    * @param  errReason  An optional error reason to be embedded with the exception
+    *                    associated with the STSM error that has occurred
     * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
     * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
     * @throws ERR_STSM_CLI_SRV_AUTH_FAILED      Server STSM authentication failed
@@ -53,7 +48,9 @@ class CliSTSMMgr : public STSMMgr
     * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
     * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown type
     */
-   void sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc);
+   void sendCliSTSMErrMsg(STSMMsgType errMsgType);
+
+   void sendCliSTSMErrMsg(STSMMsgType errMsgType,const std::string& errReason);
 
    /**
     * @brief  1) Blocks the execution until a STSM message has been received

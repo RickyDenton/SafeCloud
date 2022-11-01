@@ -3,6 +3,7 @@
 /* ================================== INCLUDES ================================== */
 #include <iostream>
 #include <string.h>
+#include <unistd.h>
 #include "CliSTSMMgr.h"
 #include "../CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
@@ -13,17 +14,12 @@
 
 /* ------------------------- Error Checking and Handling ------------------------- */
 
-/*
- * TODO: Rewrite the errDesc() so to be a std::string& parameter whose default
- * TODO: value is passed by a new sendCliSTSMErrMsg() function with just the
- * TODO: errMsgType parameter (like for the sendCliSessSignalMsg() function)
- */
-
 /**
  * @brief  Sends a STSM error message to the server and throws the
  *         associated exception on the client, aborting the connection
  * @param  errMsgType The STSM error message type to be sent to the server
- * @param  errDesc    An optional description of the error that has occurred
+ * @param  errReason  An optional error reason to be embedded with the exception
+ *                    associated with the STSM error that has occurred
  * @throws ERR_STSM_CLI_SRV_INVALID_PUBKEY   The server has provided an invalid ephemeral public key
  * @throws ERR_STSM_CLI_SRV_CERT_REJECTED    The received server's certificate is invalid
  * @throws ERR_STSM_CLI_SRV_AUTH_FAILED      Server STSM authentication failed
@@ -32,7 +28,10 @@
  * @throws ERR_STSM_UNKNOWN_STSMMSG_TYPE     Received a STSM message of unknown type
  * @throws ERR_STSM_UNKNOWN_STSMMSG_ERROR    Attempting to send an STSM error message of unknown type
  */
-void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = "")
+void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType)
+ { sendCliSTSMErrMsg(errMsgType,""); }
+
+void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const std::string& errReason)
  {
   // Interpret the associated connection manager's primary connection buffer as a STSMsg
   STSMMsg* errMsg = reinterpret_cast<STSMMsg*>(_cliConnMgr._priBuf);
@@ -51,27 +50,45 @@ void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const char* errDesc = 
 
     // The server has provided an invalid ephemeral public key
     case ERR_INVALID_PUBKEY:
-     THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_INVALID_PUBKEY, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_INVALID_PUBKEY, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_INVALID_PUBKEY);
 
     // The server provided an invalid X.509 certificate
     case ERR_SRV_CERT_REJECTED:
-     THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_CERT_REJECTED, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_CERT_REJECTED, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_CERT_REJECTED);
 
     // The server has failed the STSM authentication
     case ERR_SRV_AUTH_FAILED:
-     THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_AUTH_FAILED, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_AUTH_FAILED, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_CLI_SRV_AUTH_FAILED);
 
     // An out-of-order STSM message has been received
     case ERR_UNEXPECTED_MESSAGE:
-     THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_UNEXPECTED_MESSAGE);
 
     // A malformed STSM message has been received
     case ERR_MALFORMED_MESSAGE:
-     THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE);
 
     // A STSM message of unknown type has been received
     case ERR_UNKNOWN_STSMMSG_TYPE:
-     THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errDesc);
+     if(!errReason.empty())
+      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE, errReason);
+     else
+      THROW_EXEC_EXCP(ERR_STSM_UNKNOWN_STSMMSG_TYPE);
 
     // Unknown error type
     default:
@@ -140,6 +157,11 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
      return;
 
     /* ------------------------ Error STSM Messages  ------------------------ */
+
+    // The server reported the last STSM message to have
+    // been provided beyond the maximum allowed delay
+    case ERR_CLI_TIMEOUT:
+     THROW_EXEC_EXCP(ERR_STSM_CLI_TIMEOUT);
 
     // The server reported that the client's ephemeral public key is invalid
     case ERR_INVALID_PUBKEY:

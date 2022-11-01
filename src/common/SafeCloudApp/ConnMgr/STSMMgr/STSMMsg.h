@@ -26,6 +26,10 @@ enum STSMMsgType : uint8_t
    * the sending and the receiving party to abort the connection)
    */
 
+  // The server received a STSM message from the client after
+  // the predefined maximum delay from its previous message
+  ERR_CLI_TIMEOUT,
+
   // A peer has received an invalid EDH public key (possibly
   // sent by the server after receiving the 'CLI_HELLO' message
   // or by the client after receiving the 'SRV_AUTH' message)

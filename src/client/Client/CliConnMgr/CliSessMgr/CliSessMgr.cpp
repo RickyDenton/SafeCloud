@@ -1205,7 +1205,7 @@ void CliSessMgr::recvPoolRawContents()
     _connMgr._recvBlockSize = _rawBytesRem;
 
     // Reset the index of the first available byte in the secondary
-    // connection buffer at which reading the serialized pool' contents
+    // connection buffer at which reading the serialized pool contents
     _connMgr._secBufInd = 0;
 
     // ----------------- Secondary Connection Buffer Scan Cycle ----------------- //

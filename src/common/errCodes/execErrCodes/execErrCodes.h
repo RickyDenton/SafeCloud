@@ -41,6 +41,7 @@ enum execErrCode : unsigned char
   ERR_CLI_DISCONNECTED,
 
   // STSM Server Errors
+  ERR_STSM_SRV_TIMEOUT,
   ERR_STSM_SRV_CLI_INVALID_PUBKEY,
   ERR_STSM_SRV_SRV_INVALID_PUBKEY,
   ERR_STSM_SRV_SRV_AUTH_FAILED,
@@ -93,6 +94,7 @@ enum execErrCode : unsigned char
 
   // STSM Client errors
   ERR_STSM_CLI_ALREADY_STARTED,
+  ERR_STSM_CLI_TIMEOUT,
   ERR_STSM_CLI_CLI_INVALID_PUBKEY,
   ERR_STSM_CLI_SRV_INVALID_PUBKEY,
   ERR_STSM_CLI_SRV_AUTH_FAILED,
@@ -250,6 +252,7 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_CLI_DISCONNECTED,  {WARNING, "Abrupt client disconnection"} },
 
     // STSM Server Errors
+    { ERR_STSM_SRV_TIMEOUT,              {ERROR,"Guest STSM timeout"} },
     { ERR_STSM_SRV_CLI_INVALID_PUBKEY,   {CRITICAL,"The client has provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_SRV_SRV_INVALID_PUBKEY,   {CRITICAL,"The client reported that the server provided an invalid ephemeral public key in the STSM protocol"} },
     { ERR_STSM_SRV_SRV_AUTH_FAILED,      {ERROR, "The client reported the server failing the STSM authentication"} },
@@ -257,8 +260,8 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_STSM_SRV_CLIENT_LOGIN_FAILED,  {ERROR,"Unrecognized username in the STSM protocol"} },
     { ERR_STSM_SRV_CLI_AUTH_FAILED,      {ERROR, "The client has failed the STSM authentication"} },
     { ERR_STSM_SRV_UNEXPECTED_MESSAGE,   {CRITICAL,"The client reported to have received an out-of-order STSM message"} },
-    { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,    "The client reported to have received a malformed STSM message"} },
-    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,    "The client reported to have received an STSM message of unknown type"} },
+    { ERR_STSM_SRV_MALFORMED_MESSAGE,    {ERROR,"The client reported to have received a malformed STSM message"} },
+    { ERR_STSM_SRV_UNKNOWN_STSMMSG_TYPE, {ERROR,"The client reported to have received an STSM message of unknown type"} },
 
     // Client Login
     {ERR_LOGIN_PUBKEYFILE_NOT_FOUND,             {ERROR,    "The user RSA private key file was not found"} },
@@ -299,17 +302,19 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_CSK_CONN_FAILED,   {FATAL,  "Fatal error in connecting with the SafeCloud server"} },
     { ERR_SRV_DISCONNECTED,  {WARNING, "The server has abruptly disconnected"} },
 
+
     // STSM Client Errors
-    { ERR_STSM_CLI_ALREADY_STARTED,      {CRITICAL,"The client has already started the STSM key exchange protocol"} },
-    { ERR_STSM_CLI_CLI_INVALID_PUBKEY,   {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_CLI_SRV_INVALID_PUBKEY,            {CRITICAL, "The server has provided an invalid ephemeral public key in the STSM protocol"} },
-    { ERR_STSM_CLI_SRV_AUTH_FAILED,               {CRITICAL, "The server has failed the STSM authentication"} },
-    {ERR_STSM_CLI_SRV_CERT_REJECTED,             {ERROR,    "The server provided an invalid X.509 certificate"} },
-    {ERR_STSM_CLI_CLIENT_LOGIN_FAILED,           {ERROR,    "The server did not recognize the username in the STSM protocol"} },
-    {ERR_STSM_CLI_CLI_AUTH_FAILED,               {CRITICAL, "The server reported the client failing the STSM authentication"} },
-    {ERR_STSM_CLI_UNEXPECTED_MESSAGE,            {FATAL,    "The server reported to have received an out-of-order STSM message"} },
-    {ERR_STSM_CLI_MALFORMED_MESSAGE,             {FATAL,    "The server reported to have received a malformed STSM message"} },
-    {ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,          {FATAL,    "The server reported to have received an STSM message of unknown type"} },
+    {ERR_STSM_CLI_ALREADY_STARTED,        {CRITICAL,"The client has already started the STSM key exchange protocol"} },
+    {ERR_STSM_CLI_TIMEOUT,                {CRITICAL,"The server reported the last STSM message to have been provided beyond the maximum allowed delay"} },
+    {ERR_STSM_CLI_CLI_INVALID_PUBKEY,     {CRITICAL,"The server reported that the client provided an invalid ephemeral public key in the STSM protocol"} },
+    {ERR_STSM_CLI_SRV_INVALID_PUBKEY,     {CRITICAL, "The server has provided an invalid ephemeral public key in the STSM protocol"} },
+    {ERR_STSM_CLI_SRV_AUTH_FAILED,        {CRITICAL, "The server has failed the STSM authentication"} },
+    {ERR_STSM_CLI_SRV_CERT_REJECTED,      {ERROR,    "The server provided an invalid X.509 certificate"} },
+    {ERR_STSM_CLI_CLIENT_LOGIN_FAILED,    {ERROR,    "The server did not recognize the username in the STSM protocol"} },
+    {ERR_STSM_CLI_CLI_AUTH_FAILED,        {CRITICAL, "The server reported the client failing the STSM authentication"} },
+    {ERR_STSM_CLI_UNEXPECTED_MESSAGE,     {FATAL,    "The server reported to have received an out-of-order STSM message"} },
+    {ERR_STSM_CLI_MALFORMED_MESSAGE,      {FATAL,    "The server reported to have received a malformed STSM message"} },
+    {ERR_STSM_CLI_UNKNOWN_STSMMSG_TYPE,   {FATAL,    "The server reported to have received an STSM message of unknown type"} },
 
     // Connection-aborting Session Errors
     {ERR_SESSABORT_CLI_SRV_UNKNOWN_SESSMSG_TYPE, {CRITICAL, "The server reported to have received a session message of unknown type"} },
