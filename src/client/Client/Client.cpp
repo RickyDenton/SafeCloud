@@ -938,7 +938,7 @@ void Client::userCmdPrompt()
       // In case an unsupported command was provided, "gently" inform the user
       // that they can print the list of available commands via the "HELP" command
       if(sessErrExcp.sesErrCode == ERR_UNSUPPORTED_CMD)
-       { std::cout << "Unsupported command (type \"HELP\" for"
+       { std::cout << "Unsupported command (type \"HELP\" for "
                       "the list of available commands) " << std::endl; }
 
       // Otherwise handle the recoverable session exception via its default handler
