@@ -245,7 +245,7 @@ void SrvSessMgr::dispatchRecvSessMsg()
  }
 
 
-/* -------------------------- 'UPLOAD' Operation Callback Methods -------------------------- */
+/* --------------------- 'UPLOAD' Operation Callback Methods --------------------- */
 
 /**
  * @brief 'UPLOAD' operation 'START' callback, which:\n\n
@@ -535,7 +535,7 @@ void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
  }
 
 
-/* ------------------------- 'DOWNLOAD' Operation Callback Methods ------------------------- */
+/* -------------------- 'DOWNLOAD' Operation Callback Methods -------------------- */
 
 /**
  * @brief  'DOWNLOAD' operation 'START' callback, checking whether a file with the same
@@ -730,7 +730,7 @@ void SrvSessMgr::downloadComplCallback()
  }
 
 
-/* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
+/* --------------------- 'DELETE' Operation Callback Methods --------------------- */
 
 /**
  * @brief  'DELETE' operation 'START' callback, checking whether a file with the same
@@ -825,7 +825,7 @@ void SrvSessMgr::deleteConfCallback()
  }
 
 
-/* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
+/* --------------------- 'RENAME' Operation Callback Methods --------------------- */
 
 /**
  * @brief  'RENAME' operation 'START' callback, which:\n
@@ -890,6 +890,9 @@ void SrvSessMgr::renameStartCallback()
   // Otherwise, if the file the client wants to rename was found in their storage pool
   else
    {
+    // Delete the information on the file the client wants to rename
+    delete _mainFileInfo;
+
     // Check whether a file with the same name of the one the user wants
     // to rename the file to exists in their storage pool by attempting
     // to load its information into the '_mainFileInfo' attribute
@@ -937,7 +940,7 @@ void SrvSessMgr::renameStartCallback()
  }
 
 
-/* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
+/* ---------------------- 'LIST' Operation Callback Methods ---------------------- */
 
 /**
  * @brief  'LIST' operation 'START' callback, building a snapshot of the user's

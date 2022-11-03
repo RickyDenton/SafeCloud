@@ -231,10 +231,13 @@ void SrvSTSMMgr::recv_client_hello()
   if(cliPubDHBio == NULL)
    THROW_EXEC_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
+  /* NOT NEEDED (from valgrind memory checker) */
+  /*
   // Initialize the client's ephemeral DH public key structure
   _otherDHEPubKey = EVP_PKEY_new();
   if(_otherDHEPubKey == nullptr)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
+  */
 
   // Write the client's ephemeral DH public key
   // from the memory BIO into the EVP_PKEY structure

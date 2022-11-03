@@ -94,12 +94,18 @@ DirInfo::DirInfo(std::string* dirAbspath)
 
 
 /**
- * @brief DirInfo object destructor, deleting the list of FileInfo objects
+ * @brief DirInfo object destructor
  */
 DirInfo::~DirInfo()
  {
+  // Delete the list of FileInfo objects
   for(FileInfo* fileInfo : dirFiles)
    delete fileInfo;
+
+  // In case the 'DirInfo' object was created with
+  // an empty constructor, delete its stub 'dirPath'
+  if(*dirPath == "(NO_PATH)")
+   delete dirPath;
  }
 
 

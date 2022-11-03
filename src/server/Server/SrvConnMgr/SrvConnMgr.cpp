@@ -67,8 +67,16 @@ SrvConnMgr::~SrvConnMgr()
   delete _srvSTSMMgr;
   delete _srvSessMgr;
 
-  //Log the client's disconnection
+  // Log the client's disconnection
   LOG_INFO("\"" + *_name + "\" has disconnected")
+
+  // Delete and reset the other dynamic memory attributes
+  delete _name;
+  delete _tmpDir;
+  delete _poolDir;
+  _name = nullptr;
+  _tmpDir = nullptr;
+  _poolDir = nullptr;
  }
 
 /* ============================ OTHER PUBLIC METHODS ============================ */

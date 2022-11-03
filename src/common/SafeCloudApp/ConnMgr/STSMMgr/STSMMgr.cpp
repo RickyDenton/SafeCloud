@@ -146,10 +146,13 @@ void STSMMgr::delMyDHEPrivKey()
   // Free the local actor's ephemeral DH key pair
   EVP_PKEY_free(_myDHEKey);
 
+  /* NOT NEEDED (from valgrind memory checker) */
+  /*
   // Re-initialize the local actor's EVP_PKEY structure
   _myDHEKey = EVP_PKEY_new();
   if(_myDHEKey == nullptr)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
+  */
 
   /*
    * Write the local actor's ephemeral DH public key from

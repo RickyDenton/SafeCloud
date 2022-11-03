@@ -123,8 +123,9 @@ void Server::getServerCert()
   // At this point the server certificate has been loaded successfully
   // and, in DEBUG_MODE, print its subject and issuer
 #ifdef DEBUG_MODE
-  std::string certSubject = X509_NAME_oneline(X509_get_subject_name(srvCert), NULL, 0);
-  LOG_DEBUG("SafeCloud server certificate successfully loaded: " + certSubject)
+  char* certSubject = X509_NAME_oneline(X509_get_subject_name(srvCert), NULL, 0);
+  LOG_DEBUG("SafeCloud server certificate successfully loaded: " + std::string(certSubject))
+  free(certSubject);
 #endif
 
   // Set the valid server certificate

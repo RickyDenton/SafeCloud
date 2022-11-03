@@ -83,8 +83,9 @@ X509* Client::getCACert()
   // At this point the CA certificate has been loaded successfully
   // and, in DEBUG_MODE, print its subject and issuer
 #ifdef DEBUG_MODE
-  std::string certSubject = X509_NAME_oneline(X509_get_subject_name(CACert), NULL, 0);
-  LOG_DEBUG("CA certificate successfully loaded: " + certSubject)
+  char* certSubject = X509_NAME_oneline(X509_get_subject_name(CACert), NULL, 0);
+  LOG_DEBUG("CA certificate successfully loaded: " + std::string(certSubject))
+  free(certSubject);
 #endif
 
   // Return the valid CA certificate
@@ -172,6 +173,10 @@ void Client::buildX509Store()
   // that have been revoked in the CRL
   if(X509_STORE_set_flags(_certStore, X509_V_FLAG_CRL_CHECK) != 1)
    THROW_EXEC_EXCP(ERR_STORE_REJECT_SET_FAILED, OSSL_ERR_DESC);
+
+  // Free the CA certificate and the CRL
+  X509_free(CACert);
+  X509_CRL_free(CACRL);
 
   // At this point the client's certificate
   // store has been successfully initialized
@@ -323,6 +328,8 @@ void Client::loginError(execErrExcp& loginExcp)
      != ERR_DOWNDIR_NOT_FOUND && loginExcp.exErrcode != ERR_DIR_OPEN_FAILED)
    {
     loginExcp.exErrcode = ERR_LOGIN_WRONG_NAME_OR_PWD;
+    delete loginExcp.addDscr;
+    delete loginExcp.reason;
     loginExcp.addDscr = nullptr;
     loginExcp.reason = nullptr;
    }
@@ -472,8 +479,14 @@ void Client::getUserRSAKey(std::string& username,std::string& password)
  */
 void Client::login()
  {
-  std::string username;  // The candidate client's name
-  std::string password;  // The candidate client's password
+  // The candidate client's username and password
+  std::string username;
+  std::string password;
+
+  // The canonicalized paths of the client's download
+  // and temporary directories as a C strings
+  char* downDirC = nullptr;
+  char* tempDirC = nullptr;
 
   try
    {
@@ -511,28 +524,49 @@ void Client::login()
     // Set the client's name
     _name = username;
 
-    // Set the client's download directory
-    _downDir = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(), NULL);
-    if(_downDir.empty())
+    // Derive the canonicalized path of the client's download directory as a C string
+    downDirC = realpath(std::string(CLI_USER_DOWN_PATH(username)).c_str(), NULL);
+    if(strlen(downDirC) == 0)
      THROW_EXEC_EXCP(ERR_DOWNDIR_NOT_FOUND, CLI_USER_DOWN_PATH(username), ERRNO_DESC);
 
-    // Set the client's temporary files directory
-    _tempDir = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(), NULL);
-    if(_tempDir.empty())
+    // Derive the canonicalized path of the client's temporary directory as a C string
+    tempDirC = realpath(std::string(CLI_USER_TEMP_DIR_PATH(username)).c_str(), NULL);
+    if(strlen(tempDirC) == 0)
      THROW_EXEC_EXCP(ERR_DIR_OPEN_FAILED, CLI_USER_TEMP_DIR_PATH(username), ERRNO_DESC);
+
+    // Set the paths of the user's download and temporary directories
+    _downDir = downDirC;
+    _tempDir = tempDirC;
+
+    // Free and reset the paths of the user's
+    // download and temporary directories as C strings
+    free(downDirC);
+    free(tempDirC);
+    downDirC = nullptr;
+    tempDirC = nullptr;
 
     LOG_DEBUG("User \"" + _name + "\" successfully logged in")
     LOG_DEBUG("Download directory: " + _downDir)
     LOG_DEBUG("Temporary directory " + _tempDir)
    }
 
-  // In case of errors, safely delete the "username" and "password"
-  // strings and re-throw the exception for its handling to continue
-  // at the end of the client login() loop in the start() function
-  catch(execErrExcp& excp)
+   // In case of login errors
+   catch(execErrExcp& excp)
     {
+     // Safely delete the "username" and "password" strings
      OPENSSL_cleanse(&password[0], password.size());
      OPENSSL_cleanse(&username[0], username.size());
+
+     // Free is set the canonicalized paths of the
+     // client's download and temporary directories
+     if(downDirC != nullptr)
+      free(downDirC);
+
+     if(tempDirC != nullptr)
+      free(tempDirC);
+
+     // re-throw the exception for its handling to continue at the
+     // end of the client login() loop in the start() function
      throw;
     }
  }
@@ -935,11 +969,20 @@ void Client::userCmdPrompt()
      }
     catch(sessErrExcp& sessErrExcp)
      {
-      // In case an unsupported command was provided, "gently" inform the user
-      // that they can print the list of available commands via the "HELP" command
+      // In case an unsupported command was provided
       if(sessErrExcp.sesErrCode == ERR_UNSUPPORTED_CMD)
-       { std::cout << "Unsupported command (type \"HELP\" for "
-                      "the list of available commands) " << std::endl; }
+       {
+        // "gently" inform the user that they can print the
+        // list of available commands via the "HELP" command
+        std::cout << "Unsupported command (type \"HELP\" for "
+                     "the list of available commands) " << std::endl;
+
+        // In DEBUG_MODE, delete the dynamic 'srcfile'
+        // attribute from the session exception
+#ifdef DEBUG_MODE
+        delete sessErrExcp.srcFile;
+#endif
+       }
 
       // Otherwise handle the recoverable session exception via its default handler
       else

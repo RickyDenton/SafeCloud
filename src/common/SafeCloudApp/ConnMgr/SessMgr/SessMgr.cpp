@@ -188,8 +188,17 @@ void SessMgr::checkLoadMainFileInfo()
   // of the main file referred by the '_mainFileAbsPath' attribute
   try
    { _mainFileInfo = new FileInfo(*_mainFileAbsPath); }
+
+  // If the main file information could not be loaded
   catch(sessErrExcp& mainFileError)
    {
+    // Deallocate the session exception dynamic arguments
+    delete mainFileError.addDscr;
+    delete mainFileError.reason;
+#ifdef DEBUG_MODE
+    delete mainFileError.srcFile;
+#endif
+
     // If the main file was found to be a directory (!), notify the
     // connection peer of the internal error and rethrow the exception
     if(mainFileError.sesErrCode == ERR_SESS_FILE_IS_DIR)

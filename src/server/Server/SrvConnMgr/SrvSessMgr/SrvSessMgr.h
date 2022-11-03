@@ -61,7 +61,7 @@ class SrvSessMgr : public SessMgr
     */
    void dispatchRecvSessMsg();
 
-   /* -------------------------- 'UPLOAD' Operation Callback Methods -------------------------- */
+   /* --------------------- 'UPLOAD' Operation Callback Methods --------------------- */
 
    /**
     * @brief 'UPLOAD' operation 'START' callback, which:\n\n
@@ -149,7 +149,7 @@ class SrvSessMgr : public SessMgr
     */
    void uploadRecvRawCallback(size_t recvBytes);
 
-   /* ------------------------- 'DOWNLOAD' Operation Callback Methods ------------------------- */
+   /* -------------------- 'DOWNLOAD' Operation Callback Methods -------------------- */
 
    /**
     * @brief  'DOWNLOAD' operation 'START' callback, checking whether a file with the same
@@ -198,7 +198,7 @@ class SrvSessMgr : public SessMgr
     */
    void downloadComplCallback();
 
-   /* -------------------------- 'DELETE' Operation Callback Methods -------------------------- */
+   /* --------------------- 'DELETE' Operation Callback Methods --------------------- */
 
    /**
     * @brief  'DELETE' operation 'START' callback, checking whether a file with the same
@@ -237,7 +237,7 @@ class SrvSessMgr : public SessMgr
     */
    void deleteConfCallback();
 
-   /* -------------------------- 'RENAME' Operation Callback Methods -------------------------- */
+   /* --------------------- 'RENAME' Operation Callback Methods --------------------- */
 
    /**
     * @brief  Starts a file rename operation, where:\n\n
@@ -265,7 +265,7 @@ class SrvSessMgr : public SessMgr
     */
    void renameStartCallback();
 
-   /* --------------------------- 'LIST' Operation Callback Methods --------------------------- */
+   /* ---------------------- 'LIST' Operation Callback Methods ---------------------- */
 
    /**
     * @brief  'LIST' operation 'START' callback, building a snapshot of the user's

@@ -338,6 +338,7 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
 #ifdef DEBUG_MODE
   char* certIssuer = X509_NAME_oneline(X509_get_issuer_name(srvCert), NULL, 0);
   LOG_DEBUG("The SafeCloud Server provided a valid certificate (issued by " + std::string(certIssuer) + ")")
+  free(certIssuer);
 #endif
  }
 
@@ -384,10 +385,13 @@ void CliSTSMMgr::recv_srv_auth()
   if(srvPubDHBIO == NULL)
    THROW_EXEC_EXCP(ERR_OSSL_BIO_NEW_FAILED, OSSL_ERR_DESC);
 
+  /* NOT NEEDED (from valgrind memory checker) */
+  /*
   // Initialize the server's ephemeral DH public key structure
   _otherDHEPubKey = EVP_PKEY_new();
   if(_otherDHEPubKey == nullptr)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
+  */
 
   // Write the server's ephemeral DH public key from
   // the memory BIO into the EVP_PKEY structure
