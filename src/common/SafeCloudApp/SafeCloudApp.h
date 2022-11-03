@@ -1,11 +1,16 @@
 #ifndef SAFECLOUD_SAFECLOUDAPP_H
 #define SAFECLOUD_SAFECLOUDAPP_H
 
-/* SafeCloud Abstract Application Class Declaration */
+/* SafeCloud Application Abstract Class Declaration */
 
 /* ================================== INCLUDES ================================== */
-#include <openssl/evp.h>
+
+// System Headers
 #include <netinet/in.h>
+
+// OpenSSL Headers
+#include <openssl/evp.h>
+
 
 class SafeCloudApp
  {
@@ -19,7 +24,7 @@ class SafeCloudApp
 
    // The long-term RSA key pair of the actor executing
    // the SafeCloud application (client or server)
-   EVP_PKEY*          _rsaKey;
+   EVP_PKEY* _rsaKey;
 
    /* ------------------------- SafeCloudApp Object Flags ------------------------- */
 
@@ -55,9 +60,9 @@ class SafeCloudApp
    /**
     * @brief  SafeCloudApp shutdown signal handler, to be called upon
     *         receiving an OS signal aimed at shutting down the application
-    * @return A boolean indicating whether the SafeCloudApp is not connected
-    *         or idle and so can be deleted directly or whether the application
-    *         is busy and so will autonomously shutdown as soon as possible
+    * @return A boolean indicating whether the SafeCloudApp can be
+    *         terminated directly or if it will autonomously terminate
+    *         as soon as its pending operations will have completed
     */
    virtual bool shutdownSignalHandler() = 0;
  };

@@ -7,7 +7,8 @@
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
 
 /**
- * @brief             Digitally signs data of arbitrary size using the SHA-256 hash-and-sign paradigm
+ * @brief             Digitally signs data of arbitrary size
+ *                    using the SHA-256 hash-and-sign paradigm
  * @param signPrivKey The digital signature signer's private key
  * @param srcAddr     The initial address of the data to be signed
  * @param srcSize     The size of the data to be signed
@@ -30,7 +31,8 @@ unsigned int digSigSign(EVP_PKEY* signPrivKey, unsigned char* srcAddr, size_t sr
   if(!digSigCTX)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
 
-  // Initialize the digital signature signing context so to use the SHA-256 hash-and-sign paradigm
+  // Initialize the digital signature signing context
+  // so to use the SHA-256 hash-and-sign paradigm
   if(EVP_SignInit(digSigCTX, EVP_sha256()) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_SIGN_INIT, OSSL_ERR_DESC);
 
@@ -52,7 +54,8 @@ unsigned int digSigSign(EVP_PKEY* signPrivKey, unsigned char* srcAddr, size_t sr
 
 
 /**
- * @brief            Verifies a digital signature generated via the SHA-256 hash-and-sign paradigm
+ * @brief            Verifies a digital signature generated
+ *                   via the SHA-256 hash-and-sign paradigm
  * @param signPubKey The digital signature signer's public key
  * @param srcAddr    The initial address of the data to be verified
  * @param srcSize    The size of the data to be verified
@@ -73,7 +76,8 @@ void digSigVerify(EVP_PKEY* signPubKey, unsigned char* srcAddr, size_t srcSize, 
   if(!digVerCTX)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_MD_CTX_NEW, OSSL_ERR_DESC);
 
-  // Initialize the digital signature verification context so to use the SHA-256 hash-and-sign paradigm
+  // Initialize the digital signature verification
+  // context so to use the SHA-256 hash-and-sign paradigm
   if(EVP_VerifyInit(digVerCTX, EVP_sha256()) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_VERIFY_INIT, OSSL_ERR_DESC);
 
@@ -92,7 +96,7 @@ void digSigVerify(EVP_PKEY* signPubKey, unsigned char* srcAddr, size_t srcSize, 
     if(verFinalRet == 0)
      THROW_EXEC_EXCP(ERR_OSSL_SIG_VERIFY_FAILED, OSSL_ERR_DESC);
 
-  // At this point the digital signature is valid (verFinalRet ==1)
+  /* At this point the digital signature is valid (verFinalRet == 1) */
 
   // Free the digital signature verification context
   EVP_MD_CTX_free(digVerCTX);

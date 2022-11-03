@@ -3,7 +3,6 @@
 /* ================================== INCLUDES ================================== */
 #include "IV.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
-#include <cstring>
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 

@@ -1,31 +1,32 @@
 #include "Server.h"
 
-/* SafeCloud Application Server Implementation */
+/* SafeCloud Server Application Implementation */
 
 /* ================================== INCLUDES ================================== */
 #include "errCodes/execErrCodes/execErrCodes.h"
-#include "defaults.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <string>
+#include <cstring>
 
 /* =============================== PRIVATE METHODS =============================== */
 
 /* ---------------------------- Server Initialization ---------------------------- */
 
 /**
- * @brief         Sets the server IP:Port endpoint parameters
- * @param srvPort The OS port the SafeCloud server must bind on
+ * @brief  Sets the server IP:Port endpoint parameters
+ * @param  srvPort The OS port the SafeCloud server must bind on
  * @throws ERR_SRV_PORT_INVALID Invalid server port
  */
 void Server::setSrvEndpoint(uint16_t& srvPort)
  {
-  // Set the server socket type to IPv4 and to be associated to all host network interfaces (i.e. IP 0.0.0.0)
+  // Set the server socket type to IPv4 and to be associated
+  // to all host network interfaces (i.e. IP 0.0.0.0)
   _srvAddr.sin_family = AF_INET;
   _srvAddr.sin_addr.s_addr = INADDR_ANY;
 
-  // If srvPort >= SRV_PORT_MIN, convert it to the network byte order within the "_srvAddr" structure
+  // If srvPort >= SRV_PORT_MIN, convert it to the
+  // network byte order within the "_srvAddr" structure
   if(srvPort >= SRV_PORT_MIN)
    _srvAddr.sin_port = htons(srvPort);
   else   // Otherwise, throw an exception
@@ -36,7 +37,7 @@ void Server::setSrvEndpoint(uint16_t& srvPort)
 
 
 /**
- * @brief                                Retrieves the SafeCloud server long-term RSA private key from its ".pem" file
+ * @brief  Retrieves the SafeCloud server long-term RSA private key from its ".pem" file
  * @throws ERR_SRV_PRIVKFILE_NOT_FOUND   The server RSA private key file was not found
  * @throws ERR_SRV_PRIVKFILE_OPEN_FAILED Error in opening the server's RSA private key file
  * @throws ERR_FILE_CLOSE_FAILED         Error in closing the server's RSA private key file
@@ -48,12 +49,14 @@ void Server::getServerRSAKey()
   FILE* RSAKeyFile;     // The server's long-term RSA private key file (.pem)
   char* RSAKeyFilePath; // The server's long-term RSA private key file path
 
-  // Derive the expected absolute, or canonicalized, path of the server's private key file
+  // Derive the expected absolute, or canonicalized,
+  // path of the server's private key file
   RSAKeyFilePath = realpath(SRV_PRIVK_PATH,NULL);
   if(!RSAKeyFilePath)
    THROW_EXEC_EXCP(ERR_SRV_PRIVKFILE_NOT_FOUND, SRV_PRIVK_PATH, ERRNO_DESC);
 
-  // Try-catch block to allow the RSAKeyFilePath both to be freed and reported in an exception
+  // Try-catch block to allow the RSAKeyFilePath
+  // both to be freed and reported in an exception
   try
    {
     // Attempt to open the server's RSA private key file
@@ -90,7 +93,7 @@ void Server::getServerRSAKey()
 
 
 /**
- * @brief Loads the server X.509 certificate from its default ".pem" file
+ * @brief  Loads the server X.509 certificate from its default ".pem" file
  * @throws ERR_SRV_CERT_OPEN_FAILED The server certificate file could not be opened
  * @throws ERR_FILE_CLOSE_FAILED    The server certificate file could not be closed
  * @throws ERR_SRV_CERT_INVALID     The server certificate is invalid
@@ -112,7 +115,8 @@ void Server::getServerCert()
   if(fclose(srvCertFile) != 0)
    THROW_EXEC_EXCP(ERR_FILE_CLOSE_FAILED, SRV_CERT_PATH, ERRNO_DESC);
 
-  // Ensure the contents of the CA certificate file to consist of a valid certificate
+  // Ensure the contents of the CA certificate
+  // file to consist of a valid certificate
   if(!srvCert)
    THROW_EXEC_EXCP(ERR_SRV_CERT_INVALID, SRV_CERT_PATH, OSSL_ERR_DESC);
 
@@ -129,10 +133,13 @@ void Server::getServerCert()
 
 
 /**
- * @brief Initializes the server's listening socket and binds it to the specified host port
+ * @brief  Initializes the server's listening socket
+ *         and binds it to the specified host port
  * @throws ERR_LSK_INIT_FAILED         Listening socket initialization failed
- * @throws ERR_LSK_SO_REUSEADDR_FAILED Error in setting the listening socket's SO_REUSEADDR option
- * @throws ERR_LSK_BIND_FAILED         Error in binding the listening socket on the specified host port
+ * @throws ERR_LSK_SO_REUSEADDR_FAILED Error in setting the listening
+ *                                     socket's SO_REUSEADDR option
+ * @throws ERR_LSK_BIND_FAILED         Error in binding the listening
+ *                                     socket on the specified host port
  */
 void Server::initLsk()
  {
@@ -165,15 +172,17 @@ void Server::initLsk()
 /* --------------------------------- Server Loop --------------------------------- */
 
 /**
- * @brief       Closes a client connection by deleting its associated SrvConnMgr
- *              object and removing its associated entry from the connections' map
+ * @brief Closes a client connection by deleting its associated SrvConnMgr
+ *        object and removing its associated entry from the connections' map
  * @param cliIt The iterator to the client's entry in the connections' map
  */
 void Server::closeConn(connMapIt cliIt)
  {
-  size_t connClients;  // Number of connected clients AFTER the client's disconnection
+  // Number of connected clients AFTER the client's disconnection
+  size_t connClients;
 
-  // Remove the connection socket from the set of file descriptors of open sockets
+  // Remove the connection socket from the
+  // set of file descriptors of open sockets
   FD_CLR(cliIt->first, &_skSet);
 
   // Delete the client's connection manager
@@ -185,7 +194,8 @@ void Server::closeConn(connMapIt cliIt)
   // Retrieve the updated number of connected clients
   connClients = _connMap.size();
 
-  // If the last client has disconnected, reset the "_connected" status variable
+  // If the last client has disconnected,
+  // reset the "_connected" status variable
   if(connClients == 0)
    _connected = false;
 
@@ -194,8 +204,8 @@ void Server::closeConn(connMapIt cliIt)
 
 
 /**
- * @brief     Passes the incoming client data to its associated SrvConnMgr object,
- *            which returns whether to maintain or close the client's connection
+ * @brief Passes the incoming client data to its associated SrvConnMgr object,
+ *        which returns whether to maintain or close the client's connection
  * @param ski The connection socket with available input data
  */
 void Server::newClientData(int ski)
@@ -288,13 +298,10 @@ void Server::newClientData(int ski)
 
 /**
  * @brief Accepts an incoming client connection, creating its
- *       client object and entry in the connections' map
- * @TODO: throws?
+ *        client object and entry in the connections' map
  */
 void Server::newClientConnection()
  {
-  /* ----------------- Client Endpoint Information ----------------- */
-
   // The client socket type, IP and Port
   struct sockaddr_in  cliAddr{};
 
@@ -305,16 +312,14 @@ void Server::newClientConnection()
   char cliIP[16];
   int  cliPort;
 
-  /* ----------------- Client SrvConnMgr Creation ----------------- */
-
   // The client's assigned connection socket
-  int          csk = -1;
+  int csk = -1;
 
   // Number of connected clients BEFORE the client's connection
-  size_t       connClients;
+  size_t connClients;
 
   // The client's assigned connection manager object
-  SrvConnMgr*  srvConnMgr;
+  SrvConnMgr* srvConnMgr;
 
   // Used to check whether the newly created server connection
   // manager was successfully added to the connections' map
@@ -339,35 +344,39 @@ void Server::newClientConnection()
   // Retrieve the number of currently connected clients
   connClients = _connMap.size();
 
-  // Ensure that the maximum number of client connections has not been reached
   /*
+   * Ensure that the maximum number of client connections has not been reached
+   *
    * NOTE: This constraint is due to the select() allowing to monitor up to
    *       FD_SETSIZE = 1024 file descriptors, listening socket included
+   * NOTE: Techniques for notifying the client that currently the server
+   *       cannot accept further connections are remanded to future versions
    */
   if(connClients == SRV_MAX_CONN)
    {
-    // Inform the client that the server cannot accept further connections
-    // TODO: Implement in a SafeCloud Message
-
     // Log the error and continue checking the next
     // socket descriptor in the server's main loop
-    LOG_EXEC_CODE(ERR_CSK_MAX_CONN, std::string(cliIP) + std::to_string(cliPort));
+    LOG_EXEC_CODE(ERR_CSK_MAX_CONN, std::string(cliIP)
+                                    + std::to_string(cliPort));
     return;
    }
 
   // Attempt to initialize the client's connection manager
   try
    { srvConnMgr = new SrvConnMgr(csk,_guestIdx,_rsaKey,_srvCert); }
+
+  // If an execution exception occurred in instantiating the server
+  // connection manager, the client cannot connect to the SafeCloud server
   catch(execErrExcp& excp)
    {
-    // TODO: check how to implement this
-    // Log the error
+    // Handle the execution exception
     handleExecErrException(excp);
 
     // Delete the srvConnMgr object
     delete srvConnMgr;
 
-    // Continue checking the next socket descriptor in the server's main loop
+    // Continue checking the next socket
+    // descriptor in the server's main loop
     return;
    }
 
@@ -440,7 +449,7 @@ void Server::srvLoop()
   // used for asynchronously reading incoming client data
   FD_ZERO(&skReadSet);
 
-  // ----------------------------- SafeCloud Server Main Loop ----------------------------- //
+  // -------------------------- SafeCloud Server Main Loop -------------------------- //
 
   while(1)
    {
@@ -456,11 +465,13 @@ void Server::srvLoop()
       else
        if(_lsk != -1)
         {
-         // Close the listening socket to prevent accepting further client connections
+         // Close the listening socket to prevent
+         // accepting further client connections
          if(close(_lsk) != 0)
           LOG_EXEC_CODE(ERR_LSK_CLOSE_FAILED, ERRNO_DESC);
 
-         // Remove the listening socket from the list of open file descriptors
+         // Remove the listening socket from
+         // the list of open file descriptors
          FD_CLR(_lsk, &_skSet);
 
          // Reset the listening socket
@@ -477,7 +488,7 @@ void Server::srvLoop()
     // Depending on the select() return
     switch(selRet)
      {
-      // -------------------------------- select() error -------------------------------- //
+      // ------------------------------ select() error ------------------------------ //
       case -1:
 
        // The only select() error that is allowed is being interrupted by an OS signal
@@ -485,13 +496,13 @@ void Server::srvLoop()
         THROW_EXEC_EXCP(ERR_SRV_SELECT_FAILED, ERRNO_DESC);
        break;
 
-      // ------------------------------- select() timeout ------------------------------- //
+      // ----------------------------- select() timeout ----------------------------- //
       case 0:
 
        // As it is not implemented, a select() timeout is a fatal error
        THROW_EXEC_EXCP(ERR_SRV_SELECT_FAILED, "select() timeout", ERRNO_DESC);
 
-      // ------------- selRet = Number of sockets with available input data ------------- //
+      // ----------- selRet = Number of sockets with available input data ----------- //
       default:
 
        /*
@@ -505,43 +516,51 @@ void Server::srvLoop()
         // If input data is available on socket "ski"
         if(FD_ISSET(ski, &skReadSet))
          {
-          // If "ski" is the server's listening socket, a new client is attempting to connect with the SafeCloud server
+          // If "ski" is the server's listening socket, a new
+          // client is attempting to connect with the SafeCloud server
           if(ski == _lsk)
            newClientConnection();
 
-          // Otherwise "ski" is a connection socket of an existing client which has sent new data to the server
+          // Otherwise "ski" is a connection socket of an existing
+          // client which has sent new data to the server
           else
            newClientData(ski);
 
-          // Once the listening or connection socket has been served, decrement the number of sockets with pending
-          // input data and, if no other is present, break the "for" loop for restarting the main server loop
+          // Once the listening or connection socket has been served, decrement
+          // the number of sockets with pending input data and, if no other is
+          // present, break the "for" loop for restarting the main server loop
           if(--selRet == 0)
            break;
          }
      } // switch(selRet)
    } // while(1)
 
-  // --------------------------- End SafeCloud Server Main Loop --------------------------- //
+  // ------------------------ End SafeCloud Server Main Loop ------------------------ //
  }
 
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
 /**
- * @brief                                SafeCloud server object constructor
- * @param srvPort                        The OS port the server should bind on
+ * @brief  SafeCloud server object constructor
+ * @param  srvPort The OS port the server should bind on
  * @throws ERR_SRV_PORT_INVALID          Invalid server port
  * @throws ERR_SRV_PRIVKFILE_NOT_FOUND   The server RSA private key file was not found
  * @throws ERR_SRV_PRIVKFILE_OPEN_FAILED Error in opening the server's RSA private key file
- * @throws ERR_FILE_CLOSE_FAILED         Error in closing the server's RSA private key OR certificate file
- * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file could not be interpreted as a valid RSA key pair
+ * @throws ERR_FILE_CLOSE_FAILED         Error in closing the server's RSA
+ *                                       private key OR certificate file
+ * @throws ERR_SRV_PRIVK_INVALID         The contents of the server's private key file
+ *                                       could not be interpreted as a valid RSA key pair
  * @throws ERR_SRV_CERT_OPEN_FAILED      The server certificate file could not be opened
  * @throws ERR_SRV_CERT_INVALID          The server certificate is invalid
  * @throws ERR_LSK_INIT_FAILED           Listening socket initialization failed
- * @throws ERR_LSK_SO_REUSEADDR_FAILED   Error in setting the listening socket's SO_REUSEADDR option
- * @throws ERR_LSK_BIND_FAILED           Error in binding the listening socket on the specified host port
+ * @throws ERR_LSK_SO_REUSEADDR_FAILED   Error in setting the listening
+ *                                       socket's SO_REUSEADDR option
+ * @throws ERR_LSK_BIND_FAILED           Error in binding the listening
+ *                                       socket on the specified host port
  */
-Server::Server(uint16_t srvPort) : SafeCloudApp(), _lsk(-1), _srvCert(nullptr), _connMap(), _skSet(), _skMax(-1), _guestIdx(1)
+Server::Server(uint16_t srvPort)
+ : SafeCloudApp(), _lsk(-1), _srvCert(nullptr), _connMap(), _skSet(), _skMax(-1), _guestIdx(1)
  {
   // Set the server endpoint parameters
   setSrvEndpoint(srvPort);
@@ -596,9 +615,9 @@ Server::~Server()
  *         there are client requests pending, if it can be terminated directly or
  *         if it will autonomously terminate as soon as such requests are served
  * @return A boolean indicating whether the server object can be terminated directly
- * @note   If the Server object cannot be terminated directly, its listening socket
- *         will be closed in the next server loop iteration to prevent accepting
- *         further client connections
+ * @note   If the Server object cannot be terminated directly, its
+ *         listening socket will be closed in the next server loop
+ *         iteration to prevent accepting further client connections
  */
 bool Server::shutdownSignalHandler()
  {
@@ -651,17 +670,18 @@ bool Server::shutdownSignalHandler()
  }
 
 
-// TODO: Update Descr
-
 /**
- * @brief  Starts the SafeCloud server operations by listening on the listening socket and processing incoming client connections and data
- * @note   This method returns only in case of errors or should the server be instructed to terminate via the shutdownSignal() method
- * @throws ERR_LSK_LISTEN_FAILED   Failed to listen on the server's listening socket
- * @throws ERR_SRV_SELECT_FAILED  select() call failed
+ * @brief  Starts the SafeCloud Server by starting listening on the listening
+ *         socket and serving incoming client connection and application requests
+ * @note   This method returns only once all pending client requests have been served
+ *         following the reception of a shutdown signal (shutdownSignalHandler() method)
+ * @throws ERR_LSK_LISTEN_FAILED Failed to listen on the server's listening socket
+ * @throws ERR_SRV_SELECT_FAILED select() call failed
  */
 void Server::start()
  {
-  // Start listening on the listening socket, allowing up to a predefined maximum number of queued connections
+  // Start listening on the listening socket, allowing up
+  // to a predefined maximum number of queued connections
   if(listen(_lsk, SRV_MAX_QUEUED_CONN) < 0)
    THROW_EXEC_EXCP(ERR_LSK_LISTEN_FAILED, ERRNO_DESC);
 

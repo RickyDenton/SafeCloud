@@ -3,9 +3,6 @@
 
 /* SafeCloud Session Messages Definitions */
 
-/* ================================== INCLUDES ================================== */
-#include <cstdint>
-
 /* ================ SAFECLOUD SESSION MESSAGE TYPES DEFINITIONS ================ */
 enum SessMsgType : uint8_t
  {
@@ -68,9 +65,9 @@ struct __attribute__((packed)) SessMsg
 // Session Message Wrapper
 struct SessMsgWrapper
  {
-  uint16_t  wrapLen;                    // Total session message wrapper length in bytes
-  // Session Message is encrypted here
-  char      tag[AES_128_GCM_TAG_SIZE];  // AES_128_GCM Integrity Tag (16 bytes)
+  uint16_t  wrapLen;                      // Total session message wrapper length in bytes
+  /*  Encrypted Session Message Here  */
+  char      tag[AES_128_GCM_TAG_SIZE];    // AES_128_GCM Integrity Tag (16 bytes)
  };
 
 /* -------------------- 'SessMsgFileInfo' Session Message -------------------- */

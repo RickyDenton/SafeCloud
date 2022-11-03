@@ -1,8 +1,15 @@
-/* DirInfo class methods definitions */
+/* DirInfo Class Implementation */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
+#include <dirent.h>
+
+// SafeCloud Headers
 #include "DirInfo.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
+
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 
@@ -28,7 +35,8 @@ DirInfo::DirInfo(std::string* dirAbspath)
   // The file descriptor used for reading the target directory
   DIR*           dir;
 
-  // Information on a file in the target directory as returned by the "dirent.h" library
+  // Information on a file in the target directory
+  // as returned by the "dirent.h" library
   struct dirent* dirFile;
 
   // Information on a file (name + metadata) in the target directory
@@ -49,14 +57,17 @@ DirInfo::DirInfo(std::string* dirAbspath)
     // For each file in the target directory
     while((dirFile = readdir(dir)) != NULL)
      {
-      // Skip the directory itself, the pointer to the parent's directory, and subdirectories
-      if(!strcmp(dirFile->d_name, ".") || !strcmp(dirFile->d_name, "..") || dirFile->d_type == DT_DIR)
+      // Skip the directory itself, the pointer to
+      // the parent's directory, and subdirectories
+      if(!strcmp(dirFile->d_name, ".") || !strcmp(dirFile->d_name, "..")
+         || dirFile->d_type == DT_DIR)
        continue;
 
       // Initialize the information on the file in the target directory
       fileInfo = new FileInfo(*dirAbspath + '/' + std::string(dirFile->d_name));
 
-      // Compute the file information's raw size (name length, '\0' excluded, + metadata)
+      // Compute the file information's raw size
+      // (name length, '\0' excluded, + metadata)
       fileInfoRawSize = strlen(dirFile->d_name) + 3 * sizeof(long int);
 
       // Ensure that adding the file information's raw size to the
@@ -64,7 +75,8 @@ DirInfo::DirInfo(std::string* dirAbspath)
       if(dirRawSize > UINT_MAX - fileInfoRawSize)
        THROW_SESS_EXCP(ERR_SESS_DIR_INFO_OVERFLOW, *dirAbspath);
 
-      // Add the file's information to the list of directory's files information
+      // Add the file's information to the
+      // list of directory's files information
       dirFiles.emplace_front(fileInfo);
 
       // Update the directory contents' raw size

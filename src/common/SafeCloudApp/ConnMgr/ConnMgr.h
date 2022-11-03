@@ -1,18 +1,26 @@
 #ifndef SAFECLOUD_CONNMGR_H
 #define SAFECLOUD_CONNMGR_H
 
-/* SafeCloud Connection Manager Declarations */
+/* SafeCloud Connection Manager Declaration */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
+#include <string>
+
+// SafeCloud Headers
 #include "defaults.h"
 #include "SafeCloudApp/ConnMgr/IV/IV.h"
 #include "ossl_crypto/AES_128_CBC.h"
-#include "SafeCloudApp/ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
-#include <string>
+
+
+// Connection Manager Buffers Size
+#define CONN_BUF_SIZE (1 * 1024 * 1024)    // 1 MB
 
 // The size in bytes of SafeCloud Message
 // (STSMMsg or Session Message) length header
 #define MSG_LEN_HEAD_SIZE 2
+
 
 class ConnMgr
  {
@@ -87,7 +95,8 @@ class ConnMgr
 
    /* ----------------------- Connection Client Information ----------------------- */
    std::string* _name;   // The name of the client associated with this connection
-   std::string* _tmpDir; // The absolute path of the temporary directory of the client associated with this connection
+   std::string* _tmpDir; // The absolute path of the temporary directory
+                         // of the client associated with this connection
 
 
    /* =============================== FRIEND CLASSES =============================== */
@@ -116,8 +125,8 @@ class ConnMgr
     * @brief  Checks whether input data is available on
     *         the connection socket without consuming it
     * @return A boolean indicating whether input data is available on the connection socket
-    * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
-    * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
+    * @throws ERR_CSK_RECV_FAILED   Error in receiving data from the connection socket
+    * @throws ERR_PEER_DISCONNECTED The connection peer has abruptly disconnected
     */
    bool isRecvDataAvailable() const;
 
@@ -181,14 +190,15 @@ class ConnMgr
     * @brief        ConnMgr object constructor
     * @param csk    The connection socket associated with this manager
     * @param name   The name of the client associated with this connection
-    * @param tmpDir The absolute path of the temporary directory associated with this connection
+    * @param tmpDir The absolute path of the temporary
+    *               directory associated with this connection
     */
    ConnMgr(int csk, std::string* name, std::string* tmpDir);
 
    /**
-    * @brief Connection Manager object destructor, which:\n
-    *          1) Closes its associated connection socket\n
-    *          2) Delete the contents of the connection's temporary directory\n
+    * @brief Connection Manager object destructor, which:\n\n
+    *          1) Closes its associated connection socket\n\n
+    *          2) Delete the contents of the connection's temporary directory\n\n
     *          3) Safely deletes all the connection's sensitive information
     */
    ~ConnMgr();

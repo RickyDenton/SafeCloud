@@ -16,10 +16,9 @@
  * @param ptSize The plaintext size (must be <= INT_MAX - AES_BLOCK_SIZE = 2^16 - 1 - 16 bytes)
  * @param ctDest The address where to write the resulting ciphertext
  * @return       The resulting ciphertext's size in bytes
- * @note         The function assumes the "ctDest" destination buffer to be large enough to contain the resulting
- *               ciphertext (i.e. at least ptSize + AES_BLOCK_SIZE to account for the additional full padding block)
- * @note         As in the SafeCloud application the AES_128_CBC cipher is used in the STSM key establishment only
- *               (which consists of up to 2 encrypted messages), it is implicitly assumed that no IV reuse can occur
+ * @note         The function assumes the "ctDest" destination buffer to be large
+ *               enough to contain the resulting ciphertext (i.e. at least ptSize
+ *               + AES_BLOCK_SIZE to account for the additional full padding block)
  * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The plaintext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_AES_128_CBC_PT_TOO_LARGE The plaintext to encrypt is too large
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
@@ -29,9 +28,14 @@
  */
 int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr, int ptSize, unsigned char* ctDest)
  {
-  EVP_CIPHER_CTX* aesEncCTX;  // Cipher encryption context
-  int encBytes;               // The number of encrypted bytes at an encryption's step (EVP_EncryptUpdate or EVP_EncryptFinal)
-  int encBytesTot;            // The total number of encrypted bytes, representing at the end the resulting ciphertext size
+  // Cipher encryption context
+  EVP_CIPHER_CTX* aesEncCTX;
+
+  // The number of encrypted bytes at an encryption's step (EVP_EncryptUpdate or EVP_EncryptFinal)
+  int encBytes;
+
+  // The total number of encrypted bytes, representing at the end the resulting ciphertext size
+  int encBytesTot;
 
   // Assert the plaintext size to be positive
   if(ptSize <= 0)
@@ -48,7 +52,8 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
    THROW_EXEC_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the cipher encryption context specifying the cipher, key and IV
-  if(EVP_EncryptInit(aesEncCTX, EVP_aes_128_cbc(), key, reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
+  if(EVP_EncryptInit(aesEncCTX, EVP_aes_128_cbc(), key,
+                     reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_INIT, OSSL_ERR_DESC);
 
   // Encrypt the plaintext to the ciphertext's buffer
@@ -90,8 +95,6 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
  * @return       The resulting plaintext size in bytes
  * @note         The function assumes the "ptDest" destination buffer to be large
  *               enough to contain the resulting plaintext (i.e. at least ctSize)
- * @note         As in the SafeCloud application the AES_128_CBC cipher is used in the STSM key establishment only
- *               (which consists of up to 2 encrypted messages), it is implicitly assumed that no IV reuse can occur
  * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The ciphertext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed
  * @throws       ERR_OSSL_EVP_DECRYPT_INIT         EVP_CIPHER decrypt initialization failed
@@ -100,9 +103,14 @@ int AES_128_CBC_Encrypt(const unsigned char* key, IV* iv, unsigned char* ptAddr,
  */
 int AES_128_CBC_Decrypt(const unsigned char* key, IV* iv, unsigned char* ctAddr, int ctSize, unsigned char* ptDest)
  {
-  EVP_CIPHER_CTX* aesDecCTX;  // Cipher decryption context
-  int decBytes;               // The number of decrypted bytes at a decryption step (EVP_DecryptUpdate or EVP_DecryptFinal)
-  int decBytesTot;            // The total number of decrypted bytes, representing at the end the resulting plaintext size
+  // Cipher decryption context
+  EVP_CIPHER_CTX* aesDecCTX;
+
+  // The number of decrypted bytes at a decryption step (EVP_DecryptUpdate or EVP_DecryptFinal)
+  int decBytes;
+
+  // The total number of decrypted bytes, representing at the end the resulting plaintext size
+  int decBytesTot;
 
   // Assert the ciphertext size to be positive
   if(ctSize <= 0)
@@ -114,7 +122,8 @@ int AES_128_CBC_Decrypt(const unsigned char* key, IV* iv, unsigned char* ctAddr,
    THROW_EXEC_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
 
   // Initialize the cipher decryption context specifying the cipher, key and IV
-  if(EVP_DecryptInit(aesDecCTX, EVP_aes_128_cbc(), key, reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
+  if(EVP_DecryptInit(aesDecCTX, EVP_aes_128_cbc(), key,
+                     reinterpret_cast<const unsigned char*>(&(iv->iv_AES_CBC))) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_INIT, OSSL_ERR_DESC);
 
   // Decrypt the ciphertext to the plaintext buffer

@@ -1,31 +1,35 @@
 #ifndef SAFECLOUD_IV_H
 #define SAFECLOUD_IV_H
 
-/* This class represents the IV(s) used in the SafeCloud application, where:
+/*
+ * This class represents the IV(s) used in the SafeCloud application, where:
  *
- *  - The Key Establishment protocol (STSM) uses an IV on 16 bytes (AES_CBC_128)
- *  - The Session Phase uses an IV on 12 bytes (AES_GCM_128)
+ *   - The Key Establishment protocol (STSM) uses an IV on 16 bytes (AES_CBC_128)
+ *   - The Session Phase uses an IV on 12 bytes (AES_GCM_128)
  *
- * For providing an IV value to both connection phases and to ensure cross-platform and cross-compiler
- * compatibility in handling large numbers, IVs consist of 16 bytes initialized at random where:
+ * For providing an IV value to both connection phases and to ensure
+ * cross-platform and cross-compiler compatibility in handling large
+ * numbers, IVs consist of 16 bytes initialized at random where:
  *
- * - The lower half (8 bytes, 64 bit) is variable and incremented after every encryption or decryption
+ *   - The lower half (8 bytes, 64 bit) is variable and
+ *     incremented after every encryption or decryption
  *
- * - The upper half (8 bytes, 64 bit) is instead constant, with the AES_CBC_128 cipher using it in its
- *   entirety (for an IV size of 16 bytes), while the AES_GCM_128 cipher uses its least significant 4
- *   bytes only (for an IV size of 12 bytes)
+ *   - The upper half (8 bytes, 64 bit) is instead constant, with the
+ *     AES_CBC_128 cipher using it in its entirety (for an IV size
+ *     of 16 bytes), while the AES_GCM_128 cipher uses its least
+ *     significant 4 bytes only (for an IV size of 12 bytes)
  *
- * It should also be noted that, being its variable part on 64 bits, no failsafe mechanism for preventing
- * the IV reuse were implemented, as even by encrypting or decrypting a message every 100ms would require
- * over 50 years to exchange the 2^64 messages necessary for the same IV to be reused
+ * It should also be noted that, being its variable part on 64 bits, no
+ * failsafe mechanism for preventing the IV reuse were implemented, as even by
+ * encrypting or decrypting a message every 100ms would require over 50 years
+ * to exchange the 2^64 messages necessary for the same IV to be reused
  */
 
 /* ================================== INCLUDES ================================== */
-#include <openssl/evp.h>
-#include <openssl/pem.h>
+
+// OpenSSL Headers
 #include <openssl/rand.h>
-#include <openssl/conf.h>
-#include <cstdint>
+#include <openssl/err.h>
 
 
 class IV

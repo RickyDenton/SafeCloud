@@ -7,10 +7,7 @@
  */
 
 /* ================================== INCLUDES ================================== */
-#include <cstdint>
-#include <openssl/evp.h>
 #include <openssl/pem.h>
-#include <openssl/rand.h>
 #include "SafeCloudApp/ConnMgr/IV/IV.h"
 
 #define AES_128_GCM_TAG_SIZE 16
@@ -22,11 +19,20 @@ class AESGCMMgr
    // AES_128_GCM Manager State enumeration
    enum AESGCMMgrState : uint8_t
     {
-     READY = 0,       // Ready to start an encryption or decryption operation
-     ENCRYPT_AAD,     // Expecting up to one Associated Authenticated Data (AAD) block (if any) for encryption
-     ENCRYPT_UPDATE,  // Expecting one or more plaintext blocks for encryption
-     DECRYPT_AAD,     // Expecting up to one Associated Authenticated Data (AAD) block (if any) for decryption
-     DECRYPT_UPDATE   // Expecting one or more ciphertext blocks for decryption
+     // Ready to start an encryption or decryption operation
+     READY = 0,
+
+     // Expecting up to one Associated Authenticated Data (AAD) block (if any) for encryption
+     ENCRYPT_AAD,
+
+     // Expecting one or more plaintext blocks for encryption
+     ENCRYPT_UPDATE,
+
+     // Expecting up to one Associated Authenticated Data (AAD) block (if any) for decryption
+     DECRYPT_AAD,
+
+     // Expecting one or more ciphertext blocks for decryption
+     DECRYPT_UPDATE
     };
 
    /* ================================= ATTRIBUTES ================================= */
@@ -34,7 +40,8 @@ class AESGCMMgr
    // The current manager state
    AESGCMMgrState  _aesGcmMgrState;
 
-   // The cipher context used in the current or the next AES_128_GCM encryption or decryption operation
+   // The cipher context used in the current or the next
+   // AES_128_GCM encryption or decryption operation
    EVP_CIPHER_CTX* _aesGcmCTX;
 
    // A pointer to the AES_128_GCM symmetric key of AES_128_KEY_SIZE = 16 bytes
@@ -43,8 +50,9 @@ class AESGCMMgr
    // A pointer to the connection's initialization vector
    IV* _iv;
 
-   // The total number of bytes encrypted or decrypted in the current encryption or decryption
-   // operation, eventually representing the resulting ciphertext or plaintext size including any AAD
+   // The total number of bytes encrypted or decrypted in the current
+   // encryption or decryption operation, eventually representing
+   // the resulting ciphertext or plaintext size including any AAD
    int _sizeTot;
 
    // The number of bytes encrypted or decrypted by the last OpenSSL API call

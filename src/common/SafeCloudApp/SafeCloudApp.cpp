@@ -1,4 +1,4 @@
-/* SafeCloud Abstract Application Class Definitions */
+/* SafeCloud Application Abstract Class Definition */
 
 /* ================================== INCLUDES ================================== */
 #include "SafeCloudApp.h"

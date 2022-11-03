@@ -4,13 +4,24 @@
 /* OpenSSL AES_128_CBC Utility Functions Declarations */
 
 /* ================================== INCLUDES ================================== */
+
+// OpenSSL Headers
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/err.h>
+
+// SafeCloud headers
 #include "SafeCloudApp/ConnMgr/IV/IV.h"
 
 #define AES_128_KEY_SIZE 16      // The AES_128 key size in bytes    (128 bit)
 #define AES_BLOCK_SIZE 16        // The AES block size in bytes      (128 bit)
 #define AES_128_CBC_IV_SIZE 16   // The AES_128_CBC IV size in bytes (128 bit)
+
+/*
+ * NOTE: As in the SafeCloud application the AES_128_CBC cipher is used in
+ *       the STSM key establishment only (which consists of up to 2 encrypted
+ *       messages), it is implicitly assumed that no IV reuse can occur
+ */
 
 /* =========================== FUNCTIONS DECLARATIONS =========================== */
 
@@ -23,8 +34,9 @@
  * @param ptSize The plaintext size (must be <= INT_MAX - AES_BLOCK_SIZE = 2^16 - 1 - 16 bytes)
  * @param ctDest The address where to write the resulting ciphertext
  * @return       The resulting ciphertext's size in bytes
- * @note         The function assumes the "ctDest" destination buffer to be large enough to contain the resulting
- *               ciphertext (i.e. at least ptSize + AES_BLOCK_SIZE to account for the additional full padding block)
+ * @note         The function assumes the "ctDest" destination buffer to be large
+ *               enough to contain the resulting ciphertext (i.e. at least ptSize
+ *               + AES_BLOCK_SIZE to account for the additional full padding block)
  * @throws       ERR_NON_POSITIVE_BUFFER_SIZE      The plaintext size is non-positive (probable overflow)
  * @throws       ERR_OSSL_AES_128_CBC_PT_TOO_LARGE The plaintext to encrypt is too large
  * @throws       ERR_OSSL_EVP_CIPHER_CTX_NEW       EVP_CIPHER context creation failed

@@ -1,11 +1,13 @@
-/* SafeCloud application execution error codes definitions */
+/*  * SafeCloud Execution Error Codes Definitions */
 
+/* ================================== INCLUDES ================================== */
 #include "execErrCodes.h"
 
 /* =============== EXECUTION ERRORS HANDLING FUNCTIONS DEFINITIONS =============== */
 
 /**
- * @brief             Execution error codes handler, passing its information to the SafeCloud application default error handler
+ * @brief             Execution error codes handler, passing its information
+ *                    to the SafeCloud application default error handler
  * @param execErrCode The execution error code that has occurred
  * @param addDsc      The additional execution error description (optional)
  * @param reason      The execution error reason (optional)
@@ -21,7 +23,8 @@ void handleExecErrCode(const execErrCode exeErrCode,const std::string* addDscr,c
   // Retrieve the information associated with the execution error code from the execErrCodeInfoMap
   errCodeInfo exeErrCodeInfo = execErrCodeInfoMap.find(exeErrCode)->second;
 
-  // Call the SafeCloud application default error handler passing it the information associated with the execution error
+  // Call the SafeCloud application default error handler passing
+  // it the information associated with the execution error
 #ifdef DEBUG_MODE
   handleErrCode(exeErrCodeInfo,addDscr,reason,srcFile,lineNumber);
 #else

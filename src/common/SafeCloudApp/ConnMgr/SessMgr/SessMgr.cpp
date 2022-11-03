@@ -1,11 +1,15 @@
-/* SafeCloud Session Manager Implementation */
+/* SafeCloud Base Session Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
 #include <sys/time.h>
 #include <fstream>
+#include <cstring>
+
+// SafeCloud Headers
 #include "SessMgr.h"
 #include "errCodes/errCodes.h"
-#include "SessMsg.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "sanUtils.h"
@@ -49,8 +53,10 @@ bool SessMgr::isSessErrSignalingMsgType(SessMsgType sessMsgType)
 
 
 /**
- * @brief  Converts the current session manager operation to a lowercase string
- * @return The current session manager operation as a lowercase string
+ * @brief  Converts the current session manager
+ *         operation to a lowercase string
+ * @return The current session manager
+ *         operation as a lowercase string
  */
 std::string SessMgr::sessMgrOpToStrLowCase()
  {
@@ -72,8 +78,10 @@ std::string SessMgr::sessMgrOpToStrLowCase()
  }
 
 /**
- * @brief  Converts the current session manager operation to a uppercase string
- * @return The current session manager operation as a uppercase string
+ * @brief  Converts the current session manager
+ *         operation to a uppercase string
+ * @return The current session manager
+ *         operation as a uppercase string
  */
 std::string SessMgr::sessMgrOpToStrUpCase()
  {
@@ -96,8 +104,10 @@ std::string SessMgr::sessMgrOpToStrUpCase()
 
 
 /**
- * @brief  Converts the current session manager operation step to a uppercase string
- * @return The current session manager operation step as a uppercase string
+ * @brief  Converts the current session manager
+ *         operation step to a uppercase string
+ * @return The current session manager
+ *         operation step as a uppercase string
  */
 std::string SessMgr::sessMgrOpStepToStrUpCase()
  {
@@ -152,8 +162,8 @@ void SessMgr::validateRecvFileName(std::string& fileName)
     // If the file name string does not represent a valid
     // Linux file name, then the received message is malformed
     sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
-    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the received session "
-                                               "message (\"" + fileName + "\")");
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Invalid file name in the received session"
+                                               " message (\"" + fileName + "\")");
    }
  }
 
@@ -170,7 +180,8 @@ void SessMgr::checkLoadMainFileInfo()
   if(_mainFileAbsPath == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to load the main file information time with a NULL '_mainFileAbsPath'");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to load the main file "
+                                            "information time with a NULL '_mainFileAbsPath'");
    }
 
   // Attempt to load into the '_mainFileInfo' attribute the information
@@ -194,7 +205,8 @@ void SessMgr::checkLoadMainFileInfo()
 
 
 /**
- * @brief  Sets the main file last modification time to the one specified in the '_remFileInfo' attribute
+ * @brief  Sets the main file last modification time to
+ *         the one specified in the '_remFileInfo' attribute
  * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
  * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
  */
@@ -204,20 +216,23 @@ void SessMgr::mainToRemLastModTime()
   if(_mainFileAbsPath == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification time with a NULL '_mainFileAbsPath'");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification"
+                                            " time with a NULL '_mainFileAbsPath'");
    }
 
   // Ensure the '_remFileInfo' attribute to have been initialized
   if(_remFileInfo == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification time with a NULL '_remFileInfo'");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to mirror a last modification"
+                                            " time with a NULL '_remFileInfo'");
    }
 
   // Write the remote file last modification time in the second element of a 'timeval' array
   timeval timesArr[] = {{}, {_remFileInfo->meta->lastModTimeRaw, 0}};
 
-  // Attempt to set the main file last modification time to the one specified in the '_remFileInfo' attribute
+  // Attempt to set the main file last modification time
+  // to the one specified in the '_remFileInfo' attribute
   if(utimes(_mainFileAbsPath->c_str(), timesArr) == -1)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
@@ -243,14 +258,16 @@ void SessMgr::touchEmptyFile()
   if(_mainFileAbsPath == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file with a NULL '_mainFileAbsPath'");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file "
+                                            "with a NULL '_mainFileAbsPath'");
    }
 
   // Ensure the '_remFileInfo' attribute to have been initialized
   if(_remFileInfo == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file with a NULL '_remFileInfo'");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to touch an empty file "
+                                            "with a NULL '_remFileInfo'");
    }
 
   // If the main file already exists, delete it for
@@ -274,7 +291,8 @@ void SessMgr::touchEmptyFile()
   if(upFile.fail())
    LOG_SESS_CODE(ERR_SESS_FILE_CLOSE_FAILED,*_mainFileAbsPath,ERRNO_DESC);
 
-  // Set the main file last modification time to the one specified in the '_remFileInfo' attribute
+  // Set the main file last modification time to the
+  // one specified in the '_remFileInfo' attribute
   mainToRemLastModTime();
  }
 
@@ -323,8 +341,9 @@ void SessMgr::prepRecvFileRaw()
  {
   // Assert the session manager to be in the 'UPLOAD' or 'DOWNLOAD' operation
   if(_sessMgrOp != UPLOAD && _sessMgrOp != DOWNLOAD)
-   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Preparing to receive a file's raw contents with the "
-                                                 "session manager in operation \"" + sessMgrOpToStrUpCase() +
+   THROW_EXEC_EXCP(ERR_SESSABORT_INTERNAL_ERROR, "Preparing to receive a file's raw"
+                                                 "contents with the session manager in "
+                                                 "operation \"" + sessMgrOpToStrUpCase() +
                                                  "\", step " + sessMgrOpStepToStrUpCase());
 
   // Update the session manager step so to expect raw data
@@ -354,9 +373,9 @@ void SessMgr::prepRecvFileRaw()
 
 
 /**
- * @brief Finalizes a received file, whether uploaded or downloaded, by:
- *           1) Verifying its integrity tag
- *           2) Moving it from the temporary into the main directory
+ * @brief Finalizes a received file, whether uploaded or downloaded, by:\n\n
+ *           1) Verifying its integrity tag\n\n
+ *           2) Moving it from the temporary into the main directory\n\n
  *           3) Setting its last modified time to the one
  *              specified in the '_remFileInfo' object
  * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
@@ -379,7 +398,8 @@ void SessMgr::finalizeRecvFileRaw()
   if(fclose(_tmpFileDscr) != 0)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_FILE_CLOSE_FAILED,"Received file \"" + *_tmpFileAbsPath + "\"", ERRNO_DESC);
+    THROW_SESS_EXCP(ERR_SESS_FILE_CLOSE_FAILED,"Received file \""
+                                               + *_tmpFileAbsPath + "\"", ERRNO_DESC);
    }
   _tmpFileDscr = nullptr;
 
@@ -388,8 +408,9 @@ void SessMgr::finalizeRecvFileRaw()
   if(rename(_tmpFileAbsPath->c_str(),_mainFileAbsPath->c_str()))
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_FILE_RENAME_FAILED,"source: \"" + *_tmpFileAbsPath + "\", dest: "
-                                                                                  "\"" + *_mainFileAbsPath + "\"", ERRNO_DESC);
+    THROW_SESS_EXCP(ERR_SESS_FILE_RENAME_FAILED,"source: \"" + *_tmpFileAbsPath
+                                                + "\", dest: \"" + *_mainFileAbsPath
+                                                + "\"", ERRNO_DESC);
    }
 
   // Set the received file last modified time to
@@ -513,7 +534,8 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType) // NOLINT(misc
                                             "(" + std::to_string(sessMsgSignalingType) + ")");
    }
 
-  // Interpret the contents of the connection manager's secondary buffer as a base session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a base session message
   SessMsg* sessSignalMsg = reinterpret_cast<SessMsg*>(_connMgr._secBuf);
 
   // Set the session message length to the size of a 'SessMsg' struct
@@ -528,9 +550,10 @@ void SessMgr::sendSessSignalMsg(SessMsgType sessMsgSignalingType) // NOLINT(misc
 
 
 /**
- * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
- *         of the specified type containing the name and metadata of the main file referred by the '_mainFileInfo'
- *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
+ * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo'
+ *         session message of the specified type containing the name and metadata of the main
+ *         file referred by the '_mainFileInfo' attribute, for then wrapping and sending the
+ *         resulting session message wrapper to the connection peer
  * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS)
  * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or uninitialized '_mainFileInfo' attribute
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -548,17 +571,20 @@ void SessMgr::sendSessMsgFileInfo(SessMsgType sessMsgType)
   if(!(sessMsgType == FILE_UPLOAD_REQ || sessMsgType == FILE_EXISTS))
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileInfo' message type (" + std::to_string(sessMsgType) + ")");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileInfo' message "
+                                            "type (" + std::to_string(sessMsgType) + ")");
    }
 
   // Ensure the '_mainFileInfo' attribute to have been initialized
   if(_mainFileInfo == nullptr)
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to prepare a 'SessMsgFileInfo' message with a NULL _mainFileInfo");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Attempting to prepare a 'SessMsgFileInfo' "
+                                            "message with a NULL _mainFileInfo");
    }
 
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileInfo' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileInfo' session message
   SessMsgFileInfo* sessMsgFileInfoMsg = reinterpret_cast<SessMsgFileInfo*>(_connMgr._secBuf);
 
   // Set the 'SessMsgFileInfo' message type to the provided argument
@@ -574,7 +600,8 @@ void SessMgr::sendSessMsgFileInfo(SessMsgType sessMsgType)
   sessMsgFileInfoMsg->creationTime = _mainFileInfo->meta->creationTimeRaw;
 
   // Write the main file name, '/0' character included, into the 'SessMsgFileInfo' message
-  memcpy(reinterpret_cast<char*>(&sessMsgFileInfoMsg->fileName), _mainFileInfo->fileName.c_str(), _mainFileInfo->fileName.length() + 1);
+  memcpy(reinterpret_cast<char*>(&sessMsgFileInfoMsg->fileName),
+         _mainFileInfo->fileName.c_str(), _mainFileInfo->fileName.length() + 1);
 
   // Wrap the 'SessMsgFileInfo' message into its associated
   // session message wrapper and send it to the connection peer
@@ -603,10 +630,12 @@ void SessMgr::sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName
   if(!(sessMsgType == FILE_DOWNLOAD_REQ || sessMsgType == FILE_DELETE_REQ))
    {
     sendSessSignalMsg(ERR_INTERNAL_ERROR);
-    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileName' message type (" + std::to_string(sessMsgType) + ")");
+    THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR,"Invalid 'SessMsgFileName' message "
+                                            "type (" + std::to_string(sessMsgType) + ")");
    }
 
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileName' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileName' session message
   SessMsgFileName* sessMsgFileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
 
   // Set the 'SessMsgFileName' message type to the provided argument
@@ -617,7 +646,8 @@ void SessMgr::sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName
   sessMsgFileNameMsg->msgLen = sizeof(SessMsgFileName) + fileName.length();
 
   // Write the fileName, '/0' character included, into the 'SessMsgFileName' message
-  memcpy(reinterpret_cast<char*>(&sessMsgFileNameMsg->fileName), fileName.c_str(), fileName.length() + 1);
+  memcpy(reinterpret_cast<char*>(&sessMsgFileNameMsg->fileName),
+         fileName.c_str(), fileName.length() + 1);
 
   // Wrap the 'SessMsgFileName' message into its associated
   // session message wrapper and send it to the connection peer
@@ -626,9 +656,10 @@ void SessMgr::sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName
 
 
 /**
- * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileRename' session
- *         message of implicit type 'FILE_RENAME_REQ' containing the specified old and new file names,
- *         for then wrapping and sending the resulting session message wrapper to the connection peer
+ * @brief  Prepares in the associated connection manager's secondary buffer a
+ *         'SessMsgFileRename' session message of implicit type 'FILE_RENAME_REQ'
+ *         containing the specified old and new file names, for then wrapping and
+ *         sending the resulting session message wrapper to the connection peer
  * @param  oldFilename The name of the file to be renamed
  * @param  newFilename The name the file should be renamed to
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -653,7 +684,8 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
   sessMsgFileRenameMsg->oldFilenameLen = oldFilename.length() + 1;
 
   // Copy the old file name, '\0' character included, in the 'SessMsgFileRename' message
-  memcpy(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName), oldFilename.c_str(), oldFilename.length() + 1);
+  memcpy(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName),
+         oldFilename.c_str(), oldFilename.length() + 1);
 
   // Copy the new file name, '\0' character included, in the 'SessMsgFileRename' message
   memcpy(reinterpret_cast<char*>(&sessMsgFileRenameMsg->oldFileName + oldFilename.length() + 1),
@@ -685,7 +717,8 @@ void SessMgr::sendSessMsgFileRename(std::string& oldFilename, std::string& newFi
  */
 void SessMgr::sendSessMsgPoolSize()
  {
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgPoolSize' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgPoolSize' session message
   SessMsgPoolSize* sessMsgPoolSizeMsg = reinterpret_cast<SessMsgPoolSize*>(_connMgr._secBuf);
 
   // Set the 'SessMsgPoolSize' message type to the implicit 'POOL_SIZE'
@@ -714,7 +747,8 @@ void SessMgr::sendSessMsgPoolSize()
  */
 void SessMgr::loadRemSessMsgFileInfo()
  {
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileInfo' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileInfo' session message
   SessMsgFileInfo* fileInfoMsg = reinterpret_cast<SessMsgFileInfo*>(_connMgr._secBuf);
 
   // Determine the remote file name length, '\0' character included
@@ -727,7 +761,10 @@ void SessMgr::loadRemSessMsgFileInfo()
   delete _remFileInfo;
 
   try
-   { _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,fileInfoMsg->lastModTime,fileInfoMsg->creationTime); }
+   {
+    _remFileInfo = new FileInfo(remFileName,fileInfoMsg->fileSize,
+                                 fileInfoMsg->lastModTime,fileInfoMsg->creationTime);
+   }
 
    // An exception being raised by the FileInfo constructor implies that a malformed message was received
   catch(sessErrExcp& invalidFileNameExcp)
@@ -739,18 +776,21 @@ void SessMgr::loadRemSessMsgFileInfo()
 
 
 /**
- * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
- *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
- *         attribute to the concatenation of the session's main directory with such file name
+ * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName'
+ *         session message stored in the associated connection manager's secondary
+ *         buffer and initializes the '_mainFileAbsPath' attribute to the
+ *         concatenation of the session's main directory with such file name
  * @return The file name embedded in the 'SessMsgFileName' session message
  * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
  */
 std::string SessMgr::loadMainSessMsgFileName()
  {
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileName' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileName' session message
   SessMsgFileName* sessFileNameMsg = reinterpret_cast<SessMsgFileName*>(_connMgr._secBuf);
 
-  // Determine the length of the file name within the 'SessMsgFileName' message, '\0' character included
+  // Determine the length of the file name within the
+  // 'SessMsgFileName' message, '\0' character included
   unsigned char fileNameLength = sessFileNameMsg->msgLen - sizeof(SessMsgFileName);
 
   // Extract the file name from the 'SessMsgFileName' message
@@ -778,7 +818,8 @@ std::string SessMgr::loadMainSessMsgFileName()
  */
 void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string** newFilenameDest)
  {
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgFileRename' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgFileRename' session message
   SessMsgFileRename* sessMsgFileRenameMsg = reinterpret_cast<SessMsgFileRename*>(_connMgr._secBuf);
 
   // Determine the new file name length, '\0' character included
@@ -800,7 +841,8 @@ void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string**
   if(**oldFilenameDest == **newFilenameDest)
    {
     sendSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE);
-    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Same old and new file names in the 'SessMsgFileRename' message");
+    THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE,"Same old and new file names in "
+                                               "the 'SessMsgFileRename' message");
    }
  }
 
@@ -811,10 +853,12 @@ void SessMgr::loadSessMsgFileRename(std::string** oldFilenameDest, std::string**
  */
 void SessMgr::loadSessMsgPoolSize()
  {
-  // Interpret the contents of the connection manager's secondary buffer as a 'SessMsgPoolSize' session message
+  // Interpret the contents of the connection manager's
+  // secondary buffer as a 'SessMsgPoolSize' session message
   SessMsgPoolSize* sessMsgPoolSizeMsg = reinterpret_cast<SessMsgPoolSize*>(_connMgr._secBuf);
 
-  // Copy the serialized contents' size of the user's storage pool into the '_rawBytesRem' attribute
+  // Copy the serialized contents' size of the user's
+  // storage pool into the '_rawBytesRem' attribute
   _rawBytesRem = sessMsgPoolSizeMsg->serPoolSize;
  }
 

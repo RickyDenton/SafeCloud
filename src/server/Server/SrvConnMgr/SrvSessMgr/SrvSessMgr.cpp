@@ -1,16 +1,19 @@
-/* SafeCloud Server Session Manager Class Implementation */
+/* SafeCloud Server Session Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
-#include <fstream>
-#include "SrvSessMgr.h"
-#include "SafeCloudApp/ConnMgr/SessMgr/SessMsg.h"
+
+// System Headers
+#include <cstring>
+
+// SafeCloud Headers
 #include "../SrvConnMgr.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 
 /* ============================== PRIVATE METHODS ============================== */
 
-/* ------------------------ Server Session Manager Utility Methods ------------------------ */
+/* ------------------- Server Session Manager Utility Methods ------------------- */
 
 /**
  * @brief Sends a session message signaling type to the client and throws the
@@ -21,8 +24,10 @@
  * @throws ERR_SESS_INTERNAL_ERROR       The session manager experienced an internal error
  * @throws ERR_SESS_UNEXPECTED_MESSAGE   The session manager received a session message
  *                                       invalid for its current operation or step
- * @throws ERR_SESS_MALFORMED_MESSAGE    The session manager received a malformed session message
- * @throws ERR_SESS_UNKNOWN_SESSMSG_TYPE The session manager received a session message of unknown type
+ * @throws ERR_SESS_MALFORMED_MESSAGE    The session manager received
+ *                                       a malformed session message
+ * @throws ERR_SESS_UNKNOWN_SESSMSG_TYPE The session manager received a
+ *                                       session message of unknown type
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
@@ -46,31 +51,40 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
     // The server session manager experienced an internal error
     case ERR_INTERNAL_ERROR:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+      THROW_SESS_EXCP(ERR_SESS_INTERNAL_ERROR, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr());
 
-    // A session message invalid for the current server session operation or step was received
+    // A session message invalid for the current
+    // server session operation or step was received
     case ERR_UNEXPECTED_SESS_MESSAGE:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+      THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr());
 
     // A malformed session message was received
     case ERR_MALFORMED_SESS_MESSAGE:
      if(!errReason.empty())
-      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
      else
-      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+      THROW_SESS_EXCP(ERR_SESS_MALFORMED_MESSAGE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr());
 
     // A session message of unknown type was received, an error to be attributed to a desynchronization
     // between the client and server IVs and that requires the connection to be reset
     case ERR_UNKNOWN_SESSMSG_TYPE:
      if(!errReason.empty())
-      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr(), errReason);
      else
-      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+      THROW_EXEC_EXCP(ERR_SESSABORT_UNKNOWN_SESSMSG_TYPE, "Client: \""
+                      + *_connMgr._name + "\", " + abortedOpToStr());
 
     // A non-error signaling message type was sent
     default:
@@ -84,9 +98,9 @@ void SrvSessMgr::sendSrvSessSignalMsg(SessMsgType sessMsgSignalingType, const st
  *         its type and the server session manager current operation and implicit step
  * @note   The validity of the received session message type in the
  *         srvSessMsgHandler() server session message handler method
- * @throws ERR_SESS_UNEXPECTED_MESSAGE The received session message type is invalid for
- *                                     the current session manager operation and step
- *                                     (should never happen)
+ * @throws ERR_SESS_UNEXPECTED_MESSAGE The received session message type is invalid
+ *                                     for the current session manager operation
+ *                                     and step (should NEVER happen)
  * @throws Most of the session and OpenSSL exceptions (see
  *         "execErrCode.h" and "sessErrCodes.h" for more details)
  */
@@ -153,9 +167,10 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
      // ---------------------- Unexpected Session Message ---------------------- //
      else
-      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
-                                                       " message type received in the 'UPLOAD' operation,"
-                                                       " step " + sessMgrOpStepToStrUpCase());
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) +
+                                                       "\" session message type received in the "
+                                                       "'UPLOAD' operation, step "
+                                                       + sessMgrOpStepToStrUpCase());
      break;
 
 
@@ -177,9 +192,10 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
        // --------------------- Unexpected Session Message --------------------- //
        default:
-        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
-                                                         " message type received in the 'DOWNLOAD' operation,"
-                                                         " step " + sessMgrOpStepToStrUpCase());
+        sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) +
+                                                         "\" session message type received in the "
+                                                         "'DOWNLOAD' operation, step "
+                                                         + sessMgrOpStepToStrUpCase());
       }
      break;
 
@@ -193,9 +209,10 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
       // ---------------------- Unexpected Session Message ---------------------- //
      else
-      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
-                                                       " message type received in the 'DELETE' operation,"
-                                                       " step " + sessMgrOpStepToStrUpCase());
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) +
+                                                       "\" session message type received in the "
+                                                       "'DELETE' operation, step "
+                                                       + sessMgrOpStepToStrUpCase());
      break;
 
 
@@ -203,9 +220,10 @@ void SrvSessMgr::dispatchRecvSessMsg()
     case SessMgr::RENAME:
 
      // The 'RENAME' operation has no callback methods other than the operation starting callback
-     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" session"
-                                                      " message type received in the 'RENAME' operation,"
-                                                      " step " + sessMgrOpStepToStrUpCase());
+     sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) +
+                                                      "\" session message type received in the "
+                                                      "'RENAME' operation, step "
+                                                      + sessMgrOpStepToStrUpCase());
      break;
 
 
@@ -218,9 +236,10 @@ void SrvSessMgr::dispatchRecvSessMsg()
 
      // ---------------------- Unexpected Session Message ---------------------- //
      else
-      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) + "\" "
-                                                        "session message type received in the 'LIST' "
-                                                        "operation, step " + sessMgrOpStepToStrUpCase());
+      sendSrvSessSignalMsg(ERR_UNEXPECTED_SESS_MESSAGE,"\"" + std::to_string(_recvSessMsgType) +
+                                                       "\" session message type received in the "
+                                                       "'LIST' operation, step "
+                                                       + sessMgrOpStepToStrUpCase());
      break;
    }
  }
@@ -229,18 +248,18 @@ void SrvSessMgr::dispatchRecvSessMsg()
 /* -------------------------- 'UPLOAD' Operation Callback Methods -------------------------- */
 
 /**
- * @brief 'UPLOAD' operation 'START' callback, which:\n
- *           1) Loads the name and metadata of the remote file to be uploaded\n
+ * @brief 'UPLOAD' operation 'START' callback, which:\n\n
+ *           1) Loads the name and metadata of the remote file to be uploaded\n\n
  *              2.1) If the file to be uploaded is empty and the file in the user's storage
  *                   pool does not exist or is empty, directly touch such a file in the user's
- *                   storage pool and notify them that the upload operation has completed\n
+ *                   storage pool and notify them that the upload operation has completed\n\n
  *              2.2) If the file to be uploaded is NOT empty, depending on whether a file with
- *                   the same name already exists in the user's storage pool:\n
+ *                   the same name already exists in the user's storage pool:\n\n
  *                   2.1.1) If it does, the local file information are sent to the client,
  *                          with their confirmation  being required on whether the upload
- *                          should proceed and so such file be overwritten\n
+ *                          should proceed and so such file be overwritten\n\n
  *                   2.2.2) If it does not, notify the client that the server
- *                          is ready to receive the file's raw contents\n
+ *                          is ready to receive the file's raw contents
  * @throws ERR_SESS_MALFORMED_MESSAGE    Invalid file values in the 'SessMsgFileInfo' message
  * @throws ERR_SESS_MAIN_FILE_IS_DIR     The file to be uploaded was found as a
  *                                       directory in the client's storage pool (!)
@@ -278,8 +297,9 @@ void SrvSessMgr::uploadStartCallback()
   std::cout << "_tmpFileAbsPath = " << *_tmpFileAbsPath << std::endl;
   */
 
-  // Check whether a file with the same name of the one to be uploaded already exists in the
-  // user's storage pool by attempting to load its information into the '_mainFileInfo' attribute
+  // Check whether a file with the same name of the one to be uploaded
+  // already exists in the user's storage pool by attempting to
+  // load its information into the '_mainFileInfo' attribute
   checkLoadMainFileInfo();
 
   // If the file to be uploaded is empty and the file in
@@ -321,31 +341,34 @@ void SrvSessMgr::uploadStartCallback()
   // be uploaded was not found in the user's storage pool
   else
    {
-    // Inform the client that a file with such name is not present in the user's storage pool,
-    // and so that the server is now expecting the raw contents of the file to be uploaded
+    // Inform the client that a file with such name is not present
+    // in the user's storage pool, and so that the server is now
+    // expecting the raw contents of the file to be uploaded
     sendSrvSessSignalMsg(FILE_NOT_EXISTS);
 
     // Prepare the server session manager to receive
     // the raw contents of the file to be uploaded
     prepRecvFileRaw();
 
-    LOG_INFO("[" + *_connMgr._name + "] Received upload request of file \"" + _remFileInfo->fileName +
-             "\" not existing in the storage pool, awaiting the raw file contents")
+    LOG_INFO("[" + *_connMgr._name + "] Received upload request of "
+             "file \"" + _remFileInfo->fileName + "\" not existing "
+             "in the storage pool, awaiting the raw file contents")
    }
  }
 
 
 /**
- * @brief  'UPLOAD' operation 'CONFIRM' session message callback, which:\n
+ * @brief  'UPLOAD' operation 'CONFIRM' session message callback, which:\n\n
  *             1) [PATCH] If the file to be uploaded is empty, touch it in the user's
  *                storage pool, possibly overwriting the existing one, notify the client
- *                the success of the upload operation and reset the session state\n
+ *                the success of the upload operation and reset the session state\n\n
  *             2) If the file to be uploaded is NOT empty, prepare the server session
  *                manager to receive its raw contents.
  * @throws ERR_SESS_FILE_DELETE_FAILED   Error in deleting the existing empty file
  * @throws ERR_SESS_FILE_OPEN_FAILED     Error in touching the empty file to be uploaded
  * @throws ERR_SESS_FILE_CLOSE_FAILED    Error in closing the empty file to be uploaded
- * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the metadata of the file to be uploaded
+ * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the metadata
+ *                                       of the file to be uploaded
  * @throws ERR_AESGCMMGR_INVALID_STATE   Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT     EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE  The AAD block size is non-positive (probable overflow)
@@ -370,7 +393,8 @@ void SrvSessMgr::uploadConfCallback()
     // Inform the client that the empty file has been successfully uploaded
     sendSrvSessSignalMsg(COMPLETED);
 
-    LOG_INFO("[" + *_connMgr._name + "] Empty file \"" + _remFileInfo->fileName + "\" uploaded into the storage pool")
+    LOG_INFO("[" + *_connMgr._name + "] Empty file \""
+             + _remFileInfo->fileName + "\" uploaded into the storage pool")
 
     // Reset the server session manager state and return
     resetSessState();
@@ -384,20 +408,21 @@ void SrvSessMgr::uploadConfCallback()
     // the raw contents of the file to be uploaded
     prepRecvFileRaw();
 
-    LOG_INFO("[" + *_connMgr._name + "] Upload of file \"" + _remFileInfo->fileName + "\" "
-             "confirmed, awaiting the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
+    LOG_INFO("[" + *_connMgr._name + "] Upload of file \""
+             + _remFileInfo->fileName + "\" confirmed, awaiting "
+             "the file's raw contents (" + _remFileInfo->meta->fileSizeStr + ")")
    }
  }
 
 
 /**
- * @brief  'UPLOAD' operation raw file contents callback, which:\n
+ * @brief  'UPLOAD' operation raw file contents callback, which:\n\n
  *            1) If the file being uploaded has not been completely received yet, decrypts its received raw
- *               bytes and writes them into the session's temporary file in the user's temporary directory\n
+ *               bytes and writes them into the session's temporary file in the user's temporary directory\n\n
  *            2) If the file being uploaded has been completely received, verifies its trailing integrity
  *               tag, moves the temporary into the associated main file in the user's storage pool, sets
  *               its last modified time to the one specified in the '_remFileInfo' object, notifies the
- *               success of the upload operation to the client and resets the server session manager state\n
+ *               success of the upload operation to the client and resets the server session manager state
  * @param  recvBytes The number of bytes received in the associated connection manager's primary buffer
  * @throws ERR_FILE_WRITE_FAILED          Error in writing to the temporary file
  * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
@@ -433,7 +458,8 @@ void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
   // If the file being uploaded has not been completely received yet
   if(_rawBytesRem > 0)
    {
-    // Decrypted the received file raw contents from the primary into the secondary connection buffer
+    // Decrypted the received file raw contents from
+    // the primary into the secondary connection buffer
     _aesGCMMgr.decryptAddCT(&_connMgr._priBuf[0], (int)recvBytes, &_connMgr._secBuf[0]);
 
     // Write the decrypted file contents from the secondary buffer into the temporary file
@@ -443,8 +469,9 @@ void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
     // primary connection buffer is a critical error that in the current session state
     // cannot be notified to the client and so require its connection to be dropped
     if(fwriteRet < recvBytes)
-     THROW_EXEC_EXCP(ERR_FILE_WRITE_FAILED,"file: " + *_tmpFileAbsPath + "\", " + *_connMgr._name + "\" upload operation aborted","written "
-                                           + std::to_string(fwriteRet) + " < recvBytes = " + std::to_string(recvBytes) + " bytes");
+     THROW_EXEC_EXCP(ERR_FILE_WRITE_FAILED,"file: " + *_tmpFileAbsPath + "\", " + *_connMgr._name +
+                                           "\" upload operation aborted","written " + std::to_string(fwriteRet)
+                                           + " < recvBytes = " + std::to_string(recvBytes) + " bytes");
 
     // Update the number of remaining file of the file being uploaded
     _rawBytesRem -= recvBytes;
@@ -520,7 +547,8 @@ void SrvSessMgr::uploadRecvRawCallback(size_t recvBytes)
  *               notification depending on whether the file to be downloaded is empty or not.
  * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file name in the 'SessMsgFileName' message
  * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be downloaded was found to be a directory (!)
- * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be downloaded
+ * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor
+ *                                      of the file to be downloaded
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -579,8 +607,9 @@ void SrvSessMgr::downloadStartCallback()
       // Set the server session manager to expect the client confirmation notification
       _sessMgrOpStep = WAITING_CONF;
 
-      LOG_INFO("[" + *_connMgr._name + "] Received download request of file \"" + _mainFileInfo->fileName
-               + "\" (" + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
+      LOG_INFO("[" + *_connMgr._name + "] Received download request"
+               " of file \"" + _mainFileInfo->fileName + "\" ("
+               + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
      }
 
     // Prepare a 'SessMsgFileInfo' session message of type 'FILE_EXISTS' containing
@@ -630,8 +659,9 @@ void SrvSessMgr::downloadConfSendFileCallback()
     // Read the file raw contents into the secondary buffer size (possibly filling it)
     freadRet = fread(_connMgr._secBuf, sizeof(char), _connMgr._secBufSize, _mainFileDscr);
 
-    // An error occurred in reading the file raw contents is a critical error that in the current
-    // session state cannot be notified to the client and so require their connection to be dropped
+    // An error occurred in reading the file raw contents is a critical
+    // error that in the current session state cannot be notified
+    // to the client and so require their connection to be dropped
     if(ferror(_mainFileDscr))
      THROW_EXEC_EXCP(ERR_FILE_READ_FAILED,"file: " + *_mainFileAbsPath + "\", "
                      + *_connMgr._name + "\" upload operation aborted", ERRNO_DESC);
@@ -650,10 +680,12 @@ void SrvSessMgr::downloadConfSendFileCallback()
 
       // In DEBUG_MODE, compute and log the file's current download progress
 #ifdef DEBUG_MODE
-      currDownloadProg = (unsigned char)((float)totBytesSent / (float)_mainFileInfo->meta->fileSizeRaw * 100);
+      currDownloadProg = (unsigned char)((float)totBytesSent /
+                         (float)_mainFileInfo->meta->fileSizeRaw * 100);
 
-      LOG_DEBUG("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName + "\" (" + _mainFileInfo->meta->fileSizeStr +
-                ") download progress: " + std::to_string((int)currDownloadProg) + "%")
+      LOG_DEBUG("[" + *_connMgr._name + "] File \"" + _mainFileInfo->fileName +
+                "\" (" + _mainFileInfo->meta->fileSizeStr + ") download progress: "
+                + std::to_string((int)currDownloadProg) + "%")
 #endif
      }
    } while(!feof(_mainFileDscr)); // While the main file has not been completely read
@@ -709,7 +741,8 @@ void SrvSessMgr::downloadComplCallback()
  *               the session manager to expect the delete operation confirmation.
  * @throws ERR_SESS_MALFORMED_MESSAGE   Invalid file name in the 'SessMsgFileName' message
  * @throws ERR_SESS_MAIN_FILE_IS_DIR    The file to be deleted was found to be a directory (!)
- * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor of the file to be deleted
+ * @throws ERR_SESS_INTERNAL_ERROR      Failed to open the file descriptor
+ *                                      of the file to be deleted
  * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT    EVP_CIPHER encrypt initialization failed
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE The AAD block size is non-positive (probable overflow)
@@ -753,8 +786,9 @@ void SrvSessMgr::deleteStartCallback()
     // Set the server session manager to expect the client confirmation notification
     _sessMgrOpStep = WAITING_CONF;
 
-    LOG_INFO("[" + *_connMgr._name + "] Received delete request of file \"" + _mainFileInfo->fileName
-             + "\" (" + _mainFileInfo->meta->fileSizeStr + "), awaiting client confirmation")
+    LOG_INFO("[" + *_connMgr._name + "] Received delete request of file \""
+             + _mainFileInfo->fileName + "\" (" + _mainFileInfo->meta->fileSizeStr +
+             "), awaiting client confirmation")
    }
  }
 
@@ -856,8 +890,9 @@ void SrvSessMgr::renameStartCallback()
   // Otherwise, if the file the client wants to rename was found in their storage pool
   else
    {
-    // Check whether a file with the same name of the one the user wants to rename the file to exists
-    // in their storage pool by attempting to load its information into the '_mainFileInfo' attribute
+    // Check whether a file with the same name of the one the user wants
+    // to rename the file to exists in their storage pool by attempting
+    // to load its information into the '_mainFileInfo' attribute
     _mainFileAbsPath = &newFileNameAbsPath;
     checkLoadMainFileInfo();
 
@@ -914,7 +949,8 @@ void SrvSessMgr::renameStartCallback()
  * @throws ERR_DIR_OPEN_FAILED                The user's storage pool was not found (!)
  * @throws ERR_SESS_FILE_READ_FAILED          Error in reading from the user's storage pool
  * @throws ERR_SESS_DIR_INFO_OVERFLOW         The storage pool information size exceeds 4GB
- * @throws ERR_SESS_INTERNAL_ERROR            The serialized size of the user's storage pool exceeds 4GB
+ * @throws ERR_SESS_INTERNAL_ERROR            The serialized size of the
+ *                                            user's storage pool exceeds 4GB
  * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The AAD block size is non-positive (probable overflow)
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
@@ -924,7 +960,8 @@ void SrvSessMgr::renameStartCallback()
  * @throws ERR_SEND_OVERFLOW                  Attempting to send a number of bytes > _priBufSize
  * @throws ERR_PEER_DISCONNECTED              The connection peer disconnected during the send()
  * @throws ERR_SEND_FAILED                    send() fatal error
- * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
+ * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents
+ *                                            differ from their expected size
  */
 void SrvSessMgr::listStartCallback()
  {
@@ -958,9 +995,10 @@ void SrvSessMgr::listStartCallback()
   // Assert the serialized size of the user's storage
   // pool not to overflow an unsigned integer
   if(_mainDirInfo->dirRawSize > UINT_MAX - _mainDirInfo->numFiles)
-   sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Storage pool serialized contents' size overflow (raw "
-                                           "contents' size = " + std::to_string(_mainDirInfo->dirRawSize)
-                                           + ", numFiles = " + std::to_string(_mainDirInfo->numFiles));
+   sendSrvSessSignalMsg(ERR_INTERNAL_ERROR,"Storage pool serialized contents' size"
+                                           "overflow (raw contents' size = "
+                                           + std::to_string(_mainDirInfo->dirRawSize) +
+                                           ", numFiles = " + std::to_string(_mainDirInfo->numFiles));
 
   // Compute and write the serialized size of the user's
   // storage pool in the '_rawBytesRem' attribute
@@ -998,7 +1036,8 @@ void SrvSessMgr::listStartCallback()
 
 /**
  * @brief  Serializes and sends a user's pool contents and its associated integrity tag to the client
- * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents differ from their expected size
+ * @throws ERR_SESSABORT_UNEXPECTED_POOL_SIZE The sent pool serialized contents
+ *                                            differ from their expected size
  * @throws ERR_AESGCMMGR_INVALID_STATE        Invalid AES_128_GCM manager state
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE       The plaintext block size is non-positive (probable overflow)
  * @throws ERR_OSSL_EVP_ENCRYPT_INIT          EVP_CIPHER encrypt initialization failed
@@ -1040,7 +1079,8 @@ void SrvSessMgr::sendPoolRawContents()
      {
       // Encrypt the pool's serialized contents from the
       // secondary into the primary connection buffer
-      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0], (int)(_connMgr._secBufInd), &_connMgr._priBuf[0]);
+      _aesGCMMgr.encryptAddPT(&_connMgr._secBuf[0],
+                              (int)(_connMgr._secBufInd), &_connMgr._priBuf[0]);
 
       // Send the encrypted serialized pool contents to the client
       _connMgr.sendRaw(_connMgr._secBufInd);
@@ -1062,7 +1102,8 @@ void SrvSessMgr::sendPoolRawContents()
     serPoolFile->fileSizeRaw = poolFile->meta->fileSizeRaw;
     serPoolFile->lastModTimeRaw = poolFile->meta->lastModTimeRaw;
     serPoolFile->creationTimeRaw = poolFile->meta->creationTimeRaw;
-    memcpy(reinterpret_cast<char*>(serPoolFile->filename), poolFile->fileName.c_str(), poolFile->fileName.length());
+    memcpy(reinterpret_cast<char*>(serPoolFile->filename),
+           poolFile->fileName.c_str(), poolFile->fileName.length());
 
     // Compute the 'PoolFileInfo' struct size from its 'filenameLen' member
     poolFileInfoSize = sizeof(unsigned char) + 3 * sizeof(long int) + poolFile->fileName.length();
@@ -1131,13 +1172,13 @@ SrvSessMgr::SrvSessMgr(SrvConnMgr& srvConnMgr)
 /* ============================= OTHER PUBLIC METHODS ============================= */
 
 /**
- * @brief  Server Session message handler, which:\name
+ * @brief  Server Session message handler, which:\n\n
  *            1) Unwraps a received session message wrapper from
- *               the primary into the secondary connection buffer\n
+ *               the primary into the secondary connection buffer\n\n
  *            2) Asserts the resulting session message to be allowed in
- *               the current server session manager operation and step\n
- *            3) Handles session-resetting or terminating signaling messages\n
- *            4) Handles session error signaling messages\n
+ *               the current server session manager operation and step\n\n
+ *            3) Handles session-resetting or terminating signaling messages\n\n
+ *            4) Handles session error signaling messages\n\n
  *            5) Valid session messages requiring further action are
  *               dispatched to the session callback method associated
  *               with the current server session manager operation and step
@@ -1146,8 +1187,9 @@ SrvSessMgr::SrvSessMgr(SrvConnMgr& srvConnMgr)
  */
 void SrvSessMgr::srvSessMsgHandler()
 {
- // Unwrap the received session message wrapper stored in the connection's primary
- // buffer into its associated session message in the connection's secondary buffer
+ // Unwrap the received session message wrapper stored in
+ // the connection's primary buffer into its associated
+ // session message in the connection's secondary buffer
  unwrapSessMsg();
 
  // Interpret the contents of associated connection
@@ -1162,8 +1204,9 @@ void SrvSessMgr::srvSessMsgHandler()
  // If a signaling message type was received, assert the message
  // length to be equal to the size of a base session message
  if(isSessSignalingMsgType(_recvSessMsgType) && _recvSessMsgLen != sizeof(SessMsg))
-  sendSrvSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message of invalid "
-                                                  "length (" + std::to_string(_recvSessMsgLen) + ")");
+  sendSrvSessSignalMsg(ERR_MALFORMED_SESS_MESSAGE,"Received a session signaling message"
+                                                  " of invalid length ("
+                                                  + std::to_string(_recvSessMsgLen) + ")");
 
  /*
   * Check whether the received session message type:
@@ -1250,9 +1293,10 @@ void SrvSessMgr::srvSessMsgHandler()
     // if such a message type is received in an invalid operation or step just throw the associated
     // exception without notifying the client that an unexpected session message was received
     if(!((_sessMgrOp == DOWNLOAD) || (_sessMgrOp == LIST && _sessMgrOpStep == WAITING_COMPL)))
-     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(), "'COMPLETED'"
-                                                 " session message received in session operation \"" + sessMgrOpToStrUpCase() +
-                                                 "\", step " + sessMgrOpStepToStrUpCase());
+     THROW_SESS_EXCP(ERR_SESS_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr(),
+                                                  "'COMPLETED' session message received in session operation "
+                                                  "\"" + sessMgrOpToStrUpCase() + "\", step "
+                                                  + sessMgrOpStepToStrUpCase());
      break;
 
    /* ------------------------------- 'BYE' Signaling Message Type ------------------------------- */
@@ -1277,20 +1321,24 @@ void SrvSessMgr::srvSessMsgHandler()
 
    // The client reported to have experienced a recoverable internal error
    case ERR_INTERNAL_ERROR:
-    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_INTERNAL_ERROR, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_INTERNAL_ERROR, "Client: \"" + *_connMgr._name +
+                                                     "\", " + abortedOpToStr());
 
    // The client reported to have received an unexpected session message
    case ERR_UNEXPECTED_SESS_MESSAGE:
-    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_UNEXPECTED_MESSAGE, "Client: \"" + *_connMgr._name +
+                                                         "\", " + abortedOpToStr());
 
    // The client reported to have received a malformed session message
    case ERR_MALFORMED_SESS_MESSAGE:
-    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_MALFORMED_MESSAGE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+    THROW_SESS_EXCP(ERR_SESS_SRV_CLI_MALFORMED_MESSAGE, "Client: \"" + *_connMgr._name +
+                                                        "\", " + abortedOpToStr());
 
    // The client reported to have received a session message of unknown type, an error to be attributed to
    // a desynchronization between the connection peers' IVs and that requires the connection to be reset
    case ERR_UNKNOWN_SESSMSG_TYPE:
-    THROW_EXEC_EXCP(ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_connMgr._name + "\", " + abortedOpToStr());
+    THROW_EXEC_EXCP(ERR_SESSABORT_SRV_CLI_UNKNOWN_SESSMSG_TYPE, "Client: \"" + *_connMgr._name +
+                                                                "\", " + abortedOpToStr());
 
    /* ----------------------------------- Unknown Message Type ----------------------------------- */
 
@@ -1321,8 +1369,10 @@ void SrvSessMgr::srvSessMsgHandler()
  * @brief  Server session raw handler, passing the number of bytes read from the
  *         connection socket into the primary connection buffer to the raw sub-handler
  *         associated with the current server session manager operation and step
- * @param  recvBytes The number of bytes read from the connection socket into the primary connection buffer
- * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid server session manager operation and step for receiving raw data
+ * @param  recvBytes The number of bytes read from the connection
+ *                   socket into the primary connection buffer
+ * @throws ERR_SESSABORT_INTERNAL_ERROR   Invalid server session manager operation
+ *                                        and step for receiving raw data
  * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
  * @throws ERR_NON_POSITIVE_BUFFER_SIZE   The ciphertext block size is non-positive (probable overflow)
  * @throws ERR_OSSL_EVP_DECRYPT_UPDATE    EVP_CIPHER decrypt update failed

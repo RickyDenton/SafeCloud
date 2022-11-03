@@ -89,12 +89,15 @@ SrvSessMgr* SrvConnMgr::getSession()
 
 
 /**
- * @brief  SafeCloud client data general handler, which depending on the connection manager's reception mode:\n
- *            - RECV_MSG: Reads bytes belonging to a SafeCloud message into the primary connection
- *                        buffer, calling, depending on the connection state, the associated
- *                        STSMMsg or SessMsg handler if a full message has been received.\n
- *            - RECV_RAW: Reads bytes belonging to the same data block into the primary\n
- *                        connection buffer and passes them to the session raw handler
+ * @brief  SafeCloud client data general handler, which
+ *         depending on the connection manager's reception mode:\n\n
+ *            - RECV_MSG: Reads bytes belonging to a SafeCloud message into the
+ *                        primary connection buffer, calling, depending on the
+ *                        connection state, the associated STSMMsg or SessMsg
+ *                        handler if a full message has been received.\n\n
+ *            - RECV_RAW: Reads bytes belonging to the same data block
+ *                        into the primary connection buffer and
+ *                        passes them to the session raw handler
  * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
  * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
  * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value
@@ -108,8 +111,9 @@ void SrvConnMgr::srvRecvHandleData()
   // If the connection manager is in the 'RECV_MSG' reception mode
   if(_recvMode == RECV_MSG)
    {
-    // Read data belonging to a SafeCloud message (STSMMsg or SessMsg) from the connection socket
-    // into the primary connection buffer, returning if a full message has not been received yet
+    // Read data belonging to a SafeCloud message (STSMMsg or SessMsg)
+    // from the connection socket into the primary connection
+    // buffer, returning if a full message has not been received yet
     if(!srvRecvMsgData())
      return;
 
@@ -153,7 +157,8 @@ void SrvConnMgr::srvRecvHandleData()
      }
    }
 
-   // Otherwise, if the connection manager is in the 'RECV_RAW' reception mode
+   // Otherwise, if the connection manager
+   // is in the 'RECV_RAW' reception mode
   else
    if(_recvMode == RECV_RAW)
     {

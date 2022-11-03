@@ -1,7 +1,6 @@
 /* AES_128_GCM Manager Definitions */
 
 /* ================================== INCLUDES ================================== */
-#include <string>
 #include "AESGCMMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "errCodes/sessErrCodes/sessErrCodes.h"
@@ -16,7 +15,8 @@
  * @throws ERR_OSSL_EVP_CIPHER_CTX_NEW EVP_CIPHER context creation failed
  */
 AESGCMMgr::AESGCMMgr(unsigned char* skey, IV* iv)
- : _aesGcmMgrState(READY), _aesGcmCTX(EVP_CIPHER_CTX_new()), _skey(skey), _iv(iv), _sizeTot(0), _sizePart(0)
+ : _aesGcmMgrState(READY), _aesGcmCTX(EVP_CIPHER_CTX_new()),
+   _skey(skey), _iv(iv), _sizeTot(0), _sizePart(0)
  {
   // Assert the cipher context to have been created
   if(!_aesGcmCTX)
@@ -53,7 +53,8 @@ void AESGCMMgr::resetState()
     // Free the current cipher context
     EVP_CIPHER_CTX_free(_aesGcmCTX);
 
-    // Initialize a new cipher context for the next encryption or decryption operation
+    // Initialize a new cipher context for the
+    // next encryption or decryption operation
     _aesGcmCTX = EVP_CIPHER_CTX_new();
     if(!_aesGcmCTX)
      THROW_EXEC_EXCP(ERR_OSSL_EVP_CIPHER_CTX_NEW, OSSL_ERR_DESC);
@@ -78,10 +79,12 @@ void AESGCMMgr::encryptInit()
  {
   // Assert the manager to be ready to start an encryption operation
   if(_aesGcmMgrState != READY)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in encryptInit()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in encryptInit()");
 
   // Initialize the cipher encryption context specifying the cipher, key and IV
-  if(EVP_EncryptInit(_aesGcmCTX, EVP_aes_128_gcm(), _skey, reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))) != 1)
+  if(EVP_EncryptInit(_aesGcmCTX, EVP_aes_128_gcm(), _skey,
+                     reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_ENCRYPT_INIT, OSSL_ERR_DESC);
 
   // Set the manager to expect up to one AAD block (if any) for encryption
@@ -101,7 +104,8 @@ void AESGCMMgr::encryptAddAAD(unsigned char* aadAddr, int aadSize)
  {
   // Assert the manager to be expecting encryption AAD
   if(_aesGcmMgrState != ENCRYPT_AAD)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in encryptAddAAD()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in encryptAddAAD()");
 
   // Assert the AAD block size to be positive
   if(aadSize <= 0)
@@ -140,9 +144,11 @@ void AESGCMMgr::encryptAddAAD(unsigned char* aadAddr, int aadSize)
  */
 int AESGCMMgr::encryptAddPT(unsigned char* ptAddr, int ptSize, unsigned char* ctDest)
  {
-  // Assert the manager to be expecting either the AAD or a plaintext block for encryption
+  // Assert the manager to be expecting either
+  // the AAD or a plaintext block for encryption
   if(_aesGcmMgrState != ENCRYPT_AAD && _aesGcmMgrState != ENCRYPT_UPDATE)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in encryptAddPT()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in encryptAddPT()");
 
   // Set the manager to expect any number of plaintext blocks for encryption
   _aesGcmMgrState = ENCRYPT_UPDATE;
@@ -204,7 +210,8 @@ int AESGCMMgr::encryptFinal(unsigned char* tagDest)
  {
   // Assert the manager to be expecting a plaintext block for encryption
   if(_aesGcmMgrState != ENCRYPT_UPDATE)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in encryptFinal()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in encryptFinal()");
 
   // Finalize the encryption operation
   if(EVP_EncryptFinal(_aesGcmCTX, NULL, &_sizePart) != 1)
@@ -213,7 +220,8 @@ int AESGCMMgr::encryptFinal(unsigned char* tagDest)
   // Encryption operation resulting ciphertext size (AAD included)
   int ctSize = _sizeTot + _sizePart;
 
-  // Extract the encryption operation's integrity tag and write it into the specified buffer
+  // Extract the encryption operation's integrity
+  // tag and write it into the specified buffer
   if(EVP_CIPHER_CTX_ctrl(_aesGcmCTX, EVP_CTRL_AEAD_GET_TAG, 16, tagDest) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_GET_TAG_FAILED, OSSL_ERR_DESC);
 
@@ -226,7 +234,8 @@ int AESGCMMgr::encryptFinal(unsigned char* tagDest)
   printf("tagHex = %s\n",tagHex);
   */
 
-  // Reset the AES_128_GCM manager state so to be ready for a new encryption or decryption operation
+  // Reset the AES_128_GCM manager state so to be ready
+  // for a new encryption or decryption operation
   resetState();
 
   // Return the encryption operation resulting ciphertext size (AAD included)
@@ -245,10 +254,12 @@ void AESGCMMgr::decryptInit()
  {
   // Assert the manager to be ready to start a decryption operation
   if(_aesGcmMgrState != READY)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in decryptInit()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in decryptInit()");
 
   // Initialize the cipher decryption context specifying the cipher, key and IV
-  if(EVP_DecryptInit(_aesGcmCTX, EVP_aes_128_gcm(), _skey, reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))) != 1)
+  if(EVP_DecryptInit(_aesGcmCTX, EVP_aes_128_gcm(), _skey,
+                     reinterpret_cast<const unsigned char*>(&(_iv->iv_AES_GCM))) != 1)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_DECRYPT_INIT, OSSL_ERR_DESC);
 
   // Set the manager to expect up to one AAD block (if any) for decryption
@@ -268,7 +279,8 @@ void AESGCMMgr::decryptAddAAD(unsigned char* aadAddr, int aadSize)
  {
   // Assert the manager to be expecting decryption AAD
   if(_aesGcmMgrState != DECRYPT_AAD)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in decryptAddAAD()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in decryptAddAAD()");
 
   // Assert the AAD size to be positive
   if(aadSize <= 0)
@@ -308,7 +320,8 @@ int AESGCMMgr::decryptAddCT(unsigned char* ctAddr, int ctSize, unsigned char* pt
  {
   // Assert the manager to be expecting either the AAD or a ciphertext block for decryption
   if(_aesGcmMgrState != DECRYPT_UPDATE && _aesGcmMgrState != DECRYPT_AAD)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in decryptAddCT()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in decryptAddCT()");
 
   // Set the manager to expect any number of ciphertext blocks for encryption
   _aesGcmMgrState = DECRYPT_UPDATE;
@@ -366,7 +379,8 @@ int AESGCMMgr::decryptFinal(unsigned char* tagAddr)
  {
   // Assert the manager to be expecting either the AAD or a ciphertext block for decryption
   if(_aesGcmMgrState != DECRYPT_UPDATE)
-   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState) + " in decryptFinal()");
+   THROW_EXEC_EXCP(ERR_AESGCMMGR_INVALID_STATE, "state " + std::to_string(_aesGcmMgrState)
+                                                         + " in decryptFinal()");
 
   // Set the decryption operation's expected integrity tag
   if(!EVP_CIPHER_CTX_ctrl(_aesGcmCTX, EVP_CTRL_AEAD_SET_TAG, 16, tagAddr))
@@ -392,7 +406,8 @@ int AESGCMMgr::decryptFinal(unsigned char* tagAddr)
   // Decryption operation resulting plaintext size (AAD included)
   int ptSize = _sizeTot + _sizePart;
 
-  // Reset the AES_128_GCM manager state so to be ready for a new encryption or decryption operation
+  // Reset the AES_128_GCM manager state so to be ready
+  // for a new encryption or decryption operation
   resetState();
 
   // Return the decryption operation resulting plaintext size (AAD included)

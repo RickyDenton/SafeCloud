@@ -1,4 +1,4 @@
-/* FileInfo class methods definitions */
+/* FileInfo Class Implementation */
 
 /* ================================== INCLUDES ================================== */
 #include "FileInfo.h"
@@ -50,8 +50,8 @@ FileInfo::FileInfo(const std::string& fileAbsPath) : fileName(), meta(nullptr)
 
 
 /**
- * @brief  FileInfo object values constructor, initializing its attributes
- *         to the provided values
+ * @brief  FileInfo object values constructor, initializing
+ *         its attributes to the provided values
  * @param  fileName_     The file's name
  * @param  fileSize_     The file's size
  * @param  lastModTime_  The file's last modification time
@@ -82,11 +82,11 @@ FileInfo::~FileInfo()
 /* --------------------------- File Metadata Printing --------------------------- */
 
 /**
- * @brief Prints the file size as a "size_value||size_unit" string, with:\n
- *          - "size_value" ranging between [0,9999]\n
- *          - "size_unit" consisting either in "B", "KB", "MB" or "GB"\n
- *        The file size can also be formatted by:
- *          - Adding padding so to be aligned beneath a 'SIZE' table header
+ * @brief Prints the file size as a "size_value||size_unit" string, with:\n\n
+ *          - "size_value" ranging between [0,9999]\n\n
+ *          - "size_unit" consisting either in "B", "KB", "MB" or "GB"\n\n
+ *        The file size can also be formatted by:\n\n
+ *          - Adding padding so to be aligned beneath a 'SIZE' table header\n\n
  *          - Printing it in bold
  * @param addPadding Whether padding should be added to the file size
  * @param printBold  Whether the file size should be printed in bold
@@ -170,7 +170,8 @@ void FileInfo::compareMetadata(FileInfo* remFileInfo) const
 
   // Ensure the local and remote files to have the same name
   if(fileName != remFileInfo->fileName)
-   THROW_SESS_EXCP(ERR_SESS_FILE_INFO_COMP_DIFF_NAMES, "local: \"" + fileName + "\", remote: \"" + remFileInfo->fileName + "\"");
+   THROW_SESS_EXCP(ERR_SESS_FILE_INFO_COMP_DIFF_NAMES, "local: \"" + fileName + "\", "
+                                                       "remote: \"" + remFileInfo->fileName + "\"");
 
   /* -------------------- Files Metadata Comparison Table -------------------- */
 

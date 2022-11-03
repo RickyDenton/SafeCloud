@@ -1,16 +1,12 @@
 #ifndef SAFECLOUD_CLIENT_H
 #define SAFECLOUD_CLIENT_H
 
-/* SafeCloud Application Client Declaration */
+/* SafeCloud Client Application Declaration */
 
 /* ================================== INCLUDES ================================== */
-#include <openssl/evp.h>
-#include <netinet/in.h>
-#include "CliConnMgr/CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "SafeCloudApp/SafeCloudApp.h"
-#include <string>
-
+#include "CliConnMgr/CliConnMgr.h"
 
 class Client : public SafeCloudApp
  {
@@ -181,9 +177,9 @@ class Client : public SafeCloudApp
    void connError(execErrExcp& connExcp);
 
    /**
-    * @brief Attempts to establish a secure connection with the SafeCloud server by:\n
-    *           1) Establishing a TCP connection with its IP:Port\n
-    *           2) Creating the client's connection and STSM key establishment manager objects\n
+    * @brief Attempts to establish a secure connection with the SafeCloud server by:\n\n
+    *           1) Establishing a TCP connection with its IP:Port\n\n
+    *           2) Creating the client's connection and STSM key establishment manager objects\n\n
     *           3) Performing the STSM key establishment protocol so to authenticate the
     *              client and server with one another and to establish a shared session key
     * @throws ERR_CSK_INIT_FAILED Connection socket creation failed
@@ -315,11 +311,11 @@ class Client : public SafeCloudApp
    bool shutdownSignalHandler();
 
    /**
-    * @brief  Starts the SafeCloud Client by:\n
+    * @brief  Starts the SafeCloud Client by:\n\n
     *           1) Asking the user to locally login within the
-    *              application via their username and password\n
-    *           2) Attempting to connect with the SafeCloud server\n
-    *           3) Establishing a shared secret key via the STSM protocol\n
+    *              application via their username and password\n\n
+    *           2) Attempting to connect with the SafeCloud server\n\n
+    *           3) Establishing a shared secret key via the STSM protocol\n\n
     *           4) Prompting and executing client's commands\n
     * @throws ERR_CLI_LOGIN_FAILED Maximum number of login attempts reached
     */

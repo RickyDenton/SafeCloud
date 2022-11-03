@@ -4,7 +4,6 @@
 /* STSM Messages Definitions */
 
 /* ================================== INCLUDES ================================== */
-#include <cstdint>
 #include "defaults.h"
 #include "SafeCloudApp/ConnMgr/IV/IV.h"
 
@@ -121,7 +120,6 @@ struct STSM_SRV_AUTH_MSG : public STSMMsg
   // The server's X.509 certificate (of variable size in general)
   unsigned char srvCert[];
  };
-
 
 /* ------------------------- 'CLI_AUTH' Message (3/4) ------------------------- */
 

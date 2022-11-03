@@ -7,13 +7,13 @@
  */
 
 /* ================================== INCLUDES ================================== */
-#include <string.h>
-#include<forward_list>
-#include <dirent.h>
-#include "errCodes/execErrCodes/execErrCodes.h"
+
+// System Headers
+#include <forward_list>
+
+// SafeCloud Headers
 #include "DirInfo/FileInfo/FileInfo.h"
 
-/* ============================= TYPES DECLARATIONS ============================= */
 
 class DirInfo
  {

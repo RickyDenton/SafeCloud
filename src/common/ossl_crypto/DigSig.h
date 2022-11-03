@@ -4,13 +4,17 @@
 /* OpenSSL Digital Signatures Utility Functions Declarations */
 
 /* ================================== INCLUDES ================================== */
+
+// OpenSSL Headers
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/err.h>
 
 /* =========================== FUNCTIONS DECLARATIONS =========================== */
 
 /**
- * @brief             Digitally signs data of arbitrary size using the SHA-256 hash-and-sign paradigm
+ * @brief             Digitally signs data of arbitrary size
+ *                    using the SHA-256 hash-and-sign paradigm
  * @param signPrivKey The digital signature signer's private key
  * @param srcAddr     The initial address of the data to be signed
  * @param srcSize     The size of the data to be signed
@@ -27,7 +31,8 @@ unsigned int digSigSign(EVP_PKEY* signPrivKey, unsigned char* srcAddr, size_t sr
 
 
 /**
- * @brief            Verifies a digital signature generated via the SHA-256 hash-and-sign paradigm
+ * @brief            Verifies a digital signature generated
+ *                   via the SHA-256 hash-and-sign paradigm
  * @param signPubKey The digital signature signer's public key
  * @param srcAddr    The initial address of the data to be verified
  * @param srcSize    The size of the data to be verified

@@ -11,8 +11,8 @@ class FileMeta
 
    /**
     * @brief   Stringyfies the raw file size into a
-    *          "size_value||size_unit" string, with:\n
-    *             - "size_value" ranging between [0,9999]\n
+    *          "size_value||size_unit" string, with:\n\n
+    *             - "size_value" ranging between [0,9999]\n\n
     *             - "size_unit" consisting either in "B", "KB", "MB" or "GB"
     * @throws ERR_FILE_TOO_LARGE The file is too large (> 9999GB)
     */
@@ -71,9 +71,9 @@ class FileMeta
    /* ============================ OTHER PUBLIC METHODS ============================ */
 
    /**
-    * @brief Prints the stringifyed file size to stdout, possibly formatted by:\n
-    *          - Adding padding so to be aligned beneath a 'SIZE' table header\n
-    *          - Printing it in bold\n
+    * @brief Prints the stringifyed file size to stdout, possibly formatted by:\n\n
+    *          - Adding padding so to be aligned beneath a 'SIZE' table header\n\n
+    *          - Printing it in bold
     * @param addPadding Whether padding should be added to the file size
     * @param printBold  Whether the file size should be printed in bold
     */
@@ -95,7 +95,6 @@ class FileMeta
     */
    void printFormattedCreationTime(bool printBold) const;
  };
-
 
 
 #endif //SAFECLOUD_FILEMETA_H

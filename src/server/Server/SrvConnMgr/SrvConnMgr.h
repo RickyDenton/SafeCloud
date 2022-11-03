@@ -1,14 +1,12 @@
 #ifndef SAFECLOUD_SRVCONNMGR_H
 #define SAFECLOUD_SRVCONNMGR_H
 
-/* SafeCloud Server Connection Manager  */
+/* SafeCloud Server Connection Manager Declaration */
 
 /* ================================== INCLUDES ================================== */
 #include "SafeCloudApp/ConnMgr/ConnMgr.h"
 #include "SrvSTSMMgr/SrvSTSMMgr.h"
 #include "SrvSessMgr/SrvSessMgr.h"
-#include "errCodes/execErrCodes/execErrCodes.h"
-#include <openssl/evp.h>
 #include <unordered_map>
 
 
@@ -75,12 +73,15 @@ class SrvConnMgr : public ConnMgr
   SrvSessMgr* getSession();
 
   /**
-   * @brief  SafeCloud client data general handler, which depending on the connection manager's reception mode:\n
-   *            - RECV_MSG: Reads bytes belonging to a SafeCloud message into the primary connection
-   *                        buffer, calling, depending on the connection state, the associated
-   *                        STSMMsg or SessMsg handler if a full message has been received.\n
-   *            - RECV_RAW: Reads bytes belonging to the same data block into the primary\n
-   *                        connection buffer and passes them to the session raw handler
+   * @brief  SafeCloud client data general handler, which
+   *         depending on the connection manager's reception mode:\n\n
+   *            - RECV_MSG: Reads bytes belonging to a SafeCloud message into the
+   *                        primary connection buffer, calling, depending on the
+   *                        connection state, the associated STSMMsg or SessMsg
+   *                        handler if a full message has been received.\n\n
+   *            - RECV_RAW: Reads bytes belonging to the same data block
+   *                        into the primary connection buffer and
+   *                        passes them to the session raw handler
    * @throws ERR_CSK_RECV_FAILED       Error in receiving data from the connection socket
    * @throws ERR_PEER_DISCONNECTED     The connection peer has abruptly disconnected
    * @throws ERR_MSG_LENGTH_INVALID    Received an invalid message length value

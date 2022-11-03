@@ -1,20 +1,19 @@
-/* SafeCloud Application Client Implementation */
+/* SafeCloud Client Application Implementation */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <termios.h>
+#include <bits/stdc++.h>
+
+// SafeCloud Headers
+#include "errCodes/sessErrCodes/sessErrCodes.h"
 #include "Client.h"
 #include "sanUtils.h"
-#include <openssl/x509_vfy.h>
-#include <arpa/inet.h>
-#include <string>
-#include <termios.h>
 
-#include <unistd.h>
-#include <vector>
-#include <sstream>
-#include <iterator>
-#include "errCodes/sessErrCodes/sessErrCodes.h"
-#include "DirInfo/DirInfo.h"
-#include <bits/stdc++.h>
+
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -587,9 +586,9 @@ void Client::connError(execErrExcp& connExcp)
 
 
 /**
- * @brief Attempts to establish a secure connection with the SafeCloud server by:
- *           1) Establishing a TCP connection with its IP:Port
- *           2) Creating the client's connection and STSM key establishment manager objects
+ * @brief Attempts to establish a secure connection with the SafeCloud server by:\n\n
+ *           1) Establishing a TCP connection with its IP:Port\n\n
+ *           2) Creating the client's connection and STSM key establishment manager objects\n\n
  *           3) Performing the STSM key establishment protocol so to authenticate the
  *              client and server with one another and to establish a shared session key
  * @throws ERR_CSK_INIT_FAILED Connection socket creation failed
@@ -841,7 +840,8 @@ void Client::parseUserCmd(std::string& cmdLine)
   std::istringstream cmdStringStream(cmdLine);
 
   // Create a string vector and initialize it to the words of the user's command line
-  std::vector<std::string> cmdLineWords{std::istream_iterator<std::string>{cmdStringStream}, std::istream_iterator<std::string>{}};
+  std::vector<std::string> cmdLineWords{std::istream_iterator<std::string>{cmdStringStream},
+                                        std::istream_iterator<std::string>{}};
 
   // Number of words in the user's command line
   size_t numCmdLineWords = cmdLineWords.size();
@@ -1075,12 +1075,12 @@ bool Client::shutdownSignalHandler()
 
 
 /**
- * @brief  Starts the SafeCloud Client by:\n
+ * @brief  Starts the SafeCloud Client by:\n\n
  *           1) Asking the user to locally login within the
- *              application via their username and password\n
- *           2) Attempting to connect with the SafeCloud server\n
- *           3) Establishing a shared secret key via the STSM protocol\n
- *           4) Prompting and executing client's commands\n
+ *              application via their username and password\n\n
+ *           2) Attempting to connect with the SafeCloud server\n\n
+ *           3) Establishing a shared secret key via the STSM protocol\n\n
+ *           4) Prompting and executing client's commands
  * @throws ERR_CLI_LOGIN_FAILED Maximum number of login attempts reached
  */
 void Client::start()

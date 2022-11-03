@@ -3,10 +3,16 @@
 
 /* SafeCloud Generic Error Codes Declarations */
 
-#include <openssl/err.h>
+/* ================================== INCLUDES ================================== */
+
+// System Headers
 #include <iostream>
-#include <string.h>
+#include <cstring>
+#include <limits.h>
+
+// SafeCloud Headers
 #include "ansi_colors.h"
+
 
 /* ============================== TYPE DEFINITIONS ============================== */
 
@@ -52,7 +58,7 @@ class errExcp : public std::exception
  */
 #ifdef DEBUG_MODE
   std::string* srcFile;     // Source file name where the exception has been raised
-  unsigned int lineNumber; // Line in the source file at which the exception has been raised
+  unsigned int lineNumber;  // Line in the source file at which the exception has been raised
 #endif
 
   /* ================= Constructors and Destructor ================= */
@@ -137,13 +143,13 @@ class errExcp : public std::exception
 /* =========================== FUNCTIONS DECLARATIONS =========================== */
 
 /**
- * @brief            SafeCloud application default error handler, which:\n
- *                     1) Logs all information associated with the error, including:\n
- *                        1. The severity level of the associated error code\n
- *                        2. The human-readable description of the associated error code\n
- *                        3. (if available) The additional error description\n
- *                        4. (if available) The error reason\n
- *                        5. (if DEBUG_MODE) The source file name and line number at which the error has occurred\n
+ * @brief            SafeCloud application default error handler, which:\n\n
+ *                     1) Logs all information associated with the error, including:\n\n
+ *                        1. The severity level of the associated error code\n\n
+ *                        2. The human-readable description of the associated error code\n\n
+ *                        3. (if available) The additional error description\n\n
+ *                        4. (if available) The error reason\n\n
+ *                        5. (if DEBUG_MODE) The source file name and line number at which the error has occurred\n\n
  *                     2) For errors codes of FATAL severity, the SafeCloud application is
  *                        terminated by invoking the default shutdown handler (terminate() function)
  * @param errInf     The severity level and human-readable description of the associated error code
@@ -155,7 +161,7 @@ class errExcp : public std::exception
 #ifdef DEBUG_MODE
 void handleErrCode(errCodeInfo errInf, const std::string* addDscr, const std::string* reason, const std::string* srcFile, unsigned int lineNumber);
 #else
-void handleErrCode(const errCodeInfo errInf,const std::string* addDscr,const std::string* reason);
+void handleErrCode(errCodeInfo errInf,const std::string* addDscr,const std::string* reason);
 #endif
 
 

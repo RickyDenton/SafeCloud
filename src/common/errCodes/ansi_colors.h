@@ -46,4 +46,5 @@
 #define BOLDBRIGHTCYAN    "\e[1;96m"
 #define BOLDBRIGHTWHITE   "\e[1;97m"
 
+
 #endif //SAFECLOUD_ANSI_COLORS_H

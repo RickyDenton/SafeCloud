@@ -1,8 +1,8 @@
 /* SafeCloud Client Connection Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
-#include "CliConnMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
+#include "CliConnMgr.h"
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
@@ -17,8 +17,10 @@
  * @param certStore The client's X.509 certificates store
  * @note The constructor also initializes the _cliSTSMMgr child object
  */
-CliConnMgr::CliConnMgr(int csk, std::string* name, std::string* tmpDir, std::string* downDir, EVP_PKEY* rsaKey, X509_STORE* certStore)
-                       : ConnMgr(csk,name,tmpDir), _downDir(downDir), _cliSTSMMgr(new CliSTSMMgr(rsaKey, *this, certStore)), _cliSessMgr(nullptr)
+CliConnMgr::CliConnMgr(int csk, std::string* name, std::string* tmpDir,
+                       std::string* downDir, EVP_PKEY* rsaKey, X509_STORE* certStore)
+ : ConnMgr(csk,name,tmpDir), _downDir(downDir),
+   _cliSTSMMgr(new CliSTSMMgr(rsaKey, *this, certStore)), _cliSessMgr(nullptr)
  {}
 
 

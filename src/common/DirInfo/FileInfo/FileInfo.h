@@ -1,14 +1,15 @@
 #ifndef SAFECLOUD_FILEINFO_H
 #define SAFECLOUD_FILEINFO_H
 
-/* This class represents a snapshot of a file (name + metadata) within a directory */
+/* This class represents the information of a file consisting of its name and metadata */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
 #include <iostream>
-#include <ctime>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <cstring>
+
+// SafeCloud Headers
 #include "DirInfo/FileInfo/FileMeta/FileMeta.h"
 
 
@@ -35,8 +36,8 @@ class FileInfo
    explicit FileInfo(const std::string& fileAbsPath);
 
    /**
-    * @brief  FileInfo object values constructor, initializing its attributes
-    *         to the provided values
+    * @brief  FileInfo object values constructor, initializing
+    *         its attributes to the provided values
     * @param  fileName_     The file's name
     * @param  fileSize_     The file's size
     * @param  lastModTime_  The file's last modification time
@@ -59,11 +60,11 @@ class FileInfo
    /* --------------------------- File Metadata Printing --------------------------- */
 
    /**
-    * @brief Prints the file size as a "size_value||size_unit" string, with:\n
-    *          - "size_value" ranging between [0,9999]\n
-    *          - "size_unit" consisting either in "B", "KB", "MB" or "GB"\n
-    *        The file size can also be formatted by:
-    *          - Adding padding so to be aligned beneath a 'SIZE' table header
+    * @brief Prints the file size as a "size_value||size_unit" string, with:\n\n
+    *          - "size_value" ranging between [0,9999]\n\n
+    *          - "size_unit" consisting either in "B", "KB", "MB" or "GB"\n\n
+    *        The file size can also be formatted by:\n\n
+    *          - Adding padding so to be aligned beneath a 'SIZE' table header\n\n
     *          - Printing it in bold
     * @param addPadding Whether padding should be added to the file size
     * @param printBold  Whether the file size should be printed in bold

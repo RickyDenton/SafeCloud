@@ -1,14 +1,16 @@
-/* SafeCloud Connection Manager Definitions */
+/* SafeCloud Connection Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
-#include <unistd.h>
-#include <string>
-#include "ConnMgr.h"
-#include "defaults.h"
-#include "errCodes/execErrCodes/execErrCodes.h"
-#include "SafeCloudApp/ConnMgr/STSMMgr/STSMMsg.h"
-#include <dirent.h>
+
+// System Headers
 #include <arpa/inet.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <cstring>
+
+// SafeCloud Headers
+#include "ConnMgr.h"
+#include "errCodes/execErrCodes/execErrCodes.h"
 
 
 /* ============================== PROTECTED METHODS ============================== */
@@ -27,8 +29,9 @@ void ConnMgr::cleanTmpDir()
   // Convert the connection's temporary directory path to a C string
   const char* _tmpDirC = _tmpDir->c_str();
 
-  // Absolute path of a file in the temporary directly, whose maximum length is given by the
-  // length of the temporary directory's path plus the maximum file name length (+1 for the '/')
+  // Absolute path of a file in the temporary directly, whose maximum
+  // length is given by the length of the temporary directory's
+  // path plus the maximum file name length (+1 for the '/')
   char tmpFileAbsPath[strlen(_tmpDirC) + NAME_MAX + 1];
 
   // Open the temporary directory
@@ -44,7 +47,7 @@ void ConnMgr::cleanTmpDir()
       if(!strcmp(tmpFile->d_name,".") ||!strcmp(tmpFile->d_name,".."))
        continue;
 
-      // TODO: Github '.gitkeep' exclusion (usability purposes)
+      // TODO: GitHub '.gitkeep' exclusion (usability purposes)
       if(!strcmp(tmpFile->d_name,".gitkeep"))
        continue;
 
@@ -133,8 +136,10 @@ bool ConnMgr::isRecvDataAvailable() const
 
     // recvDataAvailable > 1 is a FATAL error in this case
     default:
-     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, "The recv() returned more bytes than allowed ("
-                                          + std::to_string(recvDataAvailable) + " > 1",ERRNO_DESC);
+     THROW_EXEC_EXCP(ERR_CSK_RECV_FAILED, "The recv() returned more"
+                                          "bytes than allowed ("
+                                          + std::to_string(recvDataAvailable) +
+                                          " > 1",ERRNO_DESC);
    }
  }
 
@@ -149,8 +154,9 @@ bool ConnMgr::isRecvDataAvailable() const
  */
 void ConnMgr::sendMsg()
  {
-  // Determine the message's length as the first 16 bits of the primary communication
-  // buffer (representing the "len" field of a STSMMsg or a SessMessageWrapper messages)
+  // Determine the message's length as the first 16 bits of
+  // the primary communication buffer (representing the "len"
+  // field of a STSMMsg or a SessMessageWrapper messages)
   uint16_t msgLen = ((uint16_t*)_priBuf)[0];
 
   // Send the message to the connection peer
@@ -173,8 +179,9 @@ void ConnMgr::sendMsg()
  */
 void ConnMgr::recvMsgLenHeader()
  {
-  // Connection socket recv() return, representing, if no error has occurred, the
-  // number of bytes read from the connection socket into the primary connection buffer
+  // Connection socket recv() return, representing, if no
+  // error has occurred, the number of bytes read from the
+  // connection socket into the primary connection buffer
   ssize_t recvRet;
 
   // Reset the index of the first significant byte of the primary connection
@@ -207,10 +214,12 @@ void ConnMgr::recvMsgLenHeader()
     // Message length header read
     case MSG_LEN_HEAD_SIZE:
 
-     // Update the number of significant bytes in the primary connection buffer
+     // Update the number of significant bytes
+     // in the primary connection buffer
      _priBufInd += MSG_LEN_HEAD_SIZE;
 
-     // Set the expected size of the message to be received to the message length header
+     // Set the expected size of the message to
+     // be received to the message length header
      _recvBlockSize = ((uint16_t*)_priBuf)[0];
 
      // Assert the message length to be valid, i.e. to be larger than a message
@@ -241,7 +250,8 @@ void ConnMgr::recvFullMsg()
  {
   // Ensure the connection manager to be in the 'RECV_MSG' reception mode
   if(_recvMode != RECV_MSG)
-   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a full message in RECV_RAW mode");
+   THROW_EXEC_EXCP(ERR_CONNMGR_INVALID_STATE, "Attempting to receive a "
+                                              "full message in RECV_RAW mode");
 
   // Block until a SafeCloud message length header of MSG_LEN_HEAD_SIZE bytes (2)
   // is received from the connection socket into the primary connection buffer
@@ -265,14 +275,16 @@ void ConnMgr::recvFullMsg()
  */
 void ConnMgr::sendRaw(unsigned int numBytes)
  {
-  // Connection socket send() return, representing, if no error has occurred, the number
-  // of bytes read sent from the primary connection buffer through the connection socket
+  // Connection socket send() return, representing, if no error
+  // has occurred, the number of bytes read sent from the
+  // primary connection buffer through the connection socket
   ssize_t sendRet;
 
   // Assert the number of bytes to be sent to be less
   // or equal than the primary connection buffer size
   if(numBytes > _priBufSize)
-   THROW_EXEC_EXCP(ERR_SEND_OVERFLOW,std::to_string(numBytes) + " > _priBufSize = " + std::to_string(_priBufSize));
+   THROW_EXEC_EXCP(ERR_SEND_OVERFLOW,std::to_string(numBytes) +
+                                     " > _priBufSize = " + std::to_string(_priBufSize));
 
   // Reset the index of the most significant byte in the primary connection buffer
   _priBufInd = 0;
@@ -283,7 +295,7 @@ void ConnMgr::sendRaw(unsigned int numBytes)
     sendRet = send(_csk, (const char*)&_priBuf + _priBufInd, numBytes - _priBufInd, 0);
 
     // If any number of bytes were successfully sent, increment the index of the
-    // ost significant byte in the primary connection buffer of that amount
+    // most significant byte in the primary connection buffer of that amount
     if(sendRet > 0)
      _priBufInd += sendRet;
     else
@@ -330,8 +342,9 @@ void ConnMgr::sendRaw(unsigned int numBytes)
  */
 unsigned int ConnMgr::recvRaw()
  {
-  // Connection socket recv() return, representing, if no error has occurred, the
-  // number of bytes read from the connection socket into the primary connection buffer
+  // Connection socket send() return, representing, if no error
+  // has occurred, the number of bytes read sent from the
+  // primary connection buffer through the connection socket
   ssize_t recvRet;
 
   // Maximum number of bytes that can be read from the connection socket
@@ -404,7 +417,8 @@ unsigned int ConnMgr::recvRaw()
  * @brief        ConnMgr object constructor
  * @param csk    The connection socket associated with this manager
  * @param name   The name of the client associated with this connection
- * @param tmpDir The absolute path of the temporary directory associated with this connection
+ * @param tmpDir The absolute path of the temporary
+ *               directory associated with this connection
  */
 ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir)
  : _connPhase(KEYXCHANGE), _recvMode(RECV_MSG), _csk(csk), _shutdownConn(false),
@@ -415,9 +429,9 @@ ConnMgr::ConnMgr(int csk, std::string* name, std::string* tmpDir)
 
 
 /**
- * @brief Connection Manager object destructor, which:\n
- *          1) Closes its associated connection socket\n
- *          2) Delete the contents of the connection's temporary directory\n
+ * @brief Connection Manager object destructor, which:\n\n
+ *          1) Closes its associated connection socket\n\n
+ *          2) Delete the contents of the connection's temporary directory\n\n
  *          3) Safely deletes all the connection's sensitive information
  */
 ConnMgr::~ConnMgr()

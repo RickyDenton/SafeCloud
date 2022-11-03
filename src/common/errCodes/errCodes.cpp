@@ -1,9 +1,10 @@
 /* SafeCloud Generic Error Codes Definitions */
 
+/* ================================== INCLUDES ================================== */
 #include "errCodes.h"
 
 /* ============================ FORWARD DECLARATIONS ============================ */
-extern void terminate(int exit_status);   // SafeCloud application default shutdown handler
+extern void terminate(int exit_status);   // SafeCloud application shutdown handler
 
 
 /* ============================ FUNCTIONS DEFINITIONS ============================ */
@@ -50,13 +51,13 @@ void printSevLevHeader(errCodeSeverity sevLevel)
 
 
 /**
- * @brief            SafeCloud application default error handler, which:\n
- *                     1) Logs all information associated with the error, including:\n
- *                        1. The severity level of the associated error code\n
- *                        2. The human-readable description of the associated error code\n
- *                        3. (if available) The additional error description\n
- *                        4. (if available) The error reason\n
- *                        5. (if DEBUG_MODE) The source file name and line number at which the error has occurred\n
+ * @brief            SafeCloud application default error handler, which:\n\n
+ *                     1) Logs all information associated with the error, including:\n\n
+ *                        1. The severity level of the associated error code\n\n
+ *                        2. The human-readable description of the associated error code\n\n
+ *                        3. (if available) The additional error description\n\n
+ *                        4. (if available) The error reason\n\n
+ *                        5. (if DEBUG_MODE) The source file name and line number at which the error has occurred\n\n
  *                     2) For errors codes of FATAL severity, the SafeCloud application is
  *                        terminated by invoking the default shutdown handler (terminate() function)
  * @param errInf     The severity level and human-readable description of the associated error code

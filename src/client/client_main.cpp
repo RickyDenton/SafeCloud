@@ -1,25 +1,17 @@
-/* SafeCloud Client application main driver */
+/* SafeCloud Client Application Main Driver */
 
 /* ================================== INCLUDES ================================== */
 
-// Miscellaneous Libraries
+// System Headers
 #include <iostream>
 #include <signal.h>
 #include <unistd.h>
-
-// TCP/IP Libraries
-#include <arpa/inet.h>
-
-// OpenSSL Libraries
-#include <openssl/evp.h>
 #include <cstring>
 
-// SafeCloud Libraries
+// SafeCloud Headers
 #include "defaults.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "Client/Client.h"
-#include "sanUtils.h"
-#include "errCodes/sessErrCodes/sessErrCodes.h"
 
 /* ========================== GLOBAL STATIC VARIABLES ========================== */
 Client* cli;  // The singleton SafeCloud Client object
@@ -158,11 +150,11 @@ void printProgramUsageGuidelines()
 
 
 /**
-  * @brief Parses the command-line arguments with which the application was called and:\n
+  * @brief Parses the command-line arguments with which the application was called and:\n\n
   *           1) If unknown options and/or values were passed, a help summary of the
-  *              expected arguments' syntax is printed and the program is terminated\n
+  *              expected arguments' syntax is printed and the program is terminated\n\n
   *           2) Values of valid input options override the default ones defined in
-  *              "defaults.h" (even if NO CHECK ON THEIR VALIDITY IS PERFORMED)\n
+  *              "defaults.h" (with validity checks remanded to the Client's constructor)\n\n
   *           3) The resulting options' values are written in
   *              the reference variables provided by the caller
   * @param argc    The number of command-line input arguments

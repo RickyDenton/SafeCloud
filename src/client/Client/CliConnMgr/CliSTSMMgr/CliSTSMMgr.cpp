@@ -1,14 +1,17 @@
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Client Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
-#include <iostream>
-#include <string.h>
-#include <unistd.h>
+
+// System Headers
+#include <cstring>
+
+// SafeCloud Headers
+#include "errCodes/execErrCodes/execErrCodes.h"
 #include "CliSTSMMgr.h"
 #include "../CliConnMgr.h"
-#include "errCodes/execErrCodes/execErrCodes.h"
 #include "ossl_crypto/AES_128_CBC.h"
 #include "ossl_crypto/DigSig.h"
+
 
 /* =============================== PRIVATE METHODS =============================== */
 
@@ -99,7 +102,7 @@ void CliSTSMMgr::sendCliSTSMErrMsg(STSMMsgType errMsgType,const std::string& err
 
 /**
  * @brief  1) Blocks the execution until a STSM message has been received
- *            in the associated connection manager's primary buffer\n
+ *            in the associated connection manager's primary buffer\n\n
  *         2) Verifies the received message to consist of the STSM handshake message
  *            appropriate for the current client's STSM state, throwing an error otherwise
  * @throws ERR_STSM_UNEXPECTED_MESSAGE       An out-of-order STSM message has been received
@@ -141,9 +144,10 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
     case SRV_OK:
 
      /*
-      * NOTE: in case of SRV_OK message errors no notification is returned to the server,
-      *       as most likely it (erroneously) determined the STSM key establishment protocol
-      *       as completed and so would not correctly receive further STSM messages
+      * NOTE: in case of SRV_OK message errors no notification is
+      *       returned to the server, as most likely it (erroneously)
+      *       determined the STSM key establishment protocol as completed
+      *       and so would not correctly receive further STSM messages
       */
      // This message can be received only in the 'WAITING_SRV_OK' STSM client state
      if(_stsmCliState != WAITING_SRV_OK)
@@ -151,7 +155,8 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 
      // Ensure the message length to be equal to the size of a 'SRV_OK' message
      if(stsmMsg->header.len != sizeof(STSM_SRV_OK_MSG))
-      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE, "'SRV_OK' message of unexpected length");
+      THROW_EXEC_EXCP(ERR_STSM_MALFORMED_MESSAGE,
+                      "'SRV_OK' message of unexpected length");
 
      // A valid 'SRV_OK' message has been received
      return;
@@ -197,9 +202,9 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
 /* ------------------------- 'CLIENT_HELLO' Message (1/4) ------------------------- */
 
 /**
- * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4), consisting of:\n
- *             1) The client's ephemeral DH public key "Yc"\n
- *             2) The initial random IV to be used in the secure communication\n
+ * @brief  Sends the 'CLIENT_HELLO' STSM message to the SafeCloud server (1/4), consisting of:\n\n
+ *             1) The client's ephemeral DH public key "Yc"\n\n
+ *             2) The initial random IV to be used in the secure communication
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
  * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the client's ephemeral DH public key into the BIO
  * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the client's ephemeral DH public key from the BIO
@@ -208,7 +213,8 @@ void CliSTSMMgr::recvCheckCliSTSMMsg()
  */
 void CliSTSMMgr::send_client_hello()
  {
-  // Interpret the associated connection manager's primary connection buffer as a 'CLIENT_HELLO' STSM message
+  // Interpret the associated connection manager's primary
+  // connection buffer as a 'CLIENT_HELLO' STSM message
   STSM_CLIENT_HELLO_MSG* cliHelloMsg = reinterpret_cast<STSM_CLIENT_HELLO_MSG*>(_cliConnMgr._priBuf);
 
   /* ------------------------ STSM Message Header ------------------------ */
@@ -260,9 +266,9 @@ void CliSTSMMgr::send_client_hello()
 /* --------------------------- 'SRV_AUTH' Message (2/4) --------------------------- */
 
 /**
- * @brief Validates the certificate provided by the server in the 'SRV_AUTH' message by:\n
+ * @brief Validates the certificate provided by the server in the 'SRV_AUTH' message by:\n\n
  *           1) Verifying it to belong to the SafeCloud server by
- *              asserting its Common Name (CN) to be "SafeCloud"\n
+ *              asserting its Common Name (CN) to be "SafeCloud"\n\n
  *           2) Verifying it against the client's X.509 certificates store
  * @param srvCert The server's certificate to be validated
  * @throws ERR_STSM_CLI_SRV_CERT_REJECTED The server's certificate is invalid
@@ -282,7 +288,8 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
   if(certSubjectName == NULL)
    sendCliSTSMErrMsg(ERR_SRV_CERT_REJECTED,OSSL_ERR_DESC);
 
-  // Retrieve the index of the CN entry in the X509_NAME struct via its numerical index (nid)
+  // Retrieve the index of the CN entry in the
+  // X509_NAME struct via its numerical index (nid)
   int nid = OBJ_txt2nid("CN");
   int index = X509_NAME_get_index_by_NID(certSubjectName, nid, -1);
   if(index == -1)
@@ -326,7 +333,8 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
   // Free the store verification context
   X509_STORE_CTX_free(srvCertVerCTX);
 
-  // At this point the server's certificate is valid and, In DEBUG_MODE, log its issuer
+  // At this point the server's certificate is
+  // valid and, In DEBUG_MODE, log its issuer
 #ifdef DEBUG_MODE
   char* certIssuer = X509_NAME_oneline(X509_get_issuer_name(srvCert), NULL, 0);
   LOG_DEBUG("The SafeCloud Server provided a valid certificate (issued by " + std::string(certIssuer) + ")")
@@ -335,12 +343,12 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
 
 
 /**
- * @brief  Parses the server's 'SRV_AUTH' STSM message (2/4), consisting of:\n
- *            1) The server's ephemeral DH public key "Ys"\n
+ * @brief  Parses the server's 'SRV_AUTH' STSM message (2/4), consisting of:\n\n
+ *            1) The server's ephemeral DH public key "Ys"\n\n
  *            2) The server's STSM authentication proof, consisting of the concatenation
  *               of both actors' ephemeral public DH keys (STSM authentication value)
  *               signed with the server's long-term private RSA key and encrypted with
- *               the resulting shared symmetric session key "{<Yc,Ys>s}k"\n
+ *               the resulting shared symmetric session key "{<Yc,Ys>s}k"\n\n
  *            3) The server's certificate "srvCert"
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
  * @throws ERR_OSSL_EVP_PKEY_NEW                EVP_PKEY struct creation failed
@@ -365,7 +373,8 @@ void CliSTSMMgr::validateSrvCert(X509* srvCert)
  */
 void CliSTSMMgr::recv_srv_auth()
  {
-  // Interpret the associated connection manager's primary connection buffer as a 'SRV_AUTH' message
+  // Interpret the associated connection manager's
+  // primary connection buffer as a 'SRV_AUTH' message
   STSM_SRV_AUTH_MSG* stsmSrvAuth = reinterpret_cast<STSM_SRV_AUTH_MSG*>(_cliConnMgr._priBuf);
 
   /* ------------------ Server's ephemeral DH public key ------------------ */
@@ -380,7 +389,8 @@ void CliSTSMMgr::recv_srv_auth()
   if(_otherDHEPubKey == nullptr)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
-  // Write the server's ephemeral DH public key from the memory BIO into the EVP_PKEY structure
+  // Write the server's ephemeral DH public key from
+  // the memory BIO into the EVP_PKEY structure
   _otherDHEPubKey = PEM_read_bio_PUBKEY(srvPubDHBIO, NULL, NULL, NULL);
 
   // Free the memory BIO
@@ -494,12 +504,12 @@ void CliSTSMMgr::recv_srv_auth()
 /* --------------------------- 'CLI_AUTH' Message (3/4) --------------------------- */
 
 /**
- * @brief Sends the 'CLI_AUTH' STSM message to the server (3/4), consisting of:\n
- *            1) The client's name \n
+ * @brief Sends the 'CLI_AUTH' STSM message to the server (3/4), consisting of:\n\n
+ *            1) The client's name \n\n
  *            2) The client's STSM authentication proof, consisting of the concatenation
  *               of its name and both actors' ephemeral public DH keys (STSM authentication
  *               value) signed with the client's long-term private RSA key and encrypted
- *               with the resulting shared session key "{<name||Yc||Ys>s}k"\n
+ *               with the resulting shared session key "{<name||Yc||Ys>s}k"
  * @throws ERR_STSM_MY_PUBKEY_MISSING           The client's ephemeral DH public key is missing
  * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The server's ephemeral DH public key is missing
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
@@ -518,7 +528,8 @@ void CliSTSMMgr::recv_srv_auth()
  */
 void CliSTSMMgr::send_cli_auth()
  {
-  // Interpret the associated connection manager's primary connection buffer as a 'CLI_AUTH' message
+  // Interpret the associated connection manager's
+  // primary connection buffer as a 'CLI_AUTH' message
   STSM_CLI_AUTH_MSG* stsmCliAuth = reinterpret_cast<STSM_CLI_AUTH_MSG*>(_cliConnMgr._priBuf);
 
   // Convert the client's name to a C string and get its length
@@ -532,17 +543,19 @@ void CliSTSMMgr::send_cli_auth()
 
   /* ----------------- Client's STSM Authentication Proof ----------------- */
 
-  // Build the client's STSM authentication value, consisting of the concatenation of the client's name and both
-  // actors' ephemeral public DH keys "name||Yc||Ys", in the associated connection manager's secondary buffer
+  // Build the client's STSM authentication value, consisting of the
+  // concatenation of the client's name and both actors' ephemeral public DH keys
+  // "name||Yc||Ys", in the associated connection manager's secondary buffer
   strcpy(reinterpret_cast<char*>(&_cliConnMgr._secBuf), cliName);
   writeMyEDHPubKey(&_cliConnMgr._secBuf[cliNameLen + 1]);
   writeOtherEDHPubKey(&_cliConnMgr._secBuf[cliNameLen + 1 + DH2048_PUBKEY_PEM_SIZE]);
 
-  // Sign the client's STSM authentication value using the client's long-term private RSA key
-  //
-  // NOTE: As the client's private RSA key is on 2048 bit, the resulting signature has an
-  //       implicit size of 2048 bits = 256 bytes
-  //
+  /*
+   * Sign the client's STSM authentication value using the client's long-term private RSA key
+   *
+   * NOTE: As the client's private RSA key is on 2048 bit, the resulting
+   *       signature has an implicit size of 2048 bits = 256 bytes
+   */
   digSigSign(_myRSALongPrivKey, &_cliConnMgr._secBuf[0],cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE),
              &_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)]);
 
@@ -554,12 +567,17 @@ void CliSTSMMgr::send_cli_auth()
   printf("\n");
   */
 
-  // Encrypt the signed STSM authentication value as the server STSM authentication proof in the 'SRV_AUTH' message
-  //
-  // NOTE: Being the size of the signed STSM authentication value of 256 bytes an integer multiple of the
-  //       AES block size, its encryption will always add a full padding block of 128 bits = 16 bytes,
-  //       for an implicit size of the resulting STSM authentication proof of 256 + 16 = 272 bytes
-  AES_128_CBC_Encrypt(_cliConnMgr._skey, _cliConnMgr._iv,&_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)],
+  /*
+   * Encrypt the signed STSM authentication value as the server
+   * STSM authentication proof in the 'SRV_AUTH' message
+   *
+   * NOTE: Being the size of the signed STSM authentication value of 256 bytes an
+   *       integer multiple of the AES block size, its encryption will always add
+   *       a full padding block of 128 bits = 16 bytes, for an implicit size of
+   *       the  resulting STSM  authentication proof of 256 + 16 = 272 bytes
+   */
+  AES_128_CBC_Encrypt(_cliConnMgr._skey, _cliConnMgr._iv,
+                      &_cliConnMgr._secBuf[cliNameLen + 1 + (2 * DH2048_PUBKEY_PEM_SIZE)],
                       RSA2048_SIG_SIZE, stsmCliAuth->cliSTSMAuthProof);
 
   /* ------------------ Message Finalization and Sending ------------------ */
@@ -591,8 +609,11 @@ void CliSTSMMgr::send_cli_auth()
 
 /* ---------------------------- 'SRV_OK' Message (4/4) ---------------------------- */
 
-// Dedicated function not required (all checks are implicitly
-// performed within the recvCheckCliSTSMMsg() function)
+/*
+ * A dedicated method for parsing a received 'SRV_OK' message
+ * is not required, as all its associated checks are already
+ * performed within the recvCheckCliSTSMMsg() function)
+ */
 
 
 /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */

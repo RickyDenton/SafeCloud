@@ -1,19 +1,21 @@
-/* SafeCloud Application sanitization utility functions definitions */
+/* SafeCloud Sanitization Utility Functions Implementations */
 
 /* ================================== INCLUDES ================================== */
-#include <cctype>
-#include <string>
-#include "sanUtils.h"
-#include "defaults.h"
-#include "errCodes/execErrCodes/execErrCodes.h"
-#include "errCodes/sessErrCodes/sessErrCodes.h"
+
+// System Headers
 #include <bits/stdc++.h>
 
+// SafeCloud Headers
+#include "errCodes/execErrCodes/execErrCodes.h"
+#include "errCodes/sessErrCodes/sessErrCodes.h"
+#include "sanUtils.h"
+#include "defaults.h"
 
 /* -------------------------- SUPERSEDED BY OPENSSL_cleanse() -------------------------- */
 
 /**
- * @brief      Safely erases "size" bytes from address "addr" and resets its value to 'nullptr'
+ * @brief      Safely erases "size" bytes from address
+ *             "addr" and resets its value to 'nullptr'
  * @param addr The memory address from where safely erasing data
  * @param size The size in bytes of the data to be safely deleted
  */
@@ -50,8 +52,8 @@
 
 
 /**
- * @brief Validates a string to represent a valid Linux file name
- * @param fileName The filename string to be validated
+ * @brief  Validates a string to represent a valid Linux file name
+ * @param  fileName The filename string to be validated
  * @throws ERR_SESS_FILE_INVALID_NAME The string represents an invalid Linux file name
  */
 void validateFileName(std::string& fileName)
@@ -80,11 +82,11 @@ void validateFileName(std::string& fileName)
 
 
 /**
- * @brief Sanitizes a SafeCloud username by converting it to lower-case and ensuring that:\n
- *        - It is not too long (length <= CLI_NAME_MAX_LENGTH)\name
- *        - Its first character consists of a letter of the alphabet (a-z, A-Z)
- *        - It contains valid characters only (a-z, A-Z, 0-9, _)
- * @param username The address of the username to sanitize
+ * @brief  Sanitizes a SafeCloud username by converting it to lower-case and ensuring that:\n\n
+ *           - It is not too long (length <= CLI_NAME_MAX_LENGTH)\n\n
+ *           - Its first character consists of a letter of the alphabet (a-z, A-Z)\n\n
+ *           - It contains valid characters only (a-z, A-Z, 0-9, _)
+ * @param  username The address of the username to sanitize
  * @throws ERR_LOGIN_NAME_EMPTY         Username is empty
  * @throws ERR_LOGIN_NAME_TOO_LONG      Username it too long
  * @throws ERR_LOGIN_NAME_WRONG_FORMAT  First non-alphabet character in the username

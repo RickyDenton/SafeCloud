@@ -1,11 +1,13 @@
-/* SafeCloud session error codes definitions */
+/* SafeCloud Session Error Codes Definitions */
 
+/* ================================== INCLUDES ================================== */
 #include "sessErrCodes.h"
 
 /* ================ SESSION ERRORS HANDLING FUNCTIONS DEFINITIONS ================ */
 
 /**
- * @brief             Session error codes handler, passing its information to the SafeCloud application default error handler
+ * @brief             Session error codes handler, passing its information
+ *                    to the SafeCloud application default error handler
  * @param execErrCode The session error code that has occurred
  * @param addDsc      The additional session error description (optional)
  * @param reason      The session error reason (optional)
@@ -21,7 +23,8 @@ void handleSessErrCode(const sessErrCode sesErrCode,const std::string* addDscr,c
   // Retrieve the information associated with the session error code from the sessErrCodeInfoMap
   errCodeInfo sesCodeInfo = sessErrCodeInfoMap.find(sesErrCode)->second;
 
-  // Call the SafeCloud application default error handler passing it the information associated with the session error
+  // Call the SafeCloud application default error handler passing
+  // it the information associated with the session error
 #ifdef DEBUG_MODE
   handleErrCode(sesCodeInfo, addDscr, reason, srcFile, lineNumber);
 #else

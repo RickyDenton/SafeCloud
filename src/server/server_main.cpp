@@ -1,18 +1,12 @@
-/* SafeCloud Server application main driver */
+/* SafeCloud Server Application Main Driver */
 
 /* ================================== INCLUDES ================================== */
 
-// Miscellaneous Libraries
-#include <iostream>
+// System Headers
 #include <signal.h>
 #include <unistd.h>
 
-// TCP/IP Libraries
-#include <arpa/inet.h>
-#include <unordered_map>
-
-// SafeCloud Libraries
-#include "defaults.h"
+// SafeCloud Headers
 #include "errCodes/execErrCodes/execErrCodes.h"
 #include "Server/Server.h"
 
@@ -115,11 +109,11 @@ void printProgramUsageGuidelines()
 
 
 /**
- * @brief Parses the command-line arguments with which the application was called and:\n
+ * @brief Parses the command-line arguments with which the application was called and:\n\n
  *           1) If unknown options and/or values were passed, a help summary of the
- *              expected arguments' syntax is printed and the program is terminated\n
+ *              expected arguments' syntax is printed and the program is terminated\n\n
  *           2) Values of valid input options override the default ones defined in
- *              "defaults.h" (even if NO CHECK ON THEIR VALIDITY IS PERFORMED)\n
+ *              "defaults.h" (with validity checks remanded to the Server's constructor)\n\n
  *           3) The resulting options' values are written in
  *              the reference variables provided by the caller
  * @param argc    The number of command-line input arguments

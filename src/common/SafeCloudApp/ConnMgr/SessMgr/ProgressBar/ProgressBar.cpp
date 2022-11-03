@@ -1,6 +1,8 @@
-/* ProgressBar Class Definitions */
+/* ProgressBar Class Implementation */
 
+/* ================================== INCLUDES ================================== */
 #include "ProgressBar.h"
+
 
 /* ========================= CONSTRUCTORS AND DESTRUCTOR ========================= */
 

@@ -1,9 +1,13 @@
 /* Station-to-Station-Modified (STSM) Key Exchange Protocol Base Manager Implementation */
 
 /* ================================== INCLUDES ================================== */
+
+// System Headers
+#include <string.h>
+
+// SafeCloud Headers
 #include "STSMMgr.h"
 #include "errCodes/execErrCodes/execErrCodes.h"
-#include <string.h>
 
 /* ============================== PROTECTED METHODS ============================== */
 
@@ -38,7 +42,8 @@ EVP_PKEY* STSMMgr::DHE_2048_Keygen()
 
   /* ------------------- Ephemeral DH 2048 Key Pair Generation ------------------- */
 
-  // Create a key generation context using the previously initialized DH default parameters
+  // Create a key generation context using the
+  // previously initialized DH default parameters
   DHGenCtx = EVP_PKEY_CTX_new(DHParams, nullptr);
   if(!DHGenCtx)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_CTX_NEW, OSSL_ERR_DESC);
@@ -90,9 +95,8 @@ void STSMMgr::logEDHPubKey(EVP_PKEY* EDHPubKey)
 
 
 /**
- * @brief Writes an actor's ephemeral DH public
- *        key at the specified memory address
- * @param EDHPubKey the actor's ephemeral DH public key to be printed
+ * @brief  Writes an actor's ephemeral DH public key at the specified memory address
+ * @param  EDHPubKey the actor's ephemeral DH public key to be printed
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
  * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the actor's ephemeral DH public key into the BIO
  * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the actor's ephemeral DH public key from the BIO
@@ -121,9 +125,9 @@ void STSMMgr::writeEDHPubKey(EVP_PKEY* EDHPubKey,unsigned char* addr)
 /* --------------------------- Session Key Derivation --------------------------- */
 
 /**
-* @brief Deletes the local actor's private ephemeral DH key
-* @note  This function was defined because an easier method for deleting the private
-*        key component of an EVP_PKEY struct was not found in the OpenSSL API
+* @brief  Deletes the local actor's private ephemeral DH key
+* @note   This function was defined because an easier method for deleting the private
+*         key component of an EVP_PKEY struct was not found in the OpenSSL API
 * @throws ERR_OSSL_BIO_NEW_FAILED              Memory BIO Initialization Failed
 * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the public key into the memory BIO
 * @throws ERR_OSSL_EVP_PKEY_NEW                EVP_PKEY struct creation failed
@@ -147,12 +151,13 @@ void STSMMgr::delMyDHEPrivKey()
   if(_myDHEKey == nullptr)
    THROW_EXEC_EXCP(ERR_OSSL_EVP_PKEY_NEW, OSSL_ERR_DESC);
 
-  // Write the local actor's ephemeral DH public key from
-  // the memory BIO into the newly created EVP_PKEY structure
-  //
-  // NOTE: No check is performed here, as the validity of the local actor's
-  //       public key is asserted by the PEM_WRITE_BIO_PUBKEY() function
-  //
+  /*
+   * Write the local actor's ephemeral DH public key from
+   * the memory BIO into the newly created EVP_PKEY structure
+   *
+   * NOTE: No check is performed here, as the validity of the local actor's
+   *       public key is asserted by the PEM_WRITE_BIO_PUBKEY() function
+   */
   _myDHEKey = PEM_read_bio_PUBKEY(myEDHPubKeyBIO, NULL,NULL, NULL);
 
   // Free the memory BIO
@@ -170,7 +175,8 @@ void STSMMgr::delMyDHEPrivKey()
  * @throws ERR_STSM_OTHER_PUBKEY_MISSING        The remote actor's public ephemeral DH key is missing
  * @throws ERR_OSSL_EVP_PKEY_CTX_NEW            EVP_PKEY context creation failed
  * @throws ERR_OSSL_EVP_PKEY_DERIVE_INIT        Key derivation context initialization failed
- * @throws ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER    Failed to set the remote actor's public key in the key derivation context
+ * @throws ERR_OSSL_EVP_PKEY_DERIVE_SET_PEER    Failed to set the remote actor's public
+ *                                              key in the key derivation context
  * @throws ERR_OSSL_EVP_PKEY_DERIVE             Shared secret derivation failed
  * @throws ERR_OSSL_BIO_NEW_FAILED              Memory BIO Initialization Failed
  * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the public key into the memory BIO
@@ -229,7 +235,8 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
   // Allocate the shared secret buffer
   sSecret = (unsigned char*)(malloc(int(sSecretSize)));
   if(!sSecret)
-   THROW_EXEC_EXCP(ERR_MALLOC_FAILED, "requested size = " + std::to_string(sSecretSize), ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_MALLOC_FAILED, "requested size = "
+                                      + std::to_string(sSecretSize), ERRNO_DESC);
 
   // Derive the shared secret into its buffer
   if(EVP_PKEY_derive(sSecretDerCTX, sSecret, &sSecretSize) <= 0)
@@ -238,10 +245,14 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
   // Free the key derivation context
   EVP_PKEY_CTX_free(sSecretDerCTX);
 
-  // Delete the local actor's private ephemeral DH key, as from this point on it is no longer necessary
-  //
-  // NOTE: The following function was defined as an easier method for deleting the
-  //       private key component of an EVP_PKEY struct was not found in the OpenSSL API
+  /*
+   * Delete the local actor's private ephemeral DH key,
+   * as from this point on it is no longer necessary
+   *
+   * NOTE: The following function was defined as an easier
+   *       method for deleting the private key component of an
+   *       EVP_PKEY struct was not found in the OpenSSL API
+   */
   delMyDHEPrivKey();
 
   /*
@@ -257,7 +268,8 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
   // capable of storing a SHA-256 digest (256 bits)
   sSecretDigest = (unsigned char*) malloc(EVP_MD_size(EVP_sha256()));
   if(!sSecretDigest)
-   THROW_EXEC_EXCP(ERR_MALLOC_FAILED, "requested size = " + std::to_string(EVP_MD_size(EVP_sha256())), ERRNO_DESC);
+   THROW_EXEC_EXCP(ERR_MALLOC_FAILED, "requested size = "
+                                      + std::to_string(EVP_MD_size(EVP_sha256())), ERRNO_DESC);
 
   // Create the message digest context for hashing the shared secret
   sSecretHashCTX = EVP_MD_CTX_new();
@@ -289,7 +301,8 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
 
   /* ------------------- AES_128 Session Key Derivation ------------------- */
 
-  // Set the shared session key as the first AES_128_KEY_SIZE = 16 bytes of the shared secret's digest
+  // Set the shared session key as the first AES_128_KEY_SIZE
+  // = 16 bytes of the shared secret's digest
   memcpy(skey, sSecretDigest, AES_128_KEY_SIZE);
 
   // Free the shared secret and its digest's buffers
@@ -313,7 +326,8 @@ void STSMMgr::deriveAES128SKey(unsigned char* skey)
  * @param myRSALongPrivKey  The actor's long-term RSA private key
  * @note The constructor initializes the actor's ephemeral DH 2048 key pair
  */
-STSMMgr::STSMMgr(EVP_PKEY* myRSALongPrivKey) : _myRSALongPrivKey(myRSALongPrivKey), _myDHEKey(DHE_2048_Keygen()), _otherDHEPubKey(nullptr)
+STSMMgr::STSMMgr(EVP_PKEY* myRSALongPrivKey)
+ : _myRSALongPrivKey(myRSALongPrivKey), _myDHEKey(DHE_2048_Keygen()), _otherDHEPubKey(nullptr)
  {}
 
 
@@ -326,8 +340,10 @@ STSMMgr::~STSMMgr()
   EVP_PKEY_free(_myDHEKey);
   EVP_PKEY_free(_otherDHEPubKey);
 
-  // NOTE: The actor's long-term RSA private key must NOT be
-  //       deleted, as it may be reused across multiple connections
+  /*
+   * NOTE: The actor's long-term RSA private key must NOT be
+   *       deleted, as it may be reused across multiple connections
+   */
  }
 
 
@@ -362,12 +378,13 @@ void STSMMgr::logOtherEDHPubKey()
 
 
 /**
- * @brief Writes the local actor's ephemeral DH
- *        public key at the specified memory address
+ * @brief Writes the local actor's ephemeral DH public key at the specified memory address
  * @throws ERR_STSM_MY_PUBKEY_MISSING           The local actor's ephemeral DH public key is missing
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
- * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the local actor's ephemeral DH public key into the BIO
- * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the local actor's ephemeral DH public key from the BIO
+ * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the local actor's
+ *                                              ephemeral DH public key into the BIO
+ * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the local actor's
+ *                                              ephemeral DH public key from the BIO
  */
 void STSMMgr::writeMyEDHPubKey(unsigned char* addr)
  {
@@ -380,12 +397,13 @@ void STSMMgr::writeMyEDHPubKey(unsigned char* addr)
 
 
 /**
- * @brief Writes the remote actor's ephemeral DH
- *        public key at the specified memory address
+ * @brief Writes the remote actor's ephemeral DH public key at the specified memory address
  * @throws ERR_STSM_MY_PUBKEY_MISSING           The remote actor's ephemeral DH public key is missing
  * @throws ERR_OSSL_BIO_NEW_FAILED              OpenSSL BIO initialization failed
- * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the remote actor's ephemeral DH public key into the BIO
- * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the remote actor's ephemeral DH public key from the BIO
+ * @throws ERR_OSSL_PEM_WRITE_BIO_PUBKEY_FAILED Failed to write the remote actor's
+ *                                              ephemeral DH public key into the BIO
+ * @throws ERR_OSSL_BIO_READ_FAILED             Failed to read the remote actor's
+ *                                              ephemeral DH public key from the BIO
  */
 void STSMMgr::writeOtherEDHPubKey(unsigned char* addr)
  {

@@ -1,7 +1,7 @@
 #ifndef SAFECLOUD_SESSMGR_H
 #define SAFECLOUD_SESSMGR_H
 
-/* SafeCloud Session Manager */
+/* SafeCloud Base Session Manager Declaration */
 
 /*
  * Session Manager Glossary:
@@ -17,17 +17,11 @@
  *       the user wants to upload, whether it is in its main directory or not
  */
 
-
 /* ================================== INCLUDES ================================== */
-#include <openssl/evp.h>
-#include <string>
-#include <unordered_map>
-#include "DirInfo/FileInfo/FileInfo.h"
-#include "SafeCloudApp/ConnMgr/SessMgr/ProgressBar/ProgressBar.h"
 #include "SafeCloudApp/ConnMgr/SessMgr/AESGCMMgr/AESGCMMgr.h"
 #include "SafeCloudApp/ConnMgr/ConnMgr.h"
-#include "SessMsg.h"
 #include "DirInfo/DirInfo.h"
+#include "SessMsg.h"
 
 class SessMgr
  {
@@ -132,20 +126,26 @@ class SessMgr
    static bool isSessErrSignalingMsgType(SessMsgType sessMsgType);
 
    /**
-    * @brief  Converts the current session manager operation to a lowercase string
-    * @return The current session manager operation as a lowercase string
+    * @brief  Converts the current session manager
+    *         operation to a lowercase string
+    * @return The current session manager
+    *         operation as a lowercase string
     */
    std::string sessMgrOpToStrLowCase();
 
    /**
-    * @brief  Converts the current session manager operation to a uppercase string
-    * @return The current session manager operation as a uppercase string
+    * @brief  Converts the current session manager
+    *         operation to a uppercase string
+    * @return The current session manager
+    *         operation as a uppercase string
     */
    std::string sessMgrOpToStrUpCase();
 
    /**
-    * @brief  Converts the current session manager operation step to a uppercase string
-    * @return The current session manager operation step as a uppercase string
+    * @brief  Converts the current session manager
+    *         operation step to a uppercase string
+    * @return The current session manager
+    *         operation step as a uppercase string
     */
    std::string sessMgrOpStepToStrUpCase();
 
@@ -177,7 +177,8 @@ class SessMgr
    void checkLoadMainFileInfo();
 
    /**
-    * @brief  Sets the main file last modification time to the one specified in the '_remFileInfo' attribute
+    * @brief  Sets the main file last modification time to
+    *         the one specified in the '_remFileInfo' attribute
     * @throws ERR_SESS_INTERNAL_ERROR       NULL '_mainFileAbsPath' or '_remFileInfo' attributes
     * @throws ERR_SESS_FILE_META_SET_FAILED Error in setting the main file's metadata
     */
@@ -230,9 +231,9 @@ class SessMgr
    void prepRecvFileRaw();
 
    /**
-    * @brief Finalizes a received file, whether uploaded or downloaded, by:
-    *           1) Verifying its integrity tag
-    *           2) Moving it from the temporary into the main directory
+    * @brief Finalizes a received file, whether uploaded or downloaded, by:\n\n
+    *           1) Verifying its integrity tag\n\n
+    *           2) Moving it from the temporary into the main directory\n\n
     *           3) Setting its last modified time to the one
     *              specified in the '_remFileInfo' object
     * @throws ERR_AESGCMMGR_INVALID_STATE    Invalid AES_128_GCM manager state
@@ -294,9 +295,10 @@ class SessMgr
    void sendSessSignalMsg(SessMsgType sessMsgSignalingType);
 
    /**
-    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo' session message
-    *         of the specified type containing the name and metadata of the main file referred by the '_mainFileInfo'
-    *         attribute, for then wrapping and sending the resulting session message wrapper to the connection peer
+    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileInfo'
+    *         session message of the specified type containing the name and metadata of the main
+    *         file referred by the '_mainFileInfo' attribute, for then wrapping and sending the
+    *         resulting session message wrapper to the connection peer
     * @param  sessMsgType The 'SessMsgFileInfo' session message type (FILE_UPLOAD_REQ || FILE_EXISTS)
     * @throws ERR_SESS_INTERNAL_ERROR      Invalid 'sessMsgType' or uninitialized '_mainFileInfo' attribute
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -328,9 +330,10 @@ class SessMgr
    void sendSessMsgFileName(SessMsgType sessMsgType, std::string& fileName);
 
    /**
-    * @brief  Prepares in the associated connection manager's secondary buffer a 'SessMsgFileRename' session
-    *         message of implicit type 'FILE_RENAME_REQ' containing the specified old and new file names,
-    *         for then wrapping and sending the resulting session message wrapper to the connection peer
+    * @brief  Prepares in the associated connection manager's secondary buffer a
+    *         'SessMsgFileRename' session message of implicit type 'FILE_RENAME_REQ'
+    *         containing the specified old and new file names, for then wrapping and
+    *         sending the resulting session message wrapper to the connection peer
     * @param  oldFilename The name of the file to be renamed
     * @param  newFilename The name the file should be renamed to
     * @throws ERR_AESGCMMGR_INVALID_STATE  Invalid AES_128_GCM manager state
@@ -371,9 +374,10 @@ class SessMgr
    void loadRemSessMsgFileInfo();
 
    /**
-    * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName' session message stored
-    *         in the associated connection manager's secondary buffer and initializes the '_mainFileAbsPath'
-    *         attribute to the concatenation of the session's main directory with such file name
+    * @brief  Validates the 'fileName' string embedded within a 'SessMsgFileName'
+    *         session message stored in the associated connection manager's secondary
+    *         buffer and initializes the '_mainFileAbsPath' attribute to the
+    *         concatenation of the session's main directory with such file name
     * @return The file name embedded in the 'SessMsgFileName' session message
     * @throws ERR_SESS_MALFORMED_MESSAGE The 'fileName' string does not represent a valid Linux file name
     */
@@ -400,9 +404,10 @@ class SessMgr
    /* ========================= CONSTRUCTOR AND DESTRUCTOR ========================= */
 
    /**
-    * @brief Client session manager object constructor, initializing the session attributes
-    *         of the authenticated user associated with the CliConnMgr parent object
-    * @param cliConnMgr A reference to the CliConnMgr parent object
+    * @brief Session manager object constructor
+    * @param connMgr A reference to the connection manager parent object
+    * @param mainDir The session's main directory, consisting in the user's storage pool on
+    *                the SafeCloud server or their downloads folder in the client application
     */
    SessMgr(ConnMgr& connMgr, std::string* mainDir);
 

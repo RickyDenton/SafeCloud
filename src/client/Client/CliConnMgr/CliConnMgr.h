@@ -1,13 +1,12 @@
 #ifndef SAFECLOUD_CLICONNMGR_H
 #define SAFECLOUD_CLICONNMGR_H
 
-/* SafeCloud Client Connection Manager  */
+/* SafeCloud Client Connection Manager Declaration */
 
 /* ================================== INCLUDES ================================== */
 #include "SafeCloudApp/ConnMgr/ConnMgr.h"
 #include "CliSTSMMgr/CliSTSMMgr.h"
 #include "CliSessMgr/CliSessMgr.h"
-#include <openssl/evp.h>
 
 class CliConnMgr : public ConnMgr
  {
@@ -38,7 +37,8 @@ class CliConnMgr : public ConnMgr
     * @param certStore The client's X.509 certificates store
     * @note The constructor also initializes the _cliSTSMMgr child object
     */
-   CliConnMgr(int csk, std::string* name, std::string* tmpDir, std::string* downDir, EVP_PKEY* rsaKey, X509_STORE* certStore);
+   CliConnMgr(int csk, std::string* name, std::string* tmpDir,
+              std::string* downDir, EVP_PKEY* rsaKey, X509_STORE* certStore);
 
    /**
     * @brief CliConnMgr object destructor, safely deleting the
