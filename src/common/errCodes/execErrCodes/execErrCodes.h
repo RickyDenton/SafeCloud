@@ -402,7 +402,6 @@ static const std::unordered_map<execErrCode,errCodeInfo> execErrCodeInfoMap =
     { ERR_OSSL_EVP_VERIFY_FINAL,  {FATAL,    "EVP_MD verification final failed"} },
     { ERR_OSSL_SIG_VERIFY_FAILED, {CRITICAL, "Signature Verification Failed"} },
 
-
     // EVP_DECRYPT errors
     { ERR_OSSL_EVP_DECRYPT_INIT,   {FATAL, "EVP_CIPHER decrypt initialization failed"} },
     { ERR_OSSL_EVP_DECRYPT_UPDATE, {FATAL, "EVP_CIPHER decrypt update failed"} },

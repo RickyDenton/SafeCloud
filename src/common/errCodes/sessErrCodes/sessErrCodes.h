@@ -109,11 +109,6 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     /* ----------------------- CLIENT-SERVER COMMON ERRORS ----------------------- */
 
     // ----------------------- Session Files Common Errors ----------------------- //
-    { ERR_SESS_INTERNAL_ERROR,     {CRITICAL, "An internal error has occurred"}},
-    { ERR_SESS_UNEXPECTED_MESSAGE, {ERROR,    "An unexpected session message was received"}},
-    { ERR_SESS_MALFORMED_MESSAGE,  {ERROR,    "A malformed session message was received"}},
-
-    // --------------------- Session Messages Common Errors --------------------- //
     { ERR_SESS_DIR_INFO_OVERFLOW,         {ERROR,    "Directory information size overflow (>4GB)"}},
     { ERR_SESS_MAIN_FILE_IS_DIR,          {CRITICAL, "Main file found as a sub-directory of the session's main directory"}},
     { ERR_SESS_FILE_INVALID_NAME,         {ERROR,    "The provided file name is invalid"}},
@@ -125,6 +120,11 @@ static const std::unordered_map<sessErrCode,errCodeInfo> sessErrCodeInfoMap =
     { ERR_SESS_FILE_META_SET_FAILED,      {CRITICAL, "Error in setting the file's metadata"}},
     { ERR_SESS_FILE_CLOSE_FAILED,         {CRITICAL, "Error in closing the file"}},
     { ERR_SESS_FILE_RENAME_FAILED,        {CRITICAL, "Error in moving the file"}},
+
+    // --------------------- Session Messages Common Errors --------------------- //
+    { ERR_SESS_INTERNAL_ERROR,     {CRITICAL, "An internal error has occurred"}},
+    { ERR_SESS_UNEXPECTED_MESSAGE, {ERROR,    "An unexpected session message was received"}},
+    { ERR_SESS_MALFORMED_MESSAGE,  {ERROR,    "A malformed session message was received"}},
 
     // -------------------------- Other Session Errors -------------------------- //
     { ERR_OSSL_DECRYPT_VERIFY_FAILED, {ERROR,    "AES_GCM Tag verification failed"}},
